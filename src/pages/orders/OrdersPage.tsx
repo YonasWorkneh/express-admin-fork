@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState, useRef } from "react";
-import { Search, Download, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  Search,
+  Download,
+  TrendingUp,
+  TrendingDown,
+  LayoutGrid,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -591,6 +597,14 @@ export default function OrdersPage() {
                   Export
                 </>
               )}
+            </Button>
+            <Button
+              variant="outline"
+              className="text-gray-700 border-slate-200 hover:bg-slate-50"
+              onClick={() => navigate("/order/item-categories")}
+            >
+              <LayoutGrid className="h-4 w-4 mr-2" />
+              Item categories
             </Button>
             <Button
               className="bg-blue-600 hover:bg-blue-700 text-white !cursor-pointer"

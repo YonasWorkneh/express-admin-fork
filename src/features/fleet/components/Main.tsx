@@ -101,14 +101,14 @@ console.log(staffs.data)
       setPagination(staffs.data.pagination);
       // toast.success(staffs.data.message)
       setLoading(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setLoading(false);
 
       const message =
-        error?.response?.data?.message ||
+        (error as { response?: { data?: { message?: string } } }).response?.data?.message ||
         "Something went wrong. Please try again.";
       toast.error(message);
-      console.error(error); // optional: log the full error
+      console.error(error); // optional: log the full err
     }
   };
 
@@ -120,17 +120,17 @@ console.log(staffs.data)
     try {
       setLoadingSummary(true);
 
-      const staffs = await api.get<any>(
+      const staffs = await api.get(
         "/report/dashboard/fleet-summary"
       );
       setSummary(staffs.data?.data);
       // toast.success(staffs.data.message);
       setLoadingSummary(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setLoadingSummary(false);
 
       const message =
-        error?.response?.data?.message ||
+        (error as { response?: { data?: { message?: string } } }).response?.data?.message ||
         "Something went wrong. Please try again.";
       toast.error(message);
       console.error(error); // optional: log the full error
@@ -263,13 +263,11 @@ console.log(staffs.data)
       setIsDialogOpen(false)
       setDeleteLoading(false)
   
-    } catch (error:any) {
-      toast.error(error?.response.data.message||"Something went wrong!")
-      setDeleteLoading(false)
-      
+    } catch (error:unknown) {
+      toast.error((error as { response?: { data?: { message?: string } } }).response?.data?.message||"Something went wrong!")
+      setDeleteLoading(false);
     }
-  
-    }
+  };
 
     const handleExport = () => {
       exportToExcel("fleets", fleets, (fleet) => ({
@@ -304,7 +302,6 @@ console.log(staffs.data)
                   variant="outline"
                   className="cursor-pointer hover:bg-gray-50"
                   onClick={handleExport}
-
                 >
                   <IoDownload className="mr-2 h-4 w-4" />
                   Export
@@ -315,6 +312,14 @@ console.log(staffs.data)
                 >
                   <IoConstruct className="mr-2 h-4 w-4" />
                   Maintenance Logs
+                </Button>
+                <Button
+                  variant="outline"
+                  className="bg-blue-500 hover:bg-blue-600 cursor-pointer text-white hover:text-white"
+                  onClick={() => navigate("/fleet/type/create")}
+                >
+                  <IoAdd className="mr-2 h-4 w-4" />
+                  Add vehicle type
                 </Button>
                 <Button
                   onClick={() => navigate("/fleet/create")}
@@ -328,38 +333,40 @@ console.log(staffs.data)
 
             {/* Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              {
-              loadingSummary?   Array.from({ length: 4 }).map((_, i) => (
-                <Card key={i} className="bg-white p-4">
-                  <Skeleton
-                    active
-                    title={{ width: "60%" }}
-                    paragraph={{ rows: 2, width: ["100%", "80%"] }}
-                  />
-                </Card>
-              )):
-              metrics.map((metric, index) => (
-                <Card key={index} className="border-gray-200">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-500">{metric.label}</p>
-                        <p className="text-2xl font-bold text-gray-900 mt-1">
-                          {metric.value}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {metric.sublabel}
-                        </p>
-                      </div>
-                      <div
-                        className={`p-3 rounded-lg bg-${metric.color}-100 text-${metric.color}-600`}
-                      >
-                        {metric.icon}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              {loadingSummary
+                ? Array.from({ length: 4 }).map((_, i) => (
+                    <Card key={i} className="bg-white p-4">
+                      <Skeleton
+                        active
+                        title={{ width: "60%" }}
+                        paragraph={{ rows: 2, width: ["100%", "80%"] }}
+                      />
+                    </Card>
+                  ))
+                : metrics.map((metric, index) => (
+                    <Card key={index} className="border-gray-200">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-500">
+                              {metric.label}
+                            </p>
+                            <p className="text-2xl font-bold text-gray-900 mt-1">
+                              {metric.value}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {metric.sublabel}
+                            </p>
+                          </div>
+                          <div
+                            className={`p-3 rounded-lg bg-${metric.color}-100 text-${metric.color}-600`}
+                          >
+                            {metric.icon}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
             </div>
 
             {/* Filters and Search */}
@@ -420,18 +427,18 @@ console.log(staffs.data)
                       className="text-gray-600 font-medium cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort("type")}
                     >
-                       Vehicle Type
+                      Vehicle Type
                     </TableHead>
                     <TableHead
                       className="text-gray-600 font-medium cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort("type")}
                     >
-                       Type
+                      Type
                     </TableHead>
                     <TableHead className="text-gray-600 font-medium">
                       Vehicle
                     </TableHead>
-                   
+
                     <TableHead className="text-gray-600 font-medium">
                       Driver
                     </TableHead>
@@ -459,28 +466,29 @@ console.log(staffs.data)
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                <TableRow>
-                {loading && (
-                  <TableCell colSpan={11}>
-                    <div className="flex justify-center items-center py-8">
-                      <Spinner className="h-6 w-6 text-blue-600 mr-2" />
-                      <span className="text-gray-600 font-medium">
-                        Loading fleet data...
-                      </span>
-                    </div>
-                  </TableCell>
-                )}
-              </TableRow>
+                  <TableRow>
+                    {loading && (
+                      <TableCell colSpan={11}>
+                        <div className="flex justify-center items-center py-8">
+                          <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                          <span className="text-gray-600 font-medium">
+                            Loading fleet data...
+                          </span>
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
                   {fleets.map((vehicle) => (
                     <TableRow
                       key={vehicle.id}
                       className="cursor-pointer hover:bg-gray-50"
                       onClick={(e) => {
-                        
-                          e.stopPropagation();
-                          navigate(`/fleet/details/${vehicle.id}?fleet=${encodeURIComponent(
-                      JSON.stringify(vehicle)
-                    )}`)
+                        e.stopPropagation();
+                        navigate(
+                          `/fleet/details/${vehicle.id}?fleet=${encodeURIComponent(
+                            JSON.stringify(vehicle),
+                          )}`,
+                        );
                         // navigate(`/fleet/details/${vehicle.id}`)
                       }}
                     >
@@ -501,38 +509,36 @@ console.log(staffs.data)
                             vehicle?.type === "inhouse"
                               ? "bg-green-100 text-green-700"
                               : vehicle?.type === "external"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-gray-100 text-gray-500"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-gray-100 text-gray-500"
                           }
                         >
                           {vehicle?.type === "inhouse"
                             ? "In-house"
                             : vehicle?.type === "external"
-                            ? "External"
-                            : "-"}
+                              ? "External"
+                              : "-"}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="font-medium">{vehicle.model}</span>
-                         
                         </div>
                       </TableCell>
-                     
+
                       <TableCell>
                         <div className="flex flex-col">
-                          {vehicle.driverId ?(
+                          {vehicle.driverId ? (
                             <span className="text-sm text-gray-500">
                               {vehicle?.driver?.user?.name}
                             </span>
-                          ):
-                          <span className="font-medium">-</span>
-                          }
-
+                          ) : (
+                            <span className="font-medium">-</span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
-                      <span className="font-medium">{vehicle.maxLoad}</span>
+                        <span className="font-medium">{vehicle.maxLoad}</span>
 
                         {/* <div className="flex items-center gap-2">
                           <div className="w-full bg-gray-200 rounded-full h-2 max-w-[60px]">
@@ -602,10 +608,11 @@ console.log(staffs.data)
                             className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/fleet/edit/${vehicle.id}?fleet=${encodeURIComponent(
-                          JSON.stringify(vehicle)
-                        )}`
-                      )
+                              navigate(
+                                `/fleet/edit/${vehicle.id}?fleet=${encodeURIComponent(
+                                  JSON.stringify(vehicle),
+                                )}`,
+                              );
                             }}
                           >
                             <MdEdit className="h-4 w-4" />
@@ -624,8 +631,8 @@ console.log(staffs.data)
                               e.stopPropagation();
                               // navigate(`/staff/edit/${member.id}`);
                               setIsDialogOpen(true); //
-                         
-                              setSelectedFeet(vehicle)
+
+                              setSelectedFeet(vehicle);
                             }}
                             className="p-2 text-red-400 bg-red-50 cursor-pointer opacity-60 hover:bg-red-100 hover:text-red-700"
                           >
@@ -641,25 +648,24 @@ console.log(staffs.data)
 
             {/* Pagination */}
             <TablePagination
-            currentPage={currentPage}
-            totalPages={pagination?.totalPages||1}
-            pageSize={pagination?.pageSize||10}
-            totalItems={pagination?.total||0}
-            onPageChange={handlePageChange}
-            
-            onPageSizeChange={handlePageSizeChange}
-          />
+              currentPage={currentPage}
+              totalPages={pagination?.totalPages || 1}
+              pageSize={pagination?.pageSize || 10}
+              totalItems={pagination?.total || 0}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
           </CardContent>
         </Card>
       </main>
       <ConfirmDialog
-  isOpen={isDialogOpen}
-  setIsOpen={setIsDialogOpen}
-  title="Delete Staff Member"
-  description="Are you sure you want to delete this fllet? This action cannot be undone."
-  onConfirm={handleDelete}
-  loading={deleteLaoding}
-/>
+        isOpen={isDialogOpen}
+        setIsOpen={setIsDialogOpen}
+        title="Delete Staff Member"
+        description="Are you sure you want to delete this fllet? This action cannot be undone."
+        onConfirm={handleDelete}
+        loading={deleteLaoding}
+      />
     </div>
   );
 }

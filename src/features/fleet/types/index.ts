@@ -36,6 +36,16 @@ export interface MaintenanceLog {
   notes: string;
 }
 
+/** Vehicle category / type entity (e.g. van, truck) — matches fleet vehicle-type API */
+export interface VehicleType {
+  id: string;
+  name: string;
+  description: string;
+  icon?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface VehicleFormValues {
   plateNumber: string;
   type: string;

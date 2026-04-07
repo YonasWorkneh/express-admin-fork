@@ -10,6 +10,7 @@ import RevokeManager from "./pages/Branch/RevokeManagerPage";
 import StaffPage from "./pages/Staff/StaffPage";
 import CreateStaffPage from "./pages/Staff/CreateStaffPage";
 import OrdersPage from "./pages/orders/OrdersPage";
+import OrderItemCategoriesPage from "./pages/orders/OrderItemCategoriesPage";
 import CreateOrder from "./features/orders/components/CreateOrder";
 import OrderDetails from "./features/orders/components/OrderDetails";
 import DispatchPage from "./pages/DispatchPage";
@@ -19,6 +20,7 @@ import BatchDetailsPage from "./pages/Batch/BatchDetailsPage";
 import OfficerBatchesPage from "./pages/Batch/OfficerBatchesPage";
 import FleetPage from "./pages/Fleet/FleetPage";
 import CreateVehiclePage from "./pages/Fleet/CreateVehiclePage";
+import CreateVehicleTypePage from "./pages/Fleet/CreateVehicleTypePage";
 import EditVehiclePage from "./pages/Fleet/EditVehiclePage";
 import MaintenanceLogPage from "./pages/Fleet/MaintenanceLogPage";
 import EditStaffPage from "./pages/Staff/EditStaffPage";
@@ -211,6 +213,14 @@ const App = () => {
                 }
               />
               <Route
+                path="/order/item-categories"
+                element={
+                  <ProtectedRoute requiredPermission={Permission.ORDERS}>
+                    <OrderItemCategoriesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/order/new"
                 element={
                   <ProtectedRoute requiredPermission={Permission.ORDERS}>
@@ -287,6 +297,14 @@ const App = () => {
                 element={
                   <ProtectedRoute requiredPermission={Permission.FLEET}>
                     <CreateVehiclePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/fleet/type/create"
+                element={
+                  <ProtectedRoute requiredPermission={Permission.FLEET}>
+                    <CreateVehicleTypePage />
                   </ProtectedRoute>
                 }
               />
