@@ -8,6 +8,7 @@ import {
   Users,
   MapPin,
   MapPin as LocationIcon,
+  Percent,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -301,6 +302,37 @@ export default function PricingMain() {
               </Card>
             );
           })}
+        </div>
+
+        <div className="mb-8">
+          <Card
+            className="border-2 border-dashed border-gray-300 hover:border-blue-400 hover:shadow-lg transition-all cursor-pointer bg-white"
+            onClick={() => navigate("/pricing/driver-commission-config")}
+          >
+            <CardHeader className="flex flex-row items-center gap-4 sm:gap-6">
+              <div className="p-3 rounded-full bg-blue-100 text-blue-600 shrink-0">
+                <Percent className="h-6 w-6" />
+              </div>
+              <div className="flex-1 text-left min-w-0">
+                <CardTitle className="text-lg sm:text-xl font-bold text-gray-800">
+                  Driver commission configure
+                </CardTitle>
+                <p className="text-sm text-gray-500 mt-1">
+                  Set driver cost per km, fixed cost, and percentage by vehicle
+                  category for each service type — separate from zone tariffs.
+                </p>
+              </div>
+              <Button
+                className="shrink-0 bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate("/pricing/driver-commission-config");
+                }}
+              >
+                Open
+              </Button>
+            </CardHeader>
+          </Card>
         </div>
 
         <div className="border rounded-lg overflow-hidden overflow-x-auto">

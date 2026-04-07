@@ -31,3 +31,18 @@ export const createVehicleType = async (
 
   return response.data;
 };
+
+export interface FleetVehicleTypeListItem {
+  id: string;
+  name: string;
+}
+
+/** Paginated fleet types list (used by pricing and commission UIs). */
+export async function fetchFleetVehicleTypes(): Promise<
+  FleetVehicleTypeListItem[]
+> {
+  const response = await api.get<{
+    data?: { vehicleTypes?: FleetVehicleTypeListItem[] };
+  }>("/fleet/type?search=&page=1&limit=1000");
+  return response.data.data?.vehicleTypes ?? [];
+}

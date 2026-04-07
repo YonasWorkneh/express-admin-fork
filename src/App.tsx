@@ -48,6 +48,7 @@ import RoleDetailsPage from "./pages/Roles/RoleDetailsPage";
 import TownPricingPage from "./pages/Pricing/TownPricingPage";
 import RegionalPricingPage from "./pages/Pricing/RegionalPricingPage";
 import InternationalPricingPage from "./pages/Pricing/InternationalPricingPage";
+import DriverCommissionConfigurePage from "./pages/Pricing/DriverCommissionConfigurePage";
 import ReportPage from "./pages/Report/ReportPage";
 import OrderReportPage from "./pages/Report/OrderReportPage";
 import RevenueReportPage from "./pages/Report/RevenueReportPage";
@@ -463,6 +464,14 @@ const App = () => {
                 element={
                   <ProtectedRoute requiredPermission={Permission.PRICING}>
                     <InternationalPricingPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/pricing/driver-commission-config"
+                element={
+                  <ProtectedRoute requiredPermission={Permission.PRICING}>
+                    <DriverCommissionConfigurePage />
                   </ProtectedRoute>
                 }
               />

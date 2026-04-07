@@ -8,17 +8,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { DriverCommissionRow } from "@/types/driverCommission";
 
 interface DriverCommissionTableProps {
-  driverCommission: any[];
+  driverCommission: DriverCommissionRow[];
 }
 
 export default function DriverCommissionTable({
   driverCommission,
 }: DriverCommissionTableProps) {
   return (
-    <div className="mt-6">
-      <h3 className="text-md font-medium mb-4">Driver Commission</h3>
+    <div>
+      <h2 className="text-lg font-medium text-gray-800 mb-4">
+        Driver commission
+      </h2>
       <div className="border rounded-lg overflow-hidden">
         <Table className="border-separate border-spacing-0">
           <TableHeader>

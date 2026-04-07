@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import * as Yup from "yup";
 import SuccessModal from "@/components/common/SuccessModal";
 import PricingFormHeader from "./PricingFormHeader";
+import PricingShadcnSelect from "./PricingShadcnSelect";
 import ServiceTypeSection from "./ServiceTypeSection";
 import AdditionalChargesSection from "./AdditionalChargesSection";
 import ActionButtons from "./ActionButtons";
@@ -37,14 +38,6 @@ const InternationalPricingSchema = Yup.object().shape({
 
 });
 
-type DriverCommission = {
-  category: string; // vehicleTypeId
-  name: string;     // vehicle name for display
-  fixedCost?: number;
-  driverCost?: number; // perKm
-  percentage?: number;
-};
-
 type WeightRange = { from: string; to: string; price: number };
 
 type InitialValues = {
@@ -58,7 +51,6 @@ type InitialValues = {
   standardWeightRanges: WeightRange[];
   sameDayWeightRanges: WeightRange[];
   overnightWeightRanges: WeightRange[];
-  driverCommission: DriverCommission[];
   remark: string;
 
 };
@@ -68,7 +60,7 @@ export default function InternationalPricingForm() {
   const [searchParams] = useSearchParams();
   const [parsedPrice, setParsedPrice] = useState<any | null>(null);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [successMessage] = useState("");
   const [expandedSection, setExpandedSection] = useState<"standard" | "sameDay" | "overnight" | null>("standard");
   const [selectedRows, setSelectedRows] = useState<{
     standard: Set<number>;
@@ -80,7 +72,6 @@ export default function InternationalPricingForm() {
     overnight: new Set(),
   });
   const [loading, setLoading] = useState(false);
-  const [vehicleTypes, setVehicleTypes] = useState<any[]>([]);
 
   const createInitialValues: InitialValues = {
     zone: "international",
@@ -93,7 +84,6 @@ export default function InternationalPricingForm() {
     standardWeightRanges: [{ from: "1", to: "3", price: 0 }],
     sameDayWeightRanges: [{ from: "1", to: "3", price: 0 }],
     overnightWeightRanges: [{ from: "1", to: "3", price: 0 }],
-    driverCommission: [],
     remark:"Standard"
 
   };
@@ -103,21 +93,6 @@ export default function InternationalPricingForm() {
     { value: "Holiday", label: "Holiday" },
     { value: "Event", label: "Event" },
   ];
-
-  const fetchVehicleTypes = async () => {
-    try {
-      const res = await api.get(`/fleet/type?search=&page=1&limit=1000`);
-      const vehicles = res.data.data?.vehicleTypes || [];
-      setVehicleTypes(vehicles);
-    } catch (error) {
-      setSuccessMessage("")
-      console.error("Error fetching vehicle types", error);
-    }
-  };
-
-  useEffect(() => {
-    fetchVehicleTypes();
-  }, []);
 
   // Parse query param if editing
   useEffect(() => {
@@ -136,16 +111,6 @@ export default function InternationalPricingForm() {
 
   const buildInitialValues = (): InitialValues => {
     const base = { ...createInitialValues };
-
-    // driver commission skeleton
-    const driverSkeleton = vehicleTypes.map(v => ({
-      category: v.id,
-      name: v.name,
-      fixedCost: undefined,
-      driverCost: undefined,
-      percentage: undefined,
-    }));
-    base.driverCommission = driverSkeleton;
 
     if (!isEditing) return base;
 
@@ -172,19 +137,6 @@ export default function InternationalPricingForm() {
         if (index === 1) base.sameDayWeightRanges = mapped;
         if (index === 2) base.overnightWeightRanges = mapped;
       }
-    });
-
-    // map driver commissions
-    const backendDCs: any[] = parsedPrice.driverCommissions || [];
-    base.driverCommission = vehicleTypes.map(v => {
-      const matched = backendDCs.find(d => d.vehicleTypeId === v.id);
-      return {
-        category: v.id,
-        name: v.name,
-        fixedCost: matched?.fixed,
-        driverCost: matched?.perKm,
-        percentage: matched?.percentage,
-      };
     });
 
     return base;
@@ -249,30 +201,6 @@ export default function InternationalPricingForm() {
           { serviceType: "EXPRESS", baseFee: values.sameDay },
           { serviceType: "OVERNIGHT", baseFee: values.overnight },
         ],
-        driverCommissions: values.driverCommission
-          .filter(c => {
-            // Only include entries that have at least one value
-            const hasFixed = c.fixedCost !== undefined && c.fixedCost !== null && c.fixedCost !== 0;
-            const hasPerKm = c.driverCost !== undefined && c.driverCost !== null && c.driverCost !== 0;
-            const hasPercentage = c.percentage !== undefined && c.percentage !== null && c.percentage !== 0;
-            return hasFixed || hasPerKm || hasPercentage;
-          })
-          .map(c => {
-            const commission: any = {
-              vehicleTypeId: c.category,
-            };
-            // Only include fields that have values
-            if (c.fixedCost !== undefined && c.fixedCost !== null && c.fixedCost !== 0) {
-              commission.fixed = c.fixedCost;
-            }
-            if (c.driverCost !== undefined && c.driverCost !== null && c.driverCost !== 0) {
-              commission.perKm = c.driverCost;
-            }
-            if (c.percentage !== undefined && c.percentage !== null && c.percentage !== 0) {
-              commission.percentage = c.percentage;
-            }
-            return commission;
-          }),
         profit: values.profitMargin,
         airportFees,
       };
@@ -320,7 +248,7 @@ export default function InternationalPricingForm() {
         validationSchema={InternationalPricingSchema}
         onSubmit={handleSubmit}
       >
-        {({ values, setFieldValue, errors, touched,handleChange, handleBlur }) => (
+        {({ values, setFieldValue, setFieldTouched, errors, touched }) => (
           <Form className={loading ? "pointer-events-none opacity-50" : ""}>
             <PricingFormHeader
               title={isEditing ? "Edit International Pricing Configuration" : "International Pricing Configuration"}
@@ -330,33 +258,17 @@ export default function InternationalPricingForm() {
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">
                   Remark Type
                 </h3>
-                <div className="max-w-xs">
-                  <label
-                    htmlFor="remarkType"
-                    className="block text-sm font-medium text-gray-700 mb-2"
-                  >
-                    Select Remark Type
-                  </label>
-                  <select
-                    id="remark"
-                    name="remark"
-                    value={values.remark}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  >
-                    {remarkOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.remark && touched.remark && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {errors.remark}
-                    </p>
-                  )}
-                </div>
+                <PricingShadcnSelect
+                  id="remark"
+                  label="Select remark type"
+                  placeholder="Select remark type"
+                  value={values.remark}
+                  onValueChange={(v) => setFieldValue("remark", v)}
+                  onClose={() => setFieldTouched("remark", true)}
+                  options={remarkOptions}
+                  error={errors.remark}
+                  touched={touched.remark}
+                />
               </div>
             </div>
 
@@ -441,8 +353,6 @@ export default function InternationalPricingForm() {
               airportFeeTouched={touched.airportFee}
               profitMarginError={errors.profitMargin}
               profitMarginTouched={touched.profitMargin}
-              driverCommission={values.driverCommission}
-              showAirportFee={true}
             />
            
             <ActionButtons isEditing={isEditing} loading={loading} />

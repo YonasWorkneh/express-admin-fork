@@ -1,15 +1,6 @@
 import { Field } from "formik";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import DriverCommissionTable from "./DriverCommissionTable";
-
-interface DriverCommission {
-  category: string;
-  name?: string;
-  fixedCost?: number;
-  driverCost?: number;
-  percentage?: number;
-}
 
 interface AdditionalChargesSectionProps {
   costPerKmError?: string;
@@ -18,8 +9,6 @@ interface AdditionalChargesSectionProps {
   airportFeeTouched?: boolean;
   profitMarginError?: string;
   profitMarginTouched?: boolean;
-  driverCommission: DriverCommission[];
-  showAirportFee?: boolean;
 }
 
 export default function AdditionalChargesSection({
@@ -29,13 +18,7 @@ export default function AdditionalChargesSection({
   airportFeeTouched,
   profitMarginError,
   profitMarginTouched,
-  driverCommission,
-  showAirportFee = true,
 }: AdditionalChargesSectionProps) {
-  console.log(  costPerKmError,
-    costPerKmTouched,
-    airportFeeError,
-    airportFeeTouched,showAirportFee)
   return (
     <div className="bg-gray-50 p-6 rounded-lg space-y-4 mb-6">
       <h2 className="text-lg font-medium mb-4">Additional Charges</h2>
@@ -92,9 +75,6 @@ export default function AdditionalChargesSection({
           <p className="text-red-500 text-sm mt-1">{profitMarginError}</p>
         )}
       </div>
-
-      <DriverCommissionTable driverCommission={driverCommission} />
     </div>
   );
 }
-
