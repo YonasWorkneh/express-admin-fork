@@ -7,6 +7,7 @@ import {
   TrendingUp,
   TrendingDown,
   LayoutGrid,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -605,6 +606,14 @@ export default function OrdersPage() {
             >
               <LayoutGrid className="h-4 w-4 mr-2" />
               Item categories
+            </Button>
+            <Button
+              variant="outline"
+              className="text-gray-700 border-slate-200 hover:bg-slate-50"
+              onClick={() => navigate("/service-types")}
+            >
+              <Layers className="h-4 w-4 mr-2" />
+              Service types
             </Button>
             <Button
               className="bg-blue-600 hover:bg-blue-700 text-white !cursor-pointer"

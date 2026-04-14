@@ -1,6 +1,7 @@
 import api from "@/lib/api/api";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { getUserFacingApiError } from "@/utils/apiErrorMessage";
 import {  FaCheckCircle, FaClock, FaTimesCircle, FaUserTie, FaTruckMonster, FaBuilding, FaClipboardList } from "react-icons/fa";
 
 const Shipment = () => {
@@ -34,10 +35,8 @@ const Shipment = () => {
       setLoading(true);
       const res = await api.get<{ data: DashboardResponse }>("/report/dashboard/overview");
       setDashboard(res.data.data);
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message || "Something went wrong. Please try again.";
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(getUserFacingApiError(error));
     } finally {
       setLoading(false);
     }

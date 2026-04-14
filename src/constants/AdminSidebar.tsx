@@ -8,6 +8,7 @@ import {
   FaLock,
   FaShieldAlt,
   FaBoxes,
+  FaLayerGroup,
 } from "react-icons/fa";
 import { IoPricetags } from "react-icons/io5";
 import { IoDocumentText } from "react-icons/io5";
@@ -36,6 +37,12 @@ const menuItems = [
     name: "Order Management",
     path: "/order",
     icon: <FaTruckLoading />,
+    permission: Permission.ORDERS,
+  },
+  {
+    name: "Service Type Management",
+    path: "/service-types",
+    icon: <FaLayerGroup />,
     permission: Permission.ORDERS,
   },
   {

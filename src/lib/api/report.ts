@@ -1,5 +1,6 @@
 import axios from "axios";
 import api from "./api";
+import { getUserFacingApiError } from "@/utils/apiErrorMessage";
 import {
   ReportPreset,
   type ReportFilters,
@@ -310,10 +311,7 @@ export const fetchDashboardMetrics = async (
 
     return response.data.data || response.data;
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      throw new Error(error.message);
-    }
-    throw new Error("An unknown error occurred");
+    throw new Error(getUserFacingApiError(error, "Failed to load dashboard metrics"));
   }
 };
 

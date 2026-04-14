@@ -11,6 +11,7 @@ import StaffPage from "./pages/Staff/StaffPage";
 import CreateStaffPage from "./pages/Staff/CreateStaffPage";
 import OrdersPage from "./pages/orders/OrdersPage";
 import OrderItemCategoriesPage from "./pages/orders/OrderItemCategoriesPage";
+import ServiceTypesPage from "./pages/orders/ServiceTypesPage";
 import CreateOrder from "./features/orders/components/CreateOrder";
 import OrderDetails from "./features/orders/components/OrderDetails";
 import DispatchPage from "./pages/DispatchPage";
@@ -218,6 +219,14 @@ const App = () => {
                 element={
                   <ProtectedRoute requiredPermission={Permission.ORDERS}>
                     <OrderItemCategoriesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/service-types"
+                element={
+                  <ProtectedRoute requiredPermission={Permission.ORDERS}>
+                    <ServiceTypesPage />
                   </ProtectedRoute>
                 }
               />
