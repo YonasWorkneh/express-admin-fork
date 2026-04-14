@@ -406,10 +406,6 @@ export default function RegionalPricingForm() {
             />
 
             <AdditionalChargesSection
-              costPerKmError={errors.costPerKm}
-              costPerKmTouched={touched.costPerKm}
-              airportFeeError={errors.airportFee}
-              airportFeeTouched={touched.airportFee}
               profitMarginError={errors.profitMargin}
               profitMarginTouched={touched.profitMargin}
             />

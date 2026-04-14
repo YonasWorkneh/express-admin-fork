@@ -347,10 +347,6 @@ export default function InternationalPricingForm() {
 
             {/* Additional Charges */}
             <AdditionalChargesSection
-              costPerKmError={errors.costPerKm}
-              costPerKmTouched={touched.costPerKm}
-              airportFeeError={errors.airportFee}
-              airportFeeTouched={touched.airportFee}
               profitMarginError={errors.profitMargin}
               profitMarginTouched={touched.profitMargin}
             />

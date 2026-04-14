@@ -233,10 +233,6 @@ export default function TownPricingForm() {
 
             {/* Additional Charges */}
             <AdditionalChargesSection
-              costPerKmError={errors.costPerKm}
-              costPerKmTouched={touched.costPerKm}
-              airportFeeError={undefined}
-              airportFeeTouched={undefined}
               profitMarginError={errors.profitMargin}
               profitMarginTouched={touched.profitMargin}
             />
