@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import SidebarLayout from "./Layout/Layout";
 import LoginPage from "./pages/LoginPage";
@@ -63,52 +63,92 @@ import { useAppDispatch } from "./store/hooks";
 import { hydrateAuth } from "./features/auth/authSlice";
 import { Permission } from "./config/rolePermissions";
 import { SocketProvider } from "./lib/socket/SocketContext";
+import { Spinner } from "./utils/spinner";
+import { logout } from "./utils/auth";
+import {
+  parseStoredUserAndRole,
+  refreshSessionTokens,
+} from "./lib/api/authSession";
 
 const queryClient = new QueryClient();
 
 const App = () => {
   const dispatch = useAppDispatch();
+  const [authReady, setAuthReady] = useState(false);
 
-  // Hydrate auth state from localStorage on app load
+  // Hydrate auth from localStorage; refresh tokens when a refresh token exists.
   useEffect(() => {
-    const accessToken = localStorage.getItem("accessToken");
-    const refreshToken = localStorage.getItem("refreshToken");
-    const userStr = localStorage.getItem("user");
-    const roleStr = localStorage.getItem("role");
+    void (async () => {
+      const at = localStorage.getItem("accessToken");
+      const rt = localStorage.getItem("refreshToken");
+      if (!at && !rt) {
+        setAuthReady(true);
+        return;
+      }
 
-    if (accessToken && userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        let role = user.role || null;
-
-        // If role is stored separately, parse it
-        if (roleStr) {
-          try {
-            role = JSON.parse(roleStr);
-          } catch {
-            // If parsing fails, use role from user object
-            role = user.role || null;
-          }
-        }
-
+      const applyHydrate = () => {
+        const accessToken = localStorage.getItem("accessToken");
+        const refreshToken = localStorage.getItem("refreshToken");
+        const { user, role } = parseStoredUserAndRole();
         dispatch(
           hydrateAuth({
             user,
             role,
             accessToken,
             refreshToken,
-          })
+          }),
         );
-      } catch (error) {
-        console.error("Failed to parse user from localStorage:", error);
-        // Clear invalid data
-        localStorage.removeItem("user");
-        localStorage.removeItem("role");
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
+      };
+
+      if (!at && rt) {
+        try {
+          const tokens = await refreshSessionTokens(rt);
+          localStorage.setItem("accessToken", tokens.accessToken);
+          localStorage.setItem("refreshToken", tokens.refreshToken);
+          applyHydrate();
+        } catch {
+          logout();
+        }
+        setAuthReady(true);
+        return;
       }
-    }
+
+      applyHydrate();
+
+      if (rt) {
+        void (async () => {
+          try {
+            const currentRt = localStorage.getItem("refreshToken");
+            if (!currentRt) return;
+            const tokens = await refreshSessionTokens(currentRt);
+            localStorage.setItem("accessToken", tokens.accessToken);
+            localStorage.setItem("refreshToken", tokens.refreshToken);
+            const { user, role } = parseStoredUserAndRole();
+            dispatch(
+              hydrateAuth({
+                user,
+                role,
+                accessToken: tokens.accessToken,
+                refreshToken: tokens.refreshToken,
+              }),
+            );
+          } catch {
+            // keep existing session; axios 401 flow can still refresh later
+          }
+        })();
+      }
+
+      setAuthReady(true);
+    })();
   }, [dispatch]);
+
+  if (!authReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <Spinner className="h-10 w-10 text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <BrowserRouter>

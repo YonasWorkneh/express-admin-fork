@@ -2,6 +2,7 @@ import { FaBell, FaBars } from "react-icons/fa";
 import { useAppSelector, useAppDispatch } from "../store/hooks";
 import { toggleSidebar } from "../features/sidebar/sidebarSlice";
 import { useNavigate } from "react-router-dom";
+import { logout } from "@/utils/auth";
 import { useState } from "react";
 import { Drawer, List, Badge, Empty, Button, Spin } from "antd";
 import { BellOutlined, CheckOutlined } from "@ant-design/icons";
@@ -112,9 +113,7 @@ export default function Header() {
                 <button
                   className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-gray-100 rounded-md cursor-pointer"
                   onClick={() => {
-                    localStorage.removeItem("accessToken");
-                    localStorage.removeItem("refreshToken");
-                    localStorage.removeItem("user");
+                    logout();
                     navigate("/");
                   }}
                 >

@@ -1,0 +1,14 @@
+{
+  "UNIT_PRICE": {
+    "label": "Unit price",
+    "fields": ["basePrice"]
+  },
+  "UNIT_PRICE_WITH_BRACKET": {
+    "label": "Unit price with bracket",
+    "fields": ["basePrice", "min", "max", "additional"]
+  },
+  "VOLUME_OVERRIDE": {
+    "label": "Volume override",
+    "fields": ["divisor", "ratePerKg"]
+  }
+}

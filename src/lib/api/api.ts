@@ -20,10 +20,13 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
 }
 
+export const API_BASE_URL =
+  "https://courier-app-production.up.railway.app";
+
 const api: AxiosInstance = axios.create({
   // baseURL: "https://localhost:10000/",
   // baseURL: "http://localhost:10000",
-  baseURL: "https://courier-app-production.up.railway.app",
+  baseURL: API_BASE_URL,
 
   headers: {
     "Content-Type": "application/json",

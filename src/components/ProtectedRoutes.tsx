@@ -3,19 +3,20 @@ import { useEffect, useState } from "react";
 
 export default function ProtectedRoutes() {
   const accessToken = localStorage.getItem("accessToken");
-  const user = localStorage.getItem("user");
+  const refreshToken = localStorage.getItem("refreshToken");
+  const hasSession = Boolean(accessToken || refreshToken);
   const navigate = useNavigate();
   const location = useLocation();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (accessToken && user && location.pathname === "/") {
+    if (hasSession && location.pathname === "/") {
       navigate("/dashboard", { replace: true });
-    } else if (!accessToken && !user) {
+    } else if (!hasSession) {
       navigate("/", { replace: true });
     }
     setMounted(true);
-  }, [navigate, accessToken, user, location.pathname]);
+  }, [navigate, hasSession, location.pathname]);
 
   if (!mounted) return null;
 
