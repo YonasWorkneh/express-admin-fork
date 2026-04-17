@@ -2,16 +2,39 @@ import Button from "@/components/common/Button";
 import { useNavigate } from "react-router-dom";
 import { Spinner } from "@/utils/spinner";
 
-export default function ActionButtons({isEditing, loading}:any) {
+type ActionButtonsProps = {
+  isEditing: boolean;
+  loading: boolean;
+  /** When true, sits inside a parent card (no outer gray panel). */
+  embedded?: boolean;
+};
+
+export default function ActionButtons({
+  isEditing,
+  loading,
+  embedded = false,
+}: ActionButtonsProps) {
   const navigate = useNavigate();
 
   return (
-    <div className="bg-gray-50 p-6 rounded-lg space-y-4">
-      <h2 className="text-lg font-medium mb-4">Complete Configuration</h2>
+    <div
+      className={
+        embedded
+          ? "mt-6 pt-6 border-t border-gray-200 space-y-4"
+          : "bg-gray-50 p-6 rounded-lg space-y-4"
+      }
+    >
+      <h2
+        className={`font-medium mb-4 ${
+          embedded ? "text-base text-gray-800" : "text-lg"
+        }`}
+      >
+        {embedded ? "Save configuration" : "Complete Configuration"}
+      </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           className="cursor-pointer hover:bg-blue-700"
           disabled={loading}
         >
