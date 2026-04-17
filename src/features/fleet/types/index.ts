@@ -42,6 +42,8 @@ export interface VehicleType {
   name: string;
   description: string;
   icon?: string | null;
+  iconUrl?: string | null;
+  iconPublicId?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

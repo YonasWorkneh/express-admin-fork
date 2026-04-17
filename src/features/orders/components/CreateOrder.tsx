@@ -24,6 +24,11 @@ import toast from "react-hot-toast";
 import type { Customer, CustomerListResponse, Pagination, Branch, BranchListResponse } from "@/types/types";
 import { Spinner } from "@/utils/spinner";
 import { Select as Style2 } from "antd";
+import { useServiceTypes } from "@/hooks/useServiceTypes";
+import { usePublicFleetVehicleTypesQuery } from "@/hooks/useDriverCommissionConfig";
+import type { FleetVehicleTypeListItem } from "@/lib/api/fleet";
+import { VehicleTypeThumbnail } from "@/lib/vehicleTypeVisual";
+import { cn } from "@/lib/utils";
 
 // import { useOrders } from "@/hooks/useOrders"; // custom hook
 
@@ -42,6 +47,9 @@ const OrderValidationSchema = Yup.object().shape({
     .min(0.1, "Weight must be greater than 0")
     .required("Weight is required"),
   destination: Yup.string().required("Destination is required"),
+  vehicleTypeIds: Yup.array()
+    .of(Yup.string())
+    .min(1, "Select at least one vehicle type"),
   // Not required for towns and not globally always required
   // We will do frontend check for these
 });
@@ -84,6 +92,39 @@ interface ConvertedShipment {
   // NEW FIELDS FOR INTERNATIONAL OR REGIONAL ORDERS ONLY
   originCity?: any;
   destinationCity?: any;
+  selectedVehicleTypeId?: string;
+  vehicleTypeIds?: string[];
+}
+
+function VehicleTypeTile({
+  vt,
+  selected,
+  onToggle,
+}: {
+  vt: FleetVehicleTypeListItem;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={cn(
+        "border rounded-lg p-3 flex flex-col items-center gap-2 transition-colors text-center cursor-pointer",
+        selected
+          ? "border-blue-600 bg-blue-50 ring-2 ring-blue-500"
+          : "border-gray-200 hover:border-gray-300 bg-white",
+      )}
+    >
+      <VehicleTypeThumbnail
+        vt={vt}
+        imgClassName="max-h-14 max-w-14 object-contain"
+      />
+      <span className="text-xs font-medium text-gray-900 leading-tight line-clamp-2">
+        {vt.name}
+      </span>
+    </button>
+  );
 }
 
 export default function OrderForm() {
@@ -126,6 +167,8 @@ export default function OrderForm() {
     // Add new initial fields
     originCity: "",
     destinationCity: "",
+    selectedVehicleTypeId: "",
+    vehicleTypeIds: [] as string[],
   };
   const navigate = useNavigate();
   const [estimatePrice, setEstimatePrice] = useState(""); // sample estimate
@@ -148,8 +191,12 @@ export default function OrderForm() {
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
   const [loadingBranch, setLoadingBranch] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
-
-  console.log(pagination)
+  const { data: serviceTypes } = useServiceTypes();
+  const {
+    data: fleetVehicleTypes = [],
+    isLoading: loadingVehicleTypes,
+    isError: vehicleTypesError,
+  } = usePublicFleetVehicleTypesQuery();
 
   const featchStaffs = async () => {
     try {
@@ -253,6 +300,8 @@ export default function OrderForm() {
       // cost: _values.cost,
       pickupDate: _values.pickupDate ? new Date(_values.pickupDate).toISOString() : undefined,
       deliveryDate: _values.deliveryDate ? new Date(_values.deliveryDate).toISOString() : undefined,
+      selectedVehicleTypeId: _values.selectedVehicleTypeId,
+      vehicleTypeIds: [...(_values.vehicleTypeIds || [])],
     };
 
     if ((_values.destination === "REGIONAL" || _values.destination === "INTERNATIONAL")) {
@@ -297,16 +346,6 @@ export default function OrderForm() {
     }
 
   };
-
-  // const generateTrackingNumber = () => {
-
-  //   const prefix = "ETB";
-  //   const timestamp = Date.now().toString().slice(-6);
-  //   const random = Math.floor(Math.random() * 1000)
-  //     .toString()
-  //     .padStart(3, "0");
-  //   return `${prefix}${timestamp}${random}`;
-  // };
 
   const handleSubmit = async (
     _values: any,
@@ -367,6 +406,8 @@ export default function OrderForm() {
       // cost: _values.cost,
       pickupDate: _values.pickupDate ? new Date(_values.pickupDate).toISOString() : undefined,
       deliveryDate: _values.deliveryDate ? new Date(_values.deliveryDate).toISOString() : undefined,
+      selectedVehicleTypeId: _values.selectedVehicleTypeId,
+      vehicleTypeIds: [...(_values.vehicleTypeIds || [])],
     };
 
     if ((_values.destination === "REGIONAL" || _values.destination === "INTERNATIONAL")) {
@@ -462,7 +503,7 @@ export default function OrderForm() {
         validationSchema={OrderValidationSchema}
         onSubmit={handleSubmit}
       >
-        {({ values, setFieldValue, errors, touched }) => (
+        {({ values, setFieldValue, errors, touched, setFieldTouched }) => (
           <Form>
             {/* Header */}
             <header className="relative">
@@ -730,10 +771,11 @@ export default function OrderForm() {
                     <SelectValue placeholder="Select service" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="STANDARD">STANDARD</SelectItem>
-                    <SelectItem value="EXPRESS">EXPRESS</SelectItem>
-                    <SelectItem value="SAME_DAY">SAME DAY</SelectItem>
-                    <SelectItem value="OVERNIGHT">OVERNIGHT</SelectItem>
+                    {serviceTypes?.map((serviceType) => (
+                      <SelectItem key={serviceType.id} value={serviceType.id}>
+                        {serviceType.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 {errors.serviceType && touched.serviceType && (
@@ -895,6 +937,76 @@ export default function OrderForm() {
                   </SelectContent>
                 </Select>
               </div> */}
+            </div>
+
+            {/* Vehicle types — separate card (not part of service type config) */}
+            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 shadow-sm mt-6 space-y-4">
+              <div>
+                <h2 className="text-lg font-medium text-gray-900">
+                  Vehicle types
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Choose suitable vehicle categories for this shipment.
+                </p>
+              </div>
+
+              <div>
+                <Label className="mb-2">Selection *</Label>
+                {loadingVehicleTypes && (
+                  <div className="flex items-center gap-2 py-4 text-gray-600">
+                    <Spinner className="h-6 w-6 text-blue-600" />
+                    Loading vehicle types…
+                  </div>
+                )}
+                {vehicleTypesError && (
+                  <p className="text-red-600 text-sm py-2">
+                    Could not load vehicle types.
+                  </p>
+                )}
+                {!loadingVehicleTypes &&
+                  !vehicleTypesError &&
+                  fleetVehicleTypes.length === 0 && (
+                    <p className="text-amber-700 text-sm py-2">
+                      No vehicle types available from the public catalog.
+                    </p>
+                  )}
+                {!loadingVehicleTypes && fleetVehicleTypes.length > 0 && (
+                  <div
+                    className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"
+                    role="group"
+                    aria-label="Vehicle types"
+                  >
+                    {fleetVehicleTypes.map((vt) => {
+                      const selected = values.vehicleTypeIds.includes(vt.id);
+                      return (
+                        <VehicleTypeTile
+                          key={vt.id}
+                          vt={vt}
+                          selected={selected}
+                          onToggle={() => {
+                            const next = selected
+                              ? values.vehicleTypeIds.filter((id) => id !== vt.id)
+                              : [...values.vehicleTypeIds, vt.id];
+                            setFieldValue("vehicleTypeIds", next);
+                            setFieldValue(
+                              "selectedVehicleTypeId",
+                              next[0] ?? "",
+                            );
+                            setFieldTouched("vehicleTypeIds", true);
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+                {errors.vehicleTypeIds && touched.vehicleTypeIds && (
+                  <p className="text-red-500 text-sm mt-2">
+                    {typeof errors.vehicleTypeIds === "string"
+                      ? errors.vehicleTypeIds
+                      : "Select at least one vehicle type"}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Shipment Info */}
