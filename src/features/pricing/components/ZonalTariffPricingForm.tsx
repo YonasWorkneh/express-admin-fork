@@ -119,7 +119,6 @@ function mapLegacyBrackets(brackets: unknown): {
 function hydrateOneTariffTab(
   tab: ServiceTabValues,
   t: Record<string, unknown>,
-  categories: OrderItemCategory[],
   tariffDisplayName: string,
 ) {
   if (typeof t.name === "string" && t.name.trim()) {
@@ -186,7 +185,7 @@ function hydrateFromParsedPrice(
   ) {
     const st = serviceTypes.find((s) => s.id === parsed.serviceTypeId);
     if (st) {
-      hydrateOneTariffTab(base[st.id], parsed, categories, tariffDisplayName);
+      hydrateOneTariffTab(base[st.id], parsed, tariffDisplayName);
     }
     return base;
   }
@@ -204,7 +203,7 @@ function hydrateFromParsedPrice(
           ? serviceTypes[idx]
           : serviceTypes[0];
       if (!st) continue;
-      hydrateOneTariffTab(base[st.id], t, categories, tariffDisplayName);
+      hydrateOneTariffTab(base[st.id], t, tariffDisplayName);
     }
     return base;
   }
@@ -223,7 +222,7 @@ function hydrateFromParsedPrice(
         ? serviceTypes[idx]
         : serviceTypes[0];
     if (st) {
-      hydrateOneTariffTab(base[st.id], parsed, categories, tariffDisplayName);
+      hydrateOneTariffTab(base[st.id], parsed, tariffDisplayName);
     }
     return base;
   }
