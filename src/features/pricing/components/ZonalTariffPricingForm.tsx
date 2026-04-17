@@ -20,7 +20,7 @@ import { useServiceTypes } from "@/hooks/useServiceTypes";
 import { useOrderItemCategories } from "@/hooks/useOrderItemCategories";
 import type { OrderItemCategory } from "@/types/orderCategories";
 import type { ServiceType } from "@/types/serviceTypes";
-import { Info } from "lucide-react";
+import { Info, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -30,12 +30,18 @@ import {
   type CategoryPricingMode,
 } from "@/config/orderItemCategoryPricingTypes";
 
-export type CategoryPricingValues = {
-  pricingType: CategoryPricingMode;
-  basePrice: number;
+/** One weight bracket row for UNIT_PRICE_WITH_BRACKET */
+export type WeightBracketRow = {
   min: number;
   max: number;
   additional: number;
+};
+
+export type CategoryPricingValues = {
+  pricingType: CategoryPricingMode;
+  basePrice: number;
+  /** UNIT_PRICE_WITH_BRACKET — one or more min / max / additional rows */
+  brackets: WeightBracketRow[];
   /** VOLUME_OVERRIDE: volume divisor (must be greater than 0) */
   divisor: number;
   /** VOLUME_OVERRIDE: rate per kg */
@@ -71,9 +77,7 @@ function emptyCategoryValues(): CategoryPricingValues {
   return {
     pricingType: "UNIT_PRICE",
     basePrice: 0,
-    min: 0,
-    max: 0,
-    additional: 0,
+    brackets: [{ min: 0, max: 0, additional: 0 }],
     divisor: 1,
     ratePerKg: 0,
   };
@@ -102,18 +106,25 @@ function buildEmptyServiceConfigs(
 
 const LEGACY_SERVICE_TYPE_KEYS = ["STANDARD", "EXPRESS", "OVERNIGHT"] as const;
 
-function mapLegacyBrackets(brackets: unknown): {
-  min: number;
-  max: number;
-  additional: number;
-} | null {
+/** Legacy API may send minKg/maxKg/rate or min/max/add */
+function mapLegacyBracketsFull(brackets: unknown): WeightBracketRow[] | null {
   if (!Array.isArray(brackets) || brackets.length === 0) return null;
-  const b = brackets[0] as { minKg?: number; maxKg?: number; rate?: number };
-  return {
-    min: b.minKg ?? 0,
-    max: b.maxKg ?? 0,
-    additional: b.rate ?? 0,
-  };
+  return brackets.map((raw) => {
+    const b = raw as {
+      minKg?: number;
+      maxKg?: number;
+      rate?: number;
+      min?: number;
+      max?: number;
+      add?: number;
+      additional?: number;
+    };
+    return {
+      min: b.minKg ?? b.min ?? 0,
+      max: b.maxKg ?? b.max ?? 0,
+      additional: b.rate ?? b.add ?? b.additional ?? 0,
+    };
+  });
 }
 
 function hydrateOneTariffTab(
@@ -152,14 +163,21 @@ function hydrateOneTariffTab(
     } else if (type === "UNIT_PRICE_WITH_BRACKET") {
       cv.basePrice =
         typeof config.unitPrice === "number" ? config.unitPrice : 0;
-      const brackets = config.brackets as
-        | Array<{ min?: number; max?: number; add?: number }>
+      const rawBrackets = config.brackets as
+        | Array<{
+            min?: number;
+            max?: number;
+            add?: number;
+            additional?: number;
+          }>
         | undefined;
-      const b0 = brackets?.[0];
-      if (b0) {
-        cv.min = b0.min ?? 0;
-        cv.max = b0.max ?? 0;
-        cv.additional = b0.add ?? 0;
+      if (rawBrackets?.length) {
+        cv.brackets = rawBrackets.map((b) => ({
+          min: b.min ?? 0,
+          max: b.max ?? 0,
+          additional:
+            typeof b.add === "number" ? b.add : (b.additional ?? 0),
+        }));
       }
     } else if (type === "VOLUME_OVERRIDE") {
       cv.divisor = typeof config.divisor === "number" ? config.divisor : 1;
@@ -278,9 +296,6 @@ function hydrateFromParsedPrice(
         else if (typeof row.baseFee === "number") {
           cv.basePrice = row.baseFee;
         }
-        if (typeof row.min === "number") cv.min = row.min;
-        if (typeof row.max === "number") cv.max = row.max;
-        if (typeof row.additional === "number") cv.additional = row.additional;
         if (typeof row.divisor === "number") cv.divisor = row.divisor;
         if (typeof row.ratePerKg === "number") cv.ratePerKg = row.ratePerKg;
         if (
@@ -291,25 +306,36 @@ function hydrateFromParsedPrice(
           cv.ratePerKg = row.volumeOverride;
         }
         const wb = row.weightBrackets ?? row.brackets;
-        const legacyBracket = mapLegacyBrackets(wb);
-        if (legacyBracket && pt === "UNIT_PRICE_WITH_BRACKET") {
-          cv.min = legacyBracket.min;
-          cv.max = legacyBracket.max;
-          cv.additional = legacyBracket.additional;
+        const fromWb = mapLegacyBracketsFull(wb);
+        if (pt === "UNIT_PRICE_WITH_BRACKET") {
+          if (fromWb?.length) {
+            cv.brackets = fromWb;
+          } else if (
+            typeof row.min === "number" ||
+            typeof row.max === "number" ||
+            typeof row.additional === "number"
+          ) {
+            cv.brackets = [
+              {
+                min: typeof row.min === "number" ? row.min : 0,
+                max: typeof row.max === "number" ? row.max : 0,
+                additional:
+                  typeof row.additional === "number" ? row.additional : 0,
+              },
+            ];
+          }
         }
       }
     } else {
       const baseFee = typeof stData.baseFee === "number" ? stData.baseFee : 0;
       const af = stData.airportFee as { brackets?: unknown } | undefined;
-      const legacyBracket = mapLegacyBrackets(af?.brackets);
+      const legacyRows = mapLegacyBracketsFull(af?.brackets);
       const firstCat = categories[0];
       if (firstCat && tab.categories[firstCat.id]) {
         tab.categories[firstCat.id].basePrice = baseFee;
-        if (legacyBracket) {
+        if (legacyRows?.length) {
           tab.categories[firstCat.id].pricingType = "UNIT_PRICE_WITH_BRACKET";
-          tab.categories[firstCat.id].min = legacyBracket.min;
-          tab.categories[firstCat.id].max = legacyBracket.max;
-          tab.categories[firstCat.id].additional = legacyBracket.additional;
+          tab.categories[firstCat.id].brackets = legacyRows;
         }
       }
     }
@@ -353,18 +379,24 @@ function validateValues(
       if (hasField(typeCfg, "basePrice") && cv.basePrice < 0) {
         ce.basePrice = "Must be ≥ 0";
       }
-      if (hasField(typeCfg, "min") && cv.min < 0) ce.min = "Must be ≥ 0";
-      if (hasField(typeCfg, "max") && cv.max < 0) ce.max = "Must be ≥ 0";
-      if (hasField(typeCfg, "additional") && cv.additional < 0) {
-        ce.additional = "Must be ≥ 0";
-      }
-      if (
-        mode === "UNIT_PRICE_WITH_BRACKET" &&
-        cv.max < cv.min &&
-        cv.max !== 0 &&
-        cv.min !== 0
-      ) {
-        ce.max = "Must be ≥ min";
+      if (mode === "UNIT_PRICE_WITH_BRACKET") {
+        const rows = cv.brackets?.length
+          ? cv.brackets
+          : [{ min: 0, max: 0, additional: 0 }];
+        const bracketFieldErrs: FormikErrors<WeightBracketRow>[] = [];
+        rows.forEach((b, idx) => {
+          const be: FormikErrors<WeightBracketRow> = {};
+          if (b.min < 0) be.min = "Must be ≥ 0";
+          if (b.max < 0) be.max = "Must be ≥ 0";
+          if (b.additional < 0) be.additional = "Must be ≥ 0";
+          if (b.max < b.min && b.max !== 0 && b.min !== 0) {
+            be.max = "Must be ≥ min";
+          }
+          if (Object.keys(be).length) bracketFieldErrs[idx] = be;
+        });
+        if (bracketFieldErrs.some((e) => e && Object.keys(e).length > 0)) {
+          ce.brackets = bracketFieldErrs;
+        }
       }
       if (hasField(typeCfg, "divisor")) {
         if (cv.divisor <= 0) ce.divisor = "Must be greater than 0";
@@ -397,18 +429,19 @@ function buildCategoryPricingEntry(
   }
 
   if (mode === "UNIT_PRICE_WITH_BRACKET") {
+    const rows = cv.brackets?.length
+      ? cv.brackets
+      : [{ min: 0, max: 0, additional: 0 }];
     return {
       categoryId: cat.id,
       type: "UNIT_PRICE_WITH_BRACKET",
       config: {
         unitPrice: cv.basePrice,
-        brackets: [
-          {
-            min: cv.min,
-            max: cv.max,
-            add: cv.additional,
-          },
-        ],
+        brackets: rows.map((b) => ({
+          min: b.min,
+          max: b.max,
+          add: b.additional,
+        })),
       },
     };
   }
@@ -886,6 +919,12 @@ function CategoryPricingPanel({
 }: CategoryPricingPanelProps) {
   const mode = normalizeCategoryPricingMode(values?.pricingType);
   const typeCfg = getPricingCategoryTypeConfig(mode);
+  const bracketFieldErrors = catErr?.brackets as
+    | FormikErrors<WeightBracketRow>[]
+    | undefined;
+  const bracketFieldTouched = catTouch?.brackets as
+    | FormikTouched<WeightBracketRow>[]
+    | undefined;
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4 shadow-sm">
@@ -903,6 +942,14 @@ function CategoryPricingPanel({
           value={values.pricingType}
           onValueChange={(v) => {
             setFieldValue(`${prefix}.pricingType`, v);
+            if (v === "UNIT_PRICE_WITH_BRACKET") {
+              const cur = values.brackets;
+              if (!cur?.length) {
+                setFieldValue(`${prefix}.brackets`, [
+                  { min: 0, max: 0, additional: 0 },
+                ]);
+              }
+            }
             setFieldTouched(`${prefix}.pricingType`, true);
           }}
           onClose={() => setFieldTouched(`${prefix}.pricingType`, true)}
@@ -931,51 +978,101 @@ function CategoryPricingPanel({
         </div>
       )}
 
-      {hasField(typeCfg, "min") && (
-        <div>
-          <Label className="mb-1">Min</Label>
-          <Field
-            as={Input}
-            type="number"
-            step="0.01"
-            name={`${prefix}.min`}
-            className="py-2 max-w-xs"
-          />
-          {catErr?.min && catTouch?.min && (
-            <p className="text-red-500 text-sm mt-1">{catErr.min}</p>
-          )}
-        </div>
-      )}
-
-      {hasField(typeCfg, "max") && (
-        <div>
-          <Label className="mb-1">Max</Label>
-          <Field
-            as={Input}
-            type="number"
-            step="0.01"
-            name={`${prefix}.max`}
-            className="py-2 max-w-xs"
-          />
-          {catErr?.max && catTouch?.max && (
-            <p className="text-red-500 text-sm mt-1">{catErr.max}</p>
-          )}
-        </div>
-      )}
-
-      {hasField(typeCfg, "additional") && (
-        <div>
-          <Label className="mb-1">Additional ($)</Label>
-          <Field
-            as={Input}
-            type="number"
-            step="0.01"
-            name={`${prefix}.additional`}
-            className="py-2 max-w-xs"
-          />
-          {catErr?.additional && catTouch?.additional && (
-            <p className="text-red-500 text-sm mt-1">{catErr.additional}</p>
-          )}
+      {mode === "UNIT_PRICE_WITH_BRACKET" && hasField(typeCfg, "min") && (
+        <div className="space-y-3">
+          <Label className="text-sm font-medium text-gray-800">
+            Brackets
+          </Label>
+          {(values.brackets ?? []).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-lg border border-gray-200 bg-gray-50/80 p-3 space-y-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-gray-500">
+                  Bracket {i + 1}
+                </span>
+                {(values.brackets ?? []).length > 1 && (
+                  <button
+                    type="button"
+                    className="text-xs text-red-600 hover:text-red-800 hover:underline cursor-pointer"
+                    onClick={() => {
+                      const next = [...(values.brackets ?? [])];
+                      next.splice(i, 1);
+                      setFieldValue(`${prefix}.brackets`, next);
+                    }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <Label className="mb-1">Min</Label>
+                  <Field
+                    as={Input}
+                    type="number"
+                    step="0.01"
+                    name={`${prefix}.brackets.${i}.min`}
+                    className="py-2 w-full"
+                  />
+                  {bracketFieldErrors?.[i]?.min &&
+                    bracketFieldTouched?.[i]?.min && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {bracketFieldErrors[i]?.min}
+                      </p>
+                    )}
+                </div>
+                <div>
+                  <Label className="mb-1">Max</Label>
+                  <Field
+                    as={Input}
+                    type="number"
+                    step="0.01"
+                    name={`${prefix}.brackets.${i}.max`}
+                    className="py-2 w-full"
+                  />
+                  {bracketFieldErrors?.[i]?.max &&
+                    bracketFieldTouched?.[i]?.max && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {bracketFieldErrors[i]?.max}
+                      </p>
+                    )}
+                </div>
+                <div>
+                  <Label className="mb-1">Additional ($)</Label>
+                  <Field
+                    as={Input}
+                    type="number"
+                    step="0.01"
+                    name={`${prefix}.brackets.${i}.additional`}
+                    className="py-2 w-full"
+                  />
+                  {bracketFieldErrors?.[i]?.additional &&
+                    bracketFieldTouched?.[i]?.additional && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {bracketFieldErrors[i]?.additional}
+                      </p>
+                    )}
+                </div>
+              </div>
+            </div>
+          ))}
+          <div className="pt-1">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-dashed border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 cursor-pointer w-full sm:w-auto"
+              onClick={() => {
+                setFieldValue(`${prefix}.brackets`, [
+                  ...(values.brackets ?? []),
+                  { min: 0, max: 0, additional: 0 },
+                ]);
+              }}
+            >
+              <Plus className="h-4 w-4 shrink-0" aria-hidden />
+              Add bracket
+            </button>
+          </div>
         </div>
       )}
 

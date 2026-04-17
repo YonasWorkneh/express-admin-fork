@@ -41,7 +41,8 @@ import ConfirmDialog from "@/components/common/DeleteModal";
 import { Skeleton } from "antd";
 import { Spinner } from "@/utils/spinner";
 import { exportToExcel } from "@/utils/exportToExcel";
-
+import { cn } from "@/lib/utils";
+import FleetTypesList from "./FleetTypesList";
 
 
 export interface FleetDashboardStats {
@@ -87,6 +88,7 @@ console.log(setFilterOwnership,filterOwnership)
   const [selectedFleet, setSelectedFeet] = useState<FleetVehicle | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteLaoding, setDeleteLoading] = useState<boolean>(false);
+  const [fleetTab, setFleetTab] = useState<"vehicles" | "types">("vehicles");
 
   const navigate = useNavigate();
 
@@ -298,6 +300,7 @@ console.log(staffs.data)
                 </p>
               </div>
               <div className="flex gap-3 mt-4 md:mt-0">
+                {fleetTab === "vehicles" && (
                 <Button
                   variant="outline"
                   className="cursor-pointer hover:bg-gray-50"
@@ -306,6 +309,7 @@ console.log(staffs.data)
                   <IoDownload className="mr-2 h-4 w-4" />
                   Export
                 </Button>
+                )}
                 <Button
                   onClick={() => navigate("/fleet/maintenance")}
                   className="bg-blue-500 hover:bg-blue-600 cursor-pointer text-white"
@@ -331,7 +335,37 @@ console.log(staffs.data)
               </div>
             </div>
 
+            <div className="flex gap-2 mb-6 border-b border-gray-200">
+              <button
+                type="button"
+                className={cn(
+                  "pb-3 px-3 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
+                  fleetTab === "vehicles"
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-800",
+                )}
+                onClick={() => setFleetTab("vehicles")}
+              >
+                Vehicles
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "pb-3 px-3 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
+                  fleetTab === "types"
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-800",
+                )}
+                onClick={() => setFleetTab("types")}
+              >
+                Vehicle types
+              </button>
+            </div>
+
+            {fleetTab === "types" && <FleetTypesList />}
+
             {/* Metrics */}
+            {fleetTab === "vehicles" && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {loadingSummary
                 ? Array.from({ length: 4 }).map((_, i) => (
@@ -368,8 +402,10 @@ console.log(staffs.data)
                     </Card>
                   ))}
             </div>
+            )}
 
             {/* Filters and Search */}
+            {fleetTab === "vehicles" && (
             <div className="flex flex-col md:flex-row gap-4 mb-6">
               <div className="flex-1 relative">
                 <IoSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -408,8 +444,10 @@ console.log(staffs.data)
                 </SelectContent>
               </Select> */}
             </div>
+            )}
 
             {/* Table */}
+            {fleetTab === "vehicles" && (
             <div className="border rounded-lg overflow-hidden overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -645,8 +683,10 @@ console.log(staffs.data)
                 </TableBody>
               </Table>
             </div>
+            )}
 
             {/* Pagination */}
+            {fleetTab === "vehicles" && (
             <TablePagination
               currentPage={currentPage}
               totalPages={pagination?.totalPages || 1}
@@ -655,6 +695,7 @@ console.log(staffs.data)
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}
             />
+            )}
           </CardContent>
         </Card>
       </main>

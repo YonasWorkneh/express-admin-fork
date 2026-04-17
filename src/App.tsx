@@ -22,6 +22,7 @@ import OfficerBatchesPage from "./pages/Batch/OfficerBatchesPage";
 import FleetPage from "./pages/Fleet/FleetPage";
 import CreateVehiclePage from "./pages/Fleet/CreateVehiclePage";
 import CreateVehicleTypePage from "./pages/Fleet/CreateVehicleTypePage";
+import EditVehicleTypePage from "./pages/Fleet/EditVehicleTypePage";
 import EditVehiclePage from "./pages/Fleet/EditVehiclePage";
 import MaintenanceLogPage from "./pages/Fleet/MaintenanceLogPage";
 import EditStaffPage from "./pages/Staff/EditStaffPage";
@@ -355,6 +356,14 @@ const App = () => {
                 element={
                   <ProtectedRoute requiredPermission={Permission.FLEET}>
                     <CreateVehicleTypePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/fleet/type/edit/:id"
+                element={
+                  <ProtectedRoute requiredPermission={Permission.FLEET}>
+                    <EditVehicleTypePage />
                   </ProtectedRoute>
                 }
               />

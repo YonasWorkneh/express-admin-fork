@@ -3,7 +3,10 @@ import {
   fetchDriverCommissionConfig,
   saveDriverCommissionConfig,
 } from "@/lib/api/driverCommissionConfig";
-import { fetchFleetVehicleTypes } from "@/lib/api/fleet";
+import {
+  fetchFleetVehicleTypes,
+  fetchFleetPublicVehicleTypes,
+} from "@/lib/api/fleet";
 import type {
   DriverCommissionRow,
   PricingServiceType,
@@ -13,6 +16,15 @@ export function useFleetVehicleTypesQuery() {
   return useQuery({
     queryKey: ["fleetVehicleTypes"],
     queryFn: fetchFleetVehicleTypes,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Public vehicle types for order flow (GET /fleet/type/public). */
+export function usePublicFleetVehicleTypesQuery() {
+  return useQuery({
+    queryKey: ["fleetPublicVehicleTypes"],
+    queryFn: fetchFleetPublicVehicleTypes,
     staleTime: 5 * 60 * 1000,
   });
 }
