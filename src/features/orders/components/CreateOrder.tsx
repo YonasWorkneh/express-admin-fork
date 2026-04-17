@@ -21,7 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import * as Yup from "yup";
 import api from "@/lib/api/api";
 import toast from "react-hot-toast";
-import type { Customer, CustomerListResponse, Pagination, Branch, BranchListResponse } from "@/types/types";
+import type { Customer, CustomerListResponse, Branch, BranchListResponse } from "@/types/types";
 import { Spinner } from "@/utils/spinner";
 import { Select as Style2 } from "antd";
 import { useServiceTypes } from "@/hooks/useServiceTypes";
@@ -180,7 +180,7 @@ export default function OrderForm() {
   // const [branchSearch, setBranchSearch] = useState("");
   const [showManagerDropdown, setShowManagerDropdown] = useState(false);
   // const [showBranchDropdown, setShowBranchDropdown] = useState(false);
-  const [pagination, setPagination] = useState<Pagination | null>(null);
+  // const [pagination, setPagination] = useState<Pagination | null>(null);
   // const [searchText, setSearchText] = useState("");
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [custoemr, setCustomer] = useState<Customer[]>([]);
@@ -206,7 +206,7 @@ export default function OrderForm() {
         `/users/customers?search=all:${managerSearch}&page=${1}&pageSize=${20}`
       );
       setCustomer(staffs.data.data);
-      setPagination(staffs.data.pagination);
+      // setPagination(staffs.data.pagination);
       // toast.success(staffs.data.message);
       setLoadingStaff(false);
     } catch (error: any) {
