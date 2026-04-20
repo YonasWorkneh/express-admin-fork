@@ -8,6 +8,7 @@ import {
   TrendingDown,
   LayoutGrid,
   Layers,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -585,7 +586,7 @@ export default function OrdersPage() {
               variant="outline"
               onClick={handleExport}
               disabled={isExportLoading || orders.length === 0}
-              className="text-gray-600 bg-transparent"
+              className="text-gray-600 bg-transparent cursor-pointer"
             >
               {isExportLoading ? (
                 <>
@@ -601,20 +602,13 @@ export default function OrdersPage() {
             </Button>
             <Button
               variant="outline"
-              className="text-gray-700 border-slate-200 hover:bg-slate-50"
+              className="text-gray-700 border-slate-200 hover:bg-slate-50 cursor-pointer"
               onClick={() => navigate("/order/item-categories")}
             >
               <LayoutGrid className="h-4 w-4 mr-2" />
               Item categories
             </Button>
-            <Button
-              variant="outline"
-              className="text-gray-700 border-slate-200 hover:bg-slate-50"
-              onClick={() => navigate("/service-types")}
-            >
-              <Layers className="h-4 w-4 mr-2" />
-              Service types
-            </Button>
+
             <Button
               className="bg-blue-600 hover:bg-blue-700 text-white !cursor-pointer"
               onClick={() => navigate("/order/new")}
@@ -789,24 +783,35 @@ export default function OrdersPage() {
                       key={index}
                       className="border-gray-100 hover:bg-gray-50 cursor-pointer"
                       onClick={() =>
-                        navigate(
-                          `/order/details/${order.id.replace(
-                            "#",
-                            "",
-                          )}?order=${encodeURIComponent(JSON.stringify(order))}`,
-                        )
+                        navigate(`/order/details/${order.id.replace("#", "")}`)
                       }
                     >
                       <TableCell>
                         <Checkbox />
                       </TableCell>
                       <TableCell className="font-medium text-gray-900">
-                        <Button
-                          variant="ghost"
-                          className="p-0 text-blue-600 hover:text-blue-800 cursor-pointer"
+                        <div
+                          className="flex items-center gap-1.5 max-w-[240px]"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          {order?.trackingCode}
-                        </Button>
+                          <span className="truncate text-blue-600 font-medium">
+                            {order?.trackingCode}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0 text-gray-500 hover:text-blue-700"
+                            aria-label="Copy tracking code"
+                            onClick={() => {
+                              const code = order.trackingCode ?? "";
+                              void navigator.clipboard.writeText(code);
+                              toast.success("Tracking code copied");
+                            }}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell className="text-gray-600">
                         {order.createdAt

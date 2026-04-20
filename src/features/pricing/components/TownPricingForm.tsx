@@ -33,10 +33,7 @@ function buildEmptyServiceConfigs(
   serviceTypes: ServiceType[],
 ): Record<string, TownServiceConfig> {
   return Object.fromEntries(
-    serviceTypes.map((st) => [
-      st.id,
-      { basePrice: 0, profitMargin: 0 },
-    ]),
+    serviceTypes.map((st) => [st.id, { basePrice: 0, profitMargin: 0 }]),
   );
 }
 
@@ -47,7 +44,9 @@ function hydrateFromParsedPrice(
   const base = buildEmptyServiceConfigs(serviceTypes);
   if (!parsed) return base;
 
-  const rows = parsed.serviceTypes as Array<Record<string, unknown>> | undefined;
+  const rows = parsed.serviceTypes as
+    | Array<Record<string, unknown>>
+    | undefined;
   let sawPerRowProfit = false;
 
   if (Array.isArray(rows)) {
@@ -166,8 +165,11 @@ export default function TownPricingForm() {
     unknown
   > | null>(null);
 
-  const { data: serviceTypes = [], isLoading: loadingST, isError: errST } =
-    useServiceTypes();
+  const {
+    data: serviceTypes = [],
+    isLoading: loadingST,
+    isError: errST,
+  } = useServiceTypes();
 
   useEffect(() => {
     const raw = searchParams.get("price");
@@ -181,7 +183,7 @@ export default function TownPricingForm() {
   }, [searchParams]);
 
   const isEditing = Boolean(parsedPrice && parsedPrice.id);
-
+  console.log("isEditing", isEditing);
   const initialValues: TownFormValues = useMemo(() => {
     const empty: TownFormValues = {
       remark: "",
@@ -264,8 +266,8 @@ export default function TownPricingForm() {
 
       {!loadingST && !errST && serviceTypes.length === 0 && (
         <p className="text-amber-700 text-sm py-8">
-          No service types found. Add service types under Service Type Management
-          first.
+          No service types found. Add service types under Service Type
+          Management first.
         </p>
       )}
 

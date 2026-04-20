@@ -859,10 +859,7 @@ const [loading] = useState<boolean>(true);
                           className="border-gray-100 hover:bg-gray-50 cursor-pointer"
                           onClick={() =>
                             navigate(
-                              `/order/details/${order.id.replace(
-                                "#",
-                                ""
-                              )}?order=${encodeURIComponent(JSON.stringify(order))}`
+                              `/order/details/${order.id.replace("#", "")}`,
                             )
                           }
                         >

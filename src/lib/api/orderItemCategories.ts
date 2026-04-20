@@ -97,3 +97,45 @@ export const createOrderItemCategory = async (
       : new Error("Failed to create category");
   }
 };
+
+export const updateOrderItemCategory = async (
+  id: string,
+  input: CreateOrderItemCategoryInput,
+): Promise<OrderItemCategory> => {
+  const body = {
+    name: input.name.trim(),
+    ...(input.description?.trim()
+      ? { description: input.description.trim() }
+      : {}),
+  };
+  try {
+    const response = await api.patch<unknown>(
+      `/order/item-categories/${encodeURIComponent(id)}`,
+      body,
+    );
+    const updated = normalizeCategory(response.data);
+    if (updated) return updated;
+    return {
+      id,
+      name: input.name.trim(),
+      description: input.description?.trim() ?? null,
+    };
+  } catch (error: unknown) {
+    const msg =
+      error &&
+      typeof error === "object" &&
+      "response" in error &&
+      (error as { response?: { data?: { message?: unknown } } }).response?.data
+        ?.message;
+    if (typeof msg === "string" && msg.trim()) {
+      throw new Error(msg);
+    }
+    throw error instanceof Error
+      ? error
+      : new Error("Failed to update category");
+  }
+};
+
+export const deleteOrderItemCategory = async (id: string): Promise<void> => {
+  await api.delete(`/order/item-categories/${encodeURIComponent(id)}`);
+};

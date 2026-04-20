@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Table,
   TableBody,
@@ -11,7 +11,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Spinner } from "@/utils/spinner";
-import toast from "react-hot-toast";
 import { Formik, Form } from "formik";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -24,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 
 import {
   IoArrowBack,
@@ -36,115 +34,97 @@ import {
   IoMap,
   IoList,
 } from "react-icons/io5";
-import api from "@/lib/api/api";
+import { fetchOrderById } from "@/lib/api/orders";
+import type { OrderDetailApi } from "@/types/orderDetail";
 
-// Mock data for demonstration
-const mockOrder = {
-  id: "#1002",
-  date: "11 Feb, 2024",
-  customer: "Wade Warren",
-  email: "wade.warren@email.com",
-  phone: "+1 (555) 123-4567",
-  payment: "Pending",
-  total: "$20.00",
-  items: "2 Items",
-  fulfillment: "Unfulfilled",
-  weight: 2.5,
-  category: "PARCEL",
-  isFragile: false,
-  serviceType: "STANDARD",
-  fulfillmentType: "PICKUP",
-  pickupAddress: "123 Main St, New York, NY 10001",
-  deliveryAddress: "456 Oak Ave, Brooklyn, NY 11201",
-  pickupDate: "2024-02-12T10:00",
-  deliveryDate: "2024-02-13T14:00",
-  cost: 20.0,
-  length: 30,
-  width: 20,
-  height: 15,
-};
+function getServiceTypeLabel(st: OrderDetailApi["serviceType"]): string {
+  if (st == null) return "";
+  if (typeof st === "object" && st !== null && "name" in st) {
+    return String((st as { name: string }).name);
+  }
+  return String(st);
+}
 
-const drivers = [
-  { id: "1", name: "John Smith", status: "Available", rating: 4.8 },
-  { id: "2", name: "Sarah Johnson", status: "Busy", rating: 4.9 },
-  { id: "3", name: "Mike Wilson", status: "Available", rating: 4.7 },
-  { id: "4", name: "Lisa Brown", status: "Available", rating: 4.6 },
-];
+function sortTrackingEntries(
+  entries: NonNullable<OrderDetailApi["orderTracking"]>,
+) {
+  return [...entries].sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
 
-
-
-const categories = [
-  "Documents",
-  "Edible/Food",
-  "Electronics",
-  "Chemicals",
-  "Clothing",
-  "Fragile Items",
-  "Heavy Items",
-  "Perishable",
-];
+function formatDimensions(order: OrderDetailApi): string {
+  const { length, width, height } = order;
+  if (length == null && width == null && height == null) return "—";
+  const l = length ?? "—";
+  const w = width ?? "—";
+  const h = height ?? "—";
+  return `${l}×${w}×${h} cm`;
+}
 
 export default function OrderDetails() {
-  //   const { id } = useParams();
+  const { id: routeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [selectedDriver, setSelectedDriver] = useState("");
-  // const [groupedOrders, setGroupedOrders] = useState<string[]>([]);
-  const query = new URLSearchParams(location.search);
+  const [order, setOrder] = useState<OrderDetailApi | null>(null);
+  const [loadingOrder, setLoadingOrder] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const orderDetail = query.get("order")
-    ? JSON.parse(query.get("order")!)
-    : null;
-    const [selectedCategory, setSelectedCategory] = useState(orderDetail?.category || []);
-    const [orderLogs, setOrderLogs] = useState<any[]>([]);
-    const [loadingLogs, setLoadingLogs] = useState(false);
-
-console.log("orderdetail: ",orderDetail)
-
-  // Fetch order logs
   useEffect(() => {
-    const fetchOrderLogs = async () => {
-      if (!orderDetail?.id) return;
-      
+    let cancelled = false;
+    const load = async () => {
+      if (!routeId?.trim()) {
+        setFetchError("Missing order id");
+        setLoadingOrder(false);
+        return;
+      }
       try {
-        setLoadingLogs(true);
-        const response = await api.get(`/order/status/log`);
-        
-        // Find the logs for this specific order
-        const orderData = response.data.data?.find((item: any) => item.id === orderDetail.id);
-        if (orderData?.logs) {
-          // Sort logs by createdAt descending (newest first)
-          const sortedLogs = orderData.logs.sort((a: any, b: any) => 
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        setLoadingOrder(true);
+        setFetchError(null);
+        const data = await fetchOrderById(routeId.replace(/^#/, ""));
+        if (!cancelled) setOrder(data);
+      } catch (e: unknown) {
+        const msg =
+          e &&
+          typeof e === "object" &&
+          "response" in e &&
+          (e as { response?: { data?: { message?: string } } }).response?.data
+            ?.message;
+        if (!cancelled) {
+          setFetchError(
+            typeof msg === "string" && msg.trim()
+              ? msg
+              : "Could not load order",
           );
-          setOrderLogs(sortedLogs);
-        } else {
-          setOrderLogs([]);
+          setOrder(null);
         }
-      } catch (error: any) {
-        console.error("Error fetching order logs:", error);
-        toast.error("Failed to load order logs");
-        setOrderLogs([]);
       } finally {
-        setLoadingLogs(false);
+        if (!cancelled) setLoadingOrder(false);
       }
     };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [routeId]);
 
-    fetchOrderLogs();
-  }, [orderDetail?.id]);
+  const orderLogs = useMemo(() => {
+    if (!order?.orderTracking?.length) return [];
+    return sortTrackingEntries(order.orderTracking);
+  }, [order?.orderTracking]);
 
-  const initialValues = {
-    fulfillmentDestination: orderDetail?.shippingScope,
-    serviceType: orderDetail.serviceType,
-    driverId: "",
-    fragilityLevel: orderDetail.isFragile ? "true" : "false",
-    category: mockOrder.category,
-    specialInstructions: "",
-    priority: "Normal",
-  };
-
-  const handleDriverAssignment = (driverId: string) => {
-    setSelectedDriver(driverId);
-  };
+  const initialValues = useMemo(
+    () => ({
+      fulfillmentDestination: order?.shippingScope ?? "",
+      serviceType: getServiceTypeLabel(order?.serviceType),
+      driverId: "",
+      fragilityLevel: order?.isFragile ? "true" : "false",
+      category: [] as string[],
+      specialInstructions: "",
+      priority: "Normal",
+    }),
+    [order],
+  );
 
   // const handleOrderGrouping = (orderId: string) => {
   //   setGroupedOrders((prev) =>
@@ -155,12 +135,13 @@ console.log("orderdetail: ",orderDetail)
   // };
 
   const getFulfillmentColor = (destination: string) => {
-    switch (destination) {
-      case "International":
+    switch (destination?.toUpperCase()) {
+      case "INTERNATIONAL":
         return "bg-blue-100 text-blue-700";
-      case "Regional":
+      case "REGIONAL":
         return "bg-green-100 text-green-700";
-      case "In-town":
+      case "TOWN":
+      case "IN_TOWN":
         return "bg-orange-100 text-orange-700";
       default:
         return "bg-gray-100 text-gray-700";
@@ -168,13 +149,16 @@ console.log("orderdetail: ",orderDetail)
   };
 
   const getServiceTypeColor = (type: string) => {
-    switch (type) {
-      case "Same-day":
+    switch (type?.toUpperCase()) {
+      case "SAME_DAY":
+      case "SAME DAY":
         return "bg-red-100 text-red-700";
-      case "Overnight":
+      case "OVERNIGHT":
         return "bg-purple-100 text-purple-700";
-      case "Standard":
+      case "STANDARD":
         return "bg-blue-100 text-blue-700";
+      case "EXPRESS":
+        return "bg-amber-100 text-amber-800";
       default:
         return "bg-gray-100 text-gray-700";
     }
@@ -203,9 +187,38 @@ console.log("orderdetail: ",orderDetail)
     }
   };
 
+  if (loadingOrder) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3 p-6">
+        <Spinner className="h-10 w-10 text-blue-600" />
+        <p className="text-gray-600">Loading order…</p>
+      </div>
+    );
+  }
+
+  if (fetchError || !order) {
+    return (
+      <div className="max-w-6xl p-6 bg-white">
+        <Button
+          type="button"
+          variant="outline"
+          className="mb-4 cursor-pointer"
+          onClick={() => navigate("/order")}
+        >
+          Back to orders
+        </Button>
+        <p className="text-red-600">
+          {fetchError ?? "Order could not be loaded."}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl p-6 bg-white">
       <Formik
+        key={order.id}
+        enableReinitialize
         initialValues={initialValues}
         onSubmit={(values) => {
           console.log("Order details updated:", values);
@@ -220,13 +233,13 @@ console.log("orderdetail: ",orderDetail)
                 <Button
                   type="button"
                   className="!text-white !size-[40px] bg-blue-500 hover:bg-blue-400 !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
-                  onClick={() => navigate(-1)}
+                  onClick={() => navigate("/order")}
                 >
                   <IoArrowBack className="text-white text-2xl" />
                 </Button>
                 <div>
                   <h1 className="text-2xl font-medium text-gray-700">
-                    Order Details - {orderDetail.trackingCode}
+                    Order Details - {order.trackingCode}
                   </h1>
                   <p className="text-gray-500">
                     Manage order fulfillment and delivery
@@ -237,7 +250,7 @@ console.log("orderdetail: ",orderDetail)
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => navigate(-1)}
+                  onClick={() => navigate("/order")}
                 >
                   Cancel
                 </Button>
@@ -262,49 +275,74 @@ console.log("orderdetail: ",orderDetail)
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <Label className="text-sm font-medium text-gray-600">
                           Customer
                         </Label>
                         <p className="text-lg font-semibold">
-                          {orderDetail?.customer?.name}
+                          {order?.customer?.name ?? "—"}
                         </p>
                         <p className="text-sm text-gray-500">
-                          {orderDetail?.customer?.email}
+                          {order?.customer?.email ?? "—"}
                         </p>
                         <p className="text-sm text-gray-500">
-                          {orderDetail?.customer?.phone}
+                          {order?.customer?.phone ?? "—"}
                         </p>
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-gray-600">
-                          Order Status
+                          Receiver
                         </Label>
-                        <div className="flex gap-2 mt-1">
+                        <p className="text-lg font-semibold">
+                          {order?.receiver?.name ?? "—"}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {order?.receiver?.email ?? "—"}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {order?.receiver?.phone ?? "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">
+                          Order status
+                        </Label>
+                        <div className="flex flex-wrap gap-2 mt-1">
                           <Badge
                             variant="secondary"
                             className="bg-orange-100 text-orange-700"
                           >
-                            {orderDetail.status}
+                            {order.status}
                           </Badge>
-                          <Badge
-                            variant="secondary"
-                            className="bg-red-100 text-red-700"
-                          >
-                            {orderDetail.fulfillmentType}
-                          </Badge>
+                          {order.fulfillmentType ? (
+                            <Badge
+                              variant="secondary"
+                              className="bg-red-100 text-red-700"
+                            >
+                              {order.fulfillmentType}
+                            </Badge>
+                          ) : null}
                         </div>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
                         <Label className="text-sm font-medium text-gray-600">
                           Total
                         </Label>
                         <p className="text-lg font-semibold">
-                          {orderDetail?.finalPrice} ETB
+                          {order.finalPrice}{" "}
+                          {order.currency ?? "ETB"}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">
+                          Quantity
+                        </Label>
+                        <p className="text-lg font-semibold">
+                          {order.quantity ?? "—"}
                         </p>
                       </div>
                       <div>
@@ -312,15 +350,15 @@ console.log("orderdetail: ",orderDetail)
                           Weight
                         </Label>
                         <p className="text-lg font-semibold">
-                          {orderDetail?.weight} kg
+                          {order.weight} kg
                         </p>
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-gray-600">
-                          Items
+                          Shipment type
                         </Label>
                         <p className="text-lg font-semibold">
-                          {orderDetail?.items}
+                          {String(order.shipmentType ?? "—")}
                         </p>
                       </div>
                     </div>
@@ -399,68 +437,28 @@ console.log("orderdetail: ",orderDetail)
                   </CardContent>
                 </Card>
 
-                {/* Driver Assignment */}
+                {/* Drivers (from API) */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <IoPerson className="h-5 w-5" />
-                      Driver Assignment
+                      Drivers
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       <div>
-                        <Label className="mb-2">Select Driver</Label>
-                        <Select
-                        disabled
-                          value={selectedDriver}
-                          onValueChange={handleDriverAssignment}
-                        >
-                          <SelectTrigger className="bg-gray-50 border-0 py-3">
-                            <SelectValue placeholder="Choose a driver" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {drivers.map((driver) => (
-                              <SelectItem
-                                key={driver.id}
-                                value={driver.id}
-                                disabled={driver.status === "Busy"}
-                              >
-                                <div className="flex items-center justify-between w-full">
-                                  <span>{driver.name}</span>
-                                  <div className="flex items-center gap-2 ml-4">
-                                    <span className="text-sm text-gray-500">
-                                      ★ {driver.rating}
-                                    </span>
-                                    <Badge
-                                      variant={
-                                        driver.status === "Available"
-                                          ? "default"
-                                          : "secondary"
-                                      }
-                                      className="text-xs"
-                                    >
-                                      {driver.status}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Label className="text-gray-600">Pickup driver</Label>
+                        <p className="font-medium mt-1">
+                          {order.pickupDriver?.name ?? "—"}
+                        </p>
                       </div>
-
-                      {selectedDriver && (
-                        <div className="bg-green-50 p-4 rounded-lg">
-                          <p className="text-green-700 font-medium">
-                            Driver assigned successfully!
-                          </p>
-                          <p className="text-sm text-green-600">
-                            {drivers.find((d) => d.id === selectedDriver)?.name}{" "}
-                            will handle this order.
-                          </p>
-                        </div>
-                      )}
+                      <div>
+                        <Label className="text-gray-600">Delivery driver</Label>
+                        <p className="font-medium mt-1">
+                          {order.deliveryDriver?.name ?? "—"}
+                        </p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -474,12 +472,7 @@ console.log("orderdetail: ",orderDetail)
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {loadingLogs ? (
-                      <div className="flex justify-center items-center py-8">
-                        <Spinner className="h-6 w-6 text-blue-600 mr-2" />
-                        <span className="text-gray-600">Loading logs...</span>
-                      </div>
-                    ) : orderLogs.length === 0 ? (
+                    {orderLogs.length === 0 ? (
                       <div className="text-center py-8 text-gray-500">
                         No activity logs found for this order
                       </div>
@@ -535,58 +528,49 @@ console.log("orderdetail: ",orderDetail)
                   </CardContent>
                 </Card>
 
-                {/* Fragility & Category */}
-           {/* Fragility & Category */}
-<Card>
-  <CardHeader>
-    <CardTitle className="flex items-center gap-2">
-      <IoShield className="h-5 w-5" />
-      Fragility & Category
-    </CardTitle>
-  </CardHeader>
-  <CardContent className="space-y-4">
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Fragility Level */}
-      <div>
-        <Label className="mb-2">Fragility Level</Label>
-        <Select
-          value={values.fragilityLevel}
-          onValueChange={(val) => setFieldValue("fragilityLevel", val)}
-        >
-          <SelectTrigger className="bg-gray-50 border-0 py-3">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="true">Yes</SelectItem>
-            <SelectItem value="false">No</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Multi-select Categories */}
-      <div>
-        <Label className="mb-2">Category</Label>
-        <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto border p-2 rounded">
-          {categories.map((category) => (
-            <div key={category} className="flex items-center gap-2">
-              <Checkbox
-                checked={selectedCategory.includes(category)}
-                onCheckedChange={(checked) => {
-                  let updated = [...selectedCategory];
-                  if (checked) updated.push(category);
-                  else updated = updated.filter((c) => c !== category);
-                  setSelectedCategory(updated);
-                  setFieldValue("category", updated);
-                }}
-              />
-              <span>{category}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  </CardContent>
-</Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <IoShield className="h-5 w-5" />
+                      Fragility and category
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="mb-2">Fragile</Label>
+                        <Select
+                          value={values.fragilityLevel}
+                          disabled
+                          onValueChange={(val) =>
+                            setFieldValue("fragilityLevel", val)
+                          }
+                        >
+                          <SelectTrigger className="bg-gray-50 border-0 py-3">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="true">Yes</SelectItem>
+                            <SelectItem value="false">No</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="mb-2">Category</Label>
+                        <div className="rounded-md border bg-gray-50 px-3 py-3 text-sm">
+                          <p className="font-medium">
+                            {order.category?.name ?? "—"}
+                          </p>
+                          {order.category?.description ? (
+                            <p className="text-gray-600 mt-1">
+                              {order.category.description}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
               </div>
 
@@ -603,26 +587,74 @@ console.log("orderdetail: ",orderDetail)
                   <CardContent className="space-y-4">
                     <div>
                       <Label className="text-sm font-medium text-gray-600">
-                        Pickup Address
+                        Pickup address
                       </Label>
+                      {order.pickupAddress?.label ? (
+                        <p className="text-sm font-medium text-gray-900 mt-1">
+                          {order.pickupAddress.label}
+                        </p>
+                      ) : null}
                       <p className="text-sm text-gray-800 mt-1">
-                        {orderDetail?.pickupAddress?.addressLine}
+                        {order.pickupAddress?.addressLine ?? "—"}
                       </p>
+                      <p className="text-xs text-gray-600 mt-1">
+                        {[
+                          order.pickupAddress?.city,
+                          order.pickupAddress?.state,
+                          order.pickupAddress?.postalCode,
+                          order.pickupAddress?.country,
+                        ]
+                          .filter(Boolean)
+                          .join(", ") || "—"}
+                      </p>
+                      {order.pickupAddress?.landMark ? (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Landmark: {order.pickupAddress.landMark}
+                        </p>
+                      ) : null}
                       <p className="text-xs text-gray-500 mt-1">
                         <IoTime className="inline h-3 w-3 mr-1" />
-                        {new Date(orderDetail.pickupAddress?.createdAt).toLocaleString()}
+                        {order.pickupAddress?.createdAt
+                          ? new Date(
+                              order.pickupAddress.createdAt,
+                            ).toLocaleString()
+                          : "—"}
                       </p>
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-gray-600">
-                        Delivery Address
+                        Delivery address
                       </Label>
+                      {order.deliveryAddress?.label ? (
+                        <p className="text-sm font-medium text-gray-900 mt-1">
+                          {order.deliveryAddress.label}
+                        </p>
+                      ) : null}
                       <p className="text-sm text-gray-800 mt-1">
-                        {orderDetail.deliveryAddress?.addressLine}
+                        {order.deliveryAddress?.addressLine ?? "—"}
                       </p>
+                      <p className="text-xs text-gray-600 mt-1">
+                        {[
+                          order.deliveryAddress?.city,
+                          order.deliveryAddress?.state,
+                          order.deliveryAddress?.postalCode,
+                          order.deliveryAddress?.country,
+                        ]
+                          .filter(Boolean)
+                          .join(", ") || "—"}
+                      </p>
+                      {order.deliveryAddress?.landMark ? (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Landmark: {order.deliveryAddress.landMark}
+                        </p>
+                      ) : null}
                       <p className="text-xs text-gray-500 mt-1">
                         <IoTime className="inline h-3 w-3 mr-1" />
-                        {new Date(orderDetail?.deliveryAddress?.createdAt).toLocaleString()}
+                        {order.deliveryAddress?.createdAt
+                          ? new Date(
+                              order.deliveryAddress.createdAt,
+                            ).toLocaleString()
+                          : "—"}
                       </p>
                     </div>
                   </CardContent>
@@ -719,28 +751,38 @@ console.log("orderdetail: ",orderDetail)
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Weight:</span>
+                      <span className="text-sm text-gray-600">Quantity:</span>
                       <span className="text-sm font-medium">
-                        {orderDetail.weight} kg
+                        {order.quantity ?? "—"}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Dimensions:</span>
+                      <span className="text-sm text-gray-600">Weight:</span>
                       <span className="text-sm font-medium">
-                        {orderDetail.length}×{orderDetail.width}×{orderDetail.height}{" "}
-                        cm
+                        {order.weight} kg
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-sm text-gray-600 shrink-0">
+                        Dimensions:
+                      </span>
+                      <span className="text-sm font-medium text-right">
+                        {formatDimensions(order)}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-600">Cost:</span>
                       <span className="text-sm font-medium">
-                        {orderDetail.cost} ETB
+                        {order.cost ?? order.finalPrice}{" "}
+                        {order.currency ?? "ETB"}
                       </span>
                     </div>
                     <div className="border-t pt-2 mt-2">
                       <div className="flex justify-between">
                         <span className="font-medium">Total:</span>
-                        <span className="font-bold">{orderDetail.finalPrice} ETB</span>
+                        <span className="font-bold">
+                          {order.finalPrice} {order.currency ?? "ETB"}
+                        </span>
                       </div>
                     </div>
                   </CardContent>

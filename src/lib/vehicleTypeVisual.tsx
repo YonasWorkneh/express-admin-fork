@@ -63,7 +63,7 @@ export function VehicleTypeIconByName({ name }: { name: string }) {
 }
 
 const defaultImgClass =
-  "max-h-14 max-w-14 object-contain rounded-md border border-gray-200";
+  "max-h-14 max-w-14 object-contain";
 
 /**
  * Renders API `iconUrl` as &lt;img&gt; when set; otherwise legacy URL or name-based icons.

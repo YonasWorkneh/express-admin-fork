@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Formik, Form, Field } from "formik";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import Button from "@/components/common/Button";
 import * as Yup from "yup";
 import { IoArrowBack, IoLayers } from "react-icons/io5";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   createVehicleType,
@@ -19,6 +19,28 @@ import { Info } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Spinner } from "@/utils/spinner";
 import { vehicleTypeImageSrc } from "@/lib/vehicleTypeVisual";
+
+/** First image file from a paste or drag clipboard payload */
+function fileFromClipboardData(data: DataTransfer | null): File | null {
+  if (!data?.items?.length) return null;
+  for (let i = 0; i < data.items.length; i++) {
+    const item = data.items[i];
+    if (item.kind === "file" && item.type.startsWith("image/")) {
+      const f = item.getAsFile();
+      if (f) return f;
+    }
+  }
+  return null;
+}
+
+/** Clipboard images often have an empty name; give a stable filename for multipart upload */
+function normalizePastedImageFile(file: File): File {
+  const name = file.name?.trim();
+  if (name) return file;
+  const sub = file.type.split("/")[1]?.replace(/\+xml$/, "") || "png";
+  const safeExt = sub === "jpeg" ? "jpg" : sub;
+  return new File([file], `pasted-image.${safeExt}`, { type: file.type });
+}
 
 const VehicleTypeValidationSchema = Yup.object().shape({
   name: Yup.string().trim().required("Name is required"),
@@ -35,6 +57,9 @@ export default function VehicleTypeForm({
   vehicleTypeId?: string;
 }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fleetListPath =
+    searchParams.get("tab") === "types" ? "/fleet?tab=types" : "/fleet";
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<
     "idle" | "submitting" | "success" | "error"
@@ -42,6 +67,22 @@ export default function VehicleTypeForm({
   const [message, setMessage] = useState<string | null>(null);
   const [iconFile, setIconFile] = useState<File | null>(null);
   const [iconPreviewUrl, setIconPreviewUrl] = useState<string | null>(null);
+  const statusRef = useRef(status);
+  statusRef.current = status;
+
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (statusRef.current === "submitting") return;
+      const file = fileFromClipboardData(e.clipboardData);
+      if (!file) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setIconFile(normalizePastedImageFile(file));
+      toast.success("Image pasted.");
+    };
+    window.addEventListener("paste", onPaste, true);
+    return () => window.removeEventListener("paste", onPaste, true);
+  }, []);
 
   const { data: types = [], isLoading } = useQuery({
     queryKey: ["fleetVehicleTypes"],
@@ -76,9 +117,9 @@ export default function VehicleTypeForm({
     if (mode !== "edit" || !vehicleTypeId || isLoading) return;
     if (!vt) {
       toast.error("Vehicle type not found.");
-      navigate("/fleet");
+      navigate(fleetListPath);
     }
-  }, [mode, vehicleTypeId, isLoading, vt, navigate]);
+  }, [mode, vehicleTypeId, isLoading, vt, navigate, fleetListPath]);
 
   const initialValues = useMemo(
     () => ({
@@ -116,7 +157,7 @@ export default function VehicleTypeForm({
       await queryClient.invalidateQueries({
         queryKey: ["fleetPublicVehicleTypes"],
       });
-      navigate("/fleet");
+      navigate(fleetListPath);
     } catch (error: unknown) {
       const data = (error as { response?: { data?: { message?: unknown } } })
         .response?.data;
@@ -173,7 +214,7 @@ export default function VehicleTypeForm({
                 <Button
                   type="button"
                   className="!text-white !size-[40px] bg-blue-500 hover:bg-blue-400 !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
-                  onClick={() => navigate(-1)}
+                  onClick={() => navigate(fleetListPath)}
                 >
                   <IoArrowBack className="text-white text-lg" />
                 </Button>
@@ -245,20 +286,28 @@ export default function VehicleTypeForm({
                     <span>
                       Prefer a small PNG or WebP with a transparent background.
                       {mode === "edit" &&
-                        " Leave empty to keep the current icon."}
+                        " Leave empty to keep the current icon."}{" "}
+                      Copy an image anywhere, then press Ctrl+V (⌘V on Mac) on
+                      this page to set the icon, or choose a file below.
                     </span>
                   </p>
-                  <Input
-                    id="vehicle-type-icon"
-                    type="file"
-                    accept="image/*"
-                    disabled={status === "submitting"}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] ?? null;
-                      setIconFile(file);
-                    }}
-                    className="py-7"
-                  />
+                  <div
+                    role="group"
+                    aria-label="Icon image file"
+                    className="rounded-lg border border-dashed border-gray-300 bg-white/60 p-3"
+                  >
+                    <Input
+                      id="vehicle-type-icon"
+                      type="file"
+                      accept="image/*"
+                      disabled={status === "submitting"}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        setIconFile(file);
+                      }}
+                      className="py-7"
+                    />
+                  </div>
                   {showPreview && (
                     <div className="space-y-2 mt-2">
                       <div className="flex justify-center rounded-lg border border-gray-200 bg-white p-3">
@@ -295,7 +344,7 @@ export default function VehicleTypeForm({
               <div className="flex gap-4">
                 <Button
                   type="button"
-                  onClick={() => navigate(-1)}
+                  onClick={() => navigate(fleetListPath)}
                   className="flex-1 bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300"
                 >
                   Cancel

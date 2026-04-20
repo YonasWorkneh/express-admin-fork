@@ -25,6 +25,7 @@ import type { Customer, CustomerListResponse, Branch, BranchListResponse } from 
 import { Spinner } from "@/utils/spinner";
 import { Select as Style2 } from "antd";
 import { useServiceTypes } from "@/hooks/useServiceTypes";
+import { useOrderItemCategories } from "@/hooks/useOrderItemCategories";
 import { usePublicFleetVehicleTypesQuery } from "@/hooks/useDriverCommissionConfig";
 import type { FleetVehicleTypeListItem } from "@/lib/api/fleet";
 import { VehicleTypeThumbnail } from "@/lib/vehicleTypeVisual";
@@ -197,6 +198,11 @@ export default function OrderForm() {
     isLoading: loadingVehicleTypes,
     isError: vehicleTypesError,
   } = usePublicFleetVehicleTypesQuery();
+  const {
+    data: orderItemCategories = [],
+    isLoading: loadingOrderItemCategories,
+    isError: orderItemCategoriesError,
+  } = useOrderItemCategories();
 
   const featchStaffs = async () => {
     try {
@@ -1094,20 +1100,44 @@ export default function OrderForm() {
                 )}
                 <div>
                   <Label className="mb-1">Category</Label>
-
+                  {loadingOrderItemCategories && (
+                    <div className="flex items-center gap-2 py-2 text-sm text-gray-600">
+                      <Spinner className="h-5 w-5 text-blue-600" />
+                      Loading categories…
+                    </div>
+                  )}
+                  {orderItemCategoriesError && (
+                    <p className="text-red-600 text-sm py-2">
+                      Could not load item categories.
+                    </p>
+                  )}
+                  {!loadingOrderItemCategories &&
+                    !orderItemCategoriesError &&
+                    orderItemCategories.length === 0 && (
+                      <p className="text-amber-700 text-sm py-2">
+                        No item categories configured. Add them under Orders →
+                        Item categories.
+                      </p>
+                    )}
                   <Style2
                     mode="multiple"
                     placeholder="Select category"
-                    value={values.category} // Make sure this is an array
+                    value={values.category}
                     onChange={(val) => setFieldValue("category", val)}
+                    disabled={
+                      loadingOrderItemCategories ||
+                      orderItemCategories.length === 0
+                    }
                     style={{
                       width: "100%",
-                      height: 56, // similar to py-7
+                      height: 56,
                     }}
                   >
-                    <Style2.Option value="courier">Courier</Style2.Option>
-                    <Style2.Option value="food">Food</Style2.Option>
-                    <Style2.Option value="chemical">Chemical</Style2.Option>
+                    {orderItemCategories.map((cat) => (
+                      <Style2.Option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </Style2.Option>
+                    ))}
                   </Style2>
                 </div>
                 <div>

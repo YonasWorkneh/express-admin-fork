@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, LayoutGrid, Plus } from "lucide-react";
+import { ArrowLeft, LayoutGrid, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -25,8 +25,12 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   useOrderItemCategories,
   useCreateOrderItemCategory,
+  useUpdateOrderItemCategory,
+  useDeleteOrderItemCategory,
 } from "@/hooks/useOrderItemCategories";
+import type { OrderItemCategory } from "@/types/orderCategories";
 import toast from "react-hot-toast";
+import ConfirmDialog from "@/components/common/DeleteModal";
 
 export default function OrderItemCategoriesPage() {
   const navigate = useNavigate();
@@ -38,31 +42,99 @@ export default function OrderItemCategoriesPage() {
     refetch,
   } = useOrderItemCategories();
   const createMutation = useCreateOrderItemCategory();
+  const updateMutation = useUpdateOrderItemCategory();
+  const deleteMutation = useDeleteOrderItemCategory();
 
-  const [addOpen, setAddOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingCategory, setEditingCategory] =
+    useState<OrderItemCategory | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [categoryPendingDelete, setCategoryPendingDelete] =
+    useState<OrderItemCategory | null>(null);
+
+  const isEdit = editingCategory !== null;
 
   const resetForm = () => {
     setName("");
     setDescription("");
+    setEditingCategory(null);
   };
 
-  const handleAdd = async (e: React.FormEvent) => {
+  const openAdd = () => {
+    setEditingCategory(null);
+    setName("");
+    setDescription("");
+    setFormOpen(true);
+  };
+
+  const openEdit = (row: OrderItemCategory) => {
+    setEditingCategory(row);
+    setName(row.name);
+    setDescription(row.description?.trim() ?? "");
+    setFormOpen(true);
+  };
+
+  const openDeleteDialog = (row: OrderItemCategory) => {
+    if (!row.id?.trim()) {
+      toast.error("Cannot delete category without an id.");
+      return;
+    }
+    setCategoryPendingDelete(row);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteDialogOpenChange = (open: boolean) => {
+    setDeleteDialogOpen(open);
+    if (!open) setCategoryPendingDelete(null);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!categoryPendingDelete?.id?.trim()) return;
+    deleteMutation.mutate(categoryPendingDelete.id, {
+      onSuccess: () => {
+        toast.success("Category deleted.");
+        setDeleteDialogOpen(false);
+        setCategoryPendingDelete(null);
+      },
+      onError: (err: unknown) => {
+        const data = (err as { response?: { data?: { message?: unknown } } })
+          .response?.data;
+        const apiMessage = data?.message;
+        toast.error(
+          typeof apiMessage === "string" && apiMessage.trim()
+            ? apiMessage
+            : "Could not delete category.",
+        );
+      },
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
       toast.error("Name is required.");
       return;
     }
+    const payload = {
+      name: trimmed,
+      description: description.trim() || undefined,
+    };
     try {
-      await createMutation.mutateAsync({
-        name: trimmed,
-        description: description.trim() || undefined,
-      });
-      toast.success("Category created.");
+      if (isEdit && editingCategory) {
+        await updateMutation.mutateAsync({
+          id: editingCategory.id,
+          input: payload,
+        });
+        toast.success("Category updated.");
+      } else {
+        await createMutation.mutateAsync(payload);
+        toast.success("Category created.");
+      }
       resetForm();
-      setAddOpen(false);
+      setFormOpen(false);
     } catch (err: unknown) {
       const msg =
         err &&
@@ -73,7 +145,9 @@ export default function OrderItemCategoriesPage() {
       toast.error(
         typeof msg === "string" && msg.trim()
           ? msg
-          : "Could not create category.",
+          : isEdit
+            ? "Could not update category."
+            : "Could not create category.",
       );
     }
   };
@@ -108,7 +182,7 @@ export default function OrderItemCategoriesPage() {
           </div>
           <Button
             className="bg-blue-600 text-white shadow-sm hover:bg-blue-700"
-            onClick={() => setAddOpen(true)}
+            onClick={openAdd}
           >
             <Plus className="mr-2 h-4 w-4" />
             Add category
@@ -155,7 +229,7 @@ export default function OrderItemCategoriesPage() {
                 </p>
                 <Button
                   className="mt-6 bg-blue-600 text-white hover:bg-blue-700"
-                  onClick={() => setAddOpen(true)}
+                  onClick={openAdd}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Add category
@@ -174,6 +248,9 @@ export default function OrderItemCategoriesPage() {
                       </TableHead>
                       <TableHead className="hidden w-[22%] font-semibold text-slate-700 md:table-cell">
                         Created
+                      </TableHead>
+                      <TableHead className="w-[140px] text-right font-semibold text-slate-700">
+                        Actions
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -200,6 +277,34 @@ export default function OrderItemCategoriesPage() {
                             ? new Date(row.createdAt).toLocaleString()
                             : "—"}
                         </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-3">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="cursor-pointer text-blue-600 bg-blue-50 hover:text-blue-700 hover:bg-blue-100"
+                              aria-label={`Edit ${row.name}`}
+                              onClick={() => openEdit(row)}
+                            >
+                              <Pencil
+                                className="h-4 w-4 text-blue-600"
+                                aria-hidden
+                              />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="cursor-pointer text-red-600 bg-red-50 hover:text-red-700 hover:bg-red-100"
+                              aria-label={`Delete ${row.name}`}
+                              disabled={deleteMutation.isPending}
+                              onClick={() => openDeleteDialog(row)}
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -211,16 +316,18 @@ export default function OrderItemCategoriesPage() {
       </div>
 
       <Dialog
-        open={addOpen}
+        open={formOpen}
         onOpenChange={(open) => {
-          setAddOpen(open);
+          setFormOpen(open);
           if (!open) resetForm();
         }}
       >
         <DialogContent className="sm:max-w-md">
-          <form onSubmit={handleAdd}>
+          <form onSubmit={handleSubmit}>
             <DialogHeader>
-              <DialogTitle>Add item category</DialogTitle>
+              <DialogTitle>
+                {isEdit ? "Edit item category" : "Add item category"}
+              </DialogTitle>
               <DialogDescription>
                 Enter a name and optional description.
               </DialogDescription>
@@ -234,7 +341,9 @@ export default function OrderItemCategoriesPage() {
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Electronics"
                   autoComplete="off"
-                  disabled={createMutation.isPending}
+                  disabled={
+                    createMutation.isPending || updateMutation.isPending
+                  }
                 />
               </div>
               <div className="grid gap-2">
@@ -245,33 +354,58 @@ export default function OrderItemCategoriesPage() {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Optional details"
                   rows={3}
-                  disabled={createMutation.isPending}
+                  disabled={
+                    createMutation.isPending || updateMutation.isPending
+                  }
                 />
               </div>
             </div>
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter className="gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
                   resetForm();
-                  setAddOpen(false);
+                  setFormOpen(false);
                 }}
-                disabled={createMutation.isPending}
+                disabled={
+                  createMutation.isPending || updateMutation.isPending
+                }
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 className="bg-blue-600 text-white hover:bg-blue-700"
-                disabled={createMutation.isPending}
+                disabled={
+                  createMutation.isPending || updateMutation.isPending
+                }
               >
-                {createMutation.isPending ? "Saving…" : "Save"}
+                {createMutation.isPending || updateMutation.isPending
+                  ? "Saving…"
+                  : isEdit
+                    ? "Update"
+                    : "Save"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        isOpen={deleteDialogOpen}
+        setIsOpen={handleDeleteDialogOpenChange}
+        title="Confirm Delete"
+        description={
+          categoryPendingDelete
+            ? `This will permanently remove “${categoryPendingDelete.name}”. If any orders or line items already reference this category, the delete cannot be completed.`
+            : ""
+        }
+        onConfirm={handleConfirmDelete}
+        loading={deleteMutation.isPending}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </div>
   );
 }

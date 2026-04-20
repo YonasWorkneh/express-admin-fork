@@ -456,15 +456,17 @@ function buildCategoryPricingEntry(
   };
 }
 
-/** Backend tariff payload: scope, serviceTypeId, categoryPricing[], … */
+/** Backend tariff payload: scope, serviceTypeId, name, categoryPricing[], … */
 function buildTariffPayloadForServiceType(
   st: ServiceType,
   cfg: ServiceTabValues,
   categories: OrderItemCategory[],
   shippingScope: "INTERNATIONAL" | "REGIONAL",
+  tariffDisplayName: string,
 ): {
   scope: "INTERNATIONAL" | "REGIONAL";
   serviceTypeId: string;
+  name: string;
   categoryPricing: ReturnType<typeof buildCategoryPricingEntry>[];
   remark: string;
   additionalCost: number;
@@ -474,9 +476,16 @@ function buildTariffPayloadForServiceType(
     buildCategoryPricingEntry(cat, cfg.categories[cat.id]),
   );
 
+  const shortName = cfg.name?.trim() || st.name;
+  const prefix = `${tariffDisplayName} - `;
+  const name = shortName.startsWith(prefix)
+    ? shortName
+    : `${prefix}${shortName}`;
+
   return {
     scope: shippingScope,
     serviceTypeId: st.id,
+    name,
     categoryPricing,
     remark: cfg.remark,
     additionalCost: cfg.additionalCost,
@@ -490,6 +499,7 @@ function buildPayload(
   serviceTypes: ServiceType[],
   categories: OrderItemCategory[],
   serviceTypeId: string,
+  tariffDisplayName: string,
 ): ReturnType<typeof buildTariffPayloadForServiceType> {
   const st = serviceTypes.find((s) => s.id === serviceTypeId);
   const cfg = st ? values.serviceConfigs[st.id] : undefined;
@@ -501,6 +511,7 @@ function buildPayload(
     cfg,
     categories,
     shippingScope,
+    tariffDisplayName,
   );
 }
 
@@ -565,6 +576,7 @@ export default function ZonalTariffPricingForm({
 
   const initialValues: ZonalTariffFormValues = useMemo(() => {
     const empty = buildEmptyServiceConfigs(serviceTypes, categories);
+    console.log("isEditing", isEditing);
     if (isEditing && parsedPrice) {
       return {
         serviceConfigs: hydrateFromParsedPrice(
@@ -577,6 +589,8 @@ export default function ZonalTariffPricingForm({
     }
     return { serviceConfigs: empty };
   }, [isEditing, parsedPrice, serviceTypes, categories, tariffDisplayName]);
+
+
 
   const handleSubmit = async (values: ZonalTariffFormValues) => {
     const submitServiceTypeId = activeTabId ?? serviceTypes[0]?.id;
@@ -592,6 +606,7 @@ export default function ZonalTariffPricingForm({
         serviceTypes,
         categories,
         submitServiceTypeId,
+        tariffDisplayName,
       );
 
       if (isEditing && parsedPrice?.id) {

@@ -22,6 +22,7 @@ import { useFleetVehicleTypesQuery } from "@/hooks/useDriverCommissionConfig";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
+import ConfirmDialog from "@/components/common/DeleteModal";
 
 const DESCRIPTION_PREVIEW_LENGTH = 20;
 
@@ -75,6 +76,10 @@ function VehicleTypeDescriptionCell({
 export default function FleetTypesList() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [typePendingDelete, setTypePendingDelete] =
+    useState<FleetVehicleTypeListItem | null>(null);
+
   const {
     data: types = [],
     isLoading,
@@ -91,28 +96,29 @@ export default function FleetTypesList() {
       await queryClient.invalidateQueries({
         queryKey: ["fleetPublicVehicleTypes"],
       });
+      setDeleteDialogOpen(false);
+      setTypePendingDelete(null);
     },
-    onError: (err: unknown) => {
-      const data = (err as { response?: { data?: { message?: unknown } } })
-        .response?.data;
-      const apiMessage = data?.message;
-      const errorText =
-        typeof apiMessage === "string" && apiMessage.trim().length > 0
-          ? apiMessage
-          : "Could not delete vehicle type.";
-      toast.error(errorText);
+    onError: () => {
+      toast.error(
+        "Unable to delete this vehicle type. It may still be in use.",
+      );
     },
   });
 
-  const handleDelete = (vt: FleetVehicleTypeListItem) => {
-    if (
-      !window.confirm(
-        `Delete vehicle type “${vt.name}”? This cannot be undone.`,
-      )
-    ) {
-      return;
-    }
-    deleteMutation.mutate(vt.id);
+  const openDeleteDialog = (vt: FleetVehicleTypeListItem) => {
+    setTypePendingDelete(vt);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!typePendingDelete?.id) return;
+    deleteMutation.mutate(typePendingDelete.id);
+  };
+
+  const handleDeleteDialogOpenChange = (open: boolean) => {
+    setDeleteDialogOpen(open);
+    if (!open) setTypePendingDelete(null);
   };
 
   if (isLoading) {
@@ -210,7 +216,9 @@ export default function FleetTypesList() {
                       className="cursor-pointer text-blue-600 bg-blue-50 hover:text-blue-700 hover:bg-blue-100"
                       aria-label={`Edit ${vt.name}`}
                       onClick={() =>
-                        navigate(`/fleet/type/edit/${encodeURIComponent(vt.id)}`)
+                        navigate(
+                          `/fleet/type/edit/${encodeURIComponent(vt.id)}?tab=types`,
+                        )
                       }
                     >
                       <Pencil className="h-4 w-4 text-blue-600" aria-hidden />
@@ -223,7 +231,7 @@ export default function FleetTypesList() {
                       className="cursor-pointer text-red-600 bg-red-50 hover:text-red-700 hover:bg-red-100"
                       aria-label={`Delete ${vt.name}`}
                       disabled={deleteMutation.isPending}
-                      onClick={() => handleDelete(vt)}
+                      onClick={() => openDeleteDialog(vt)}
                     >
                       <Trash2 className="h-4 w-4" aria-hidden />
                      
@@ -235,6 +243,21 @@ export default function FleetTypesList() {
           </TableBody>
         </Table>
       </div>
+
+      <ConfirmDialog
+        isOpen={deleteDialogOpen}
+        setIsOpen={handleDeleteDialogOpenChange}
+        title="Confirm Delete"
+        description={
+          typePendingDelete
+            ? `This will permanently remove “${typePendingDelete.name}”. If any vehicle in the fleet is already assigned to this type, the delete cannot be performed.`
+            : ""
+        }
+        onConfirm={handleConfirmDelete}
+        loading={deleteMutation.isPending}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </div>
   );
 }

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import TablePagination from "@/components/common/TablePagination";
 import {
   IoAdd,
@@ -88,9 +88,26 @@ console.log(setFilterOwnership,filterOwnership)
   const [selectedFleet, setSelectedFeet] = useState<FleetVehicle | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteLaoding, setDeleteLoading] = useState<boolean>(false);
-  const [fleetTab, setFleetTab] = useState<"vehicles" | "types">("vehicles");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const fleetTab =
+    searchParams.get("tab") === "types" ? "types" : "vehicles";
 
   const navigate = useNavigate();
+
+  const setFleetTab = (tab: "vehicles" | "types") => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (tab === "vehicles") {
+          next.delete("tab");
+        } else {
+          next.set("tab", "types");
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
   const featchFleet = async (page=1,limit=10) => {
     try {
@@ -320,7 +337,7 @@ console.log(staffs.data)
                 <Button
                   variant="outline"
                   className="bg-blue-500 hover:bg-blue-600 cursor-pointer text-white hover:text-white"
-                  onClick={() => navigate("/fleet/type/create")}
+                  onClick={() => navigate("/fleet/type/create?tab=types")}
                 >
                   <IoAdd className="mr-2 h-4 w-4" />
                   Add vehicle type
