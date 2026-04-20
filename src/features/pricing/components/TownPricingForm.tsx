@@ -19,13 +19,26 @@ const TARIFF_DISPLAY_NAME = "Town Delivery Tariff";
 
 const LEGACY_SERVICE_TYPE_KEYS = ["STANDARD", "EXPRESS", "OVERNIGHT"] as const;
 
+/** Match zonal: store short name in the form; full API name uses display prefix on submit. */
+function hydrateTownTabNameFromTariff(
+  tab: TownServiceConfig,
+  tariffName: unknown,
+) {
+  if (typeof tariffName === "string" && tariffName.trim()) {
+    const n = tariffName.trim();
+    const prefix = `${TARIFF_DISPLAY_NAME} - `;
+    tab.name = n.startsWith(prefix) ? n.slice(prefix.length) : n;
+  }
+}
+
 export type TownServiceConfig = {
+  name: string;
+  remark: string;
   basePrice: number;
   profitMargin: number;
 };
 
 export type TownFormValues = {
-  remark: string;
   serviceConfigs: Record<string, TownServiceConfig>;
 };
 
@@ -33,7 +46,10 @@ function buildEmptyServiceConfigs(
   serviceTypes: ServiceType[],
 ): Record<string, TownServiceConfig> {
   return Object.fromEntries(
-    serviceTypes.map((st) => [st.id, { basePrice: 0, profitMargin: 0 }]),
+    serviceTypes.map((st) => [
+      st.id,
+      { name: "", remark: "Standard", basePrice: 0, profitMargin: 0 },
+    ]),
   );
 }
 
@@ -43,6 +59,41 @@ function hydrateFromParsedPrice(
 ): Record<string, TownServiceConfig> {
   const base = buildEmptyServiceConfigs(serviceTypes);
   if (!parsed) return base;
+
+  let hasRowOrTownPricingProfit = false;
+
+  const tpRoot = parsed.townPricing;
+  const rootServiceTypeId =
+    typeof parsed.serviceTypeId === "string" && parsed.serviceTypeId.trim()
+      ? parsed.serviceTypeId.trim()
+      : null;
+  if (
+    tpRoot &&
+    typeof tpRoot === "object" &&
+    !Array.isArray(tpRoot) &&
+    rootServiceTypeId &&
+    serviceTypes.some((s) => s.id === rootServiceTypeId)
+  ) {
+    const tp = tpRoot as Record<string, unknown>;
+    const fee =
+      typeof tp.baseFee === "number" && !Number.isNaN(tp.baseFee)
+        ? tp.baseFee
+        : undefined;
+    const pct =
+      typeof tp.profitPct === "number" && !Number.isNaN(tp.profitPct)
+        ? tp.profitPct
+        : typeof tp.profitMargin === "number" && !Number.isNaN(tp.profitMargin)
+          ? tp.profitMargin
+          : undefined;
+    if (typeof fee === "number") {
+      base[rootServiceTypeId].basePrice = fee;
+    }
+    if (typeof pct === "number") {
+      base[rootServiceTypeId].profitMargin = pct;
+      hasRowOrTownPricingProfit = true;
+    }
+    hydrateTownTabNameFromTariff(base[rootServiceTypeId], parsed.name);
+  }
 
   const townConfig = parsed.townConfig;
   if (townConfig != null && typeof townConfig === "object") {
@@ -90,6 +141,10 @@ function hydrateFromParsedPrice(
             : undefined;
       if (typeof fee === "number") base[st.id].basePrice = fee;
 
+      if (typeof row.name === "string" && row.name.trim()) {
+        hydrateTownTabNameFromTariff(base[st.id], row.name);
+      }
+
       const rowProfit =
         typeof row.profitMargin === "number"
           ? row.profitMargin
@@ -105,13 +160,51 @@ function hydrateFromParsedPrice(
     }
   }
 
+  if (sawPerRowProfit) hasRowOrTownPricingProfit = true;
+
+  const sidForName =
+    typeof parsed.serviceTypeId === "string" && parsed.serviceTypeId.trim()
+      ? parsed.serviceTypeId.trim()
+      : null;
+  if (
+    sidForName &&
+    serviceTypes.some((s) => s.id === sidForName) &&
+    typeof parsed.name === "string" &&
+    !base[sidForName].name?.trim()
+  ) {
+    hydrateTownTabNameFromTariff(base[sidForName], parsed.name);
+  }
+
   const globalProfit =
     (parsed.profitMargin as { percentage?: number } | undefined)?.percentage ??
     (typeof parsed.profit === "number" ? parsed.profit : undefined);
 
-  if (!sawPerRowProfit && typeof globalProfit === "number") {
+  if (!hasRowOrTownPricingProfit && typeof globalProfit === "number") {
     for (const st of serviceTypes) {
       base[st.id].profitMargin = globalProfit;
+    }
+  }
+
+  const globalRemark =
+    typeof parsed.remark === "string" && parsed.remark.trim()
+      ? (parsed.remark as string)
+      : "Standard";
+  if (
+    tpRoot &&
+    typeof tpRoot === "object" &&
+    !Array.isArray(tpRoot) &&
+    rootServiceTypeId &&
+    serviceTypes.some((s) => s.id === rootServiceTypeId)
+  ) {
+    base[rootServiceTypeId].remark = globalRemark;
+    for (const st of serviceTypes) {
+      if (st.id !== rootServiceTypeId) {
+        base[st.id].remark = "Standard";
+      }
+    }
+  } else {
+    for (const st of serviceTypes) {
+      base[st.id].remark = globalRemark;
     }
   }
 
@@ -121,15 +214,20 @@ function hydrateFromParsedPrice(
 function validateValues(
   values: TownFormValues,
   serviceTypes: ServiceType[],
+  /** When set, only validate this service tab (matches single-tariff submit). */
+  activeServiceTypeId: string | null,
 ): FormikErrors<TownFormValues> {
   const errors: FormikErrors<TownFormValues> = {};
-  if (!values.remark?.trim()) errors.remark = "Remark type is required";
+  const typesToValidate = activeServiceTypeId
+    ? serviceTypes.filter((st) => st.id === activeServiceTypeId)
+    : serviceTypes;
 
   const scErrors: FormikErrors<TownFormValues["serviceConfigs"]> = {};
-  for (const st of serviceTypes) {
+  for (const st of typesToValidate) {
     const cfg = values.serviceConfigs[st.id];
     if (!cfg) continue;
     const one: FormikErrors<TownServiceConfig> = {};
+    if (!cfg.remark?.trim()) one.remark = "Remark type is required";
     if (cfg.basePrice < 0) one.basePrice = "Must be ≥ 0";
     if (cfg.profitMargin < 0 || cfg.profitMargin > 100) {
       one.profitMargin = "Must be between 0 and 100";
@@ -140,33 +238,35 @@ function validateValues(
   return errors;
 }
 
-function buildPayload(
+/** One POST/PATCH body for the active service type tab (backend `townPricing` shape). */
+function buildPayloadForServiceType(
   values: TownFormValues,
-  serviceTypes: ServiceType[],
+  st: ServiceType,
 ): {
   name: string;
-  shippingScope: "TOWN";
-  currency: string;
+  scope: "TOWN";
   remark: string;
-  serviceTypes: {
-    serviceTypeId: string;
+  serviceTypeId: string;
+  townPricing: {
     baseFee: number;
-    profitMargin: number;
-  }[];
+    profitPct: number;
+  };
 } {
+  const cfg = values.serviceConfigs[st.id];
+  const shortName = cfg?.name?.trim() || st.name;
+  const prefix = `${TARIFF_DISPLAY_NAME} - `;
+  const name = shortName.startsWith(prefix)
+    ? shortName
+    : `${prefix}${shortName}`;
   return {
-    name: TARIFF_DISPLAY_NAME,
-    shippingScope: "TOWN",
-    currency: "ETB",
-    remark: values.remark.trim(),
-    serviceTypes: serviceTypes.map((st) => {
-      const cfg = values.serviceConfigs[st.id];
-      return {
-        serviceTypeId: st.id,
-        baseFee: cfg?.basePrice ?? 0,
-        profitMargin: cfg?.profitMargin ?? 0,
-      };
-    }),
+    name,
+    scope: "TOWN",
+    remark: (cfg?.remark ?? "").trim() || "Standard",
+    serviceTypeId: st.id,
+    townPricing: {
+      baseFee: cfg?.basePrice ?? 0,
+      profitPct: cfg?.profitMargin ?? 0,
+    },
   };
 }
 
@@ -248,30 +348,49 @@ export default function TownPricingForm({
   }, [enableTariffListProbe]);
 
   const isEditing = Boolean(parsedPrice && parsedPrice.id);
+
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (serviceTypes.length && !activeTabId) {
+      setActiveTabId(serviceTypes[0].id);
+    }
+  }, [serviceTypes, activeTabId]);
+
+  /** PATCH submits the active tab’s service type; align tab with API when editing. */
+  useEffect(() => {
+    if (!isEditing || !parsedPrice || !serviceTypes.length) return;
+    const sid = parsedPrice.serviceTypeId;
+    if (typeof sid === "string" && serviceTypes.some((s) => s.id === sid)) {
+      setActiveTabId(sid);
+    }
+  }, [isEditing, parsedPrice, serviceTypes]);
+
   const initialValues: TownFormValues = useMemo(() => {
-    const empty: TownFormValues = {
-      remark: "",
-      serviceConfigs: buildEmptyServiceConfigs(serviceTypes),
-    };
     if (isEditing && parsedPrice) {
       return {
-        remark:
-          typeof parsedPrice.remark === "string" && parsedPrice.remark.trim()
-            ? (parsedPrice.remark as string)
-            : "Standard",
         serviceConfigs: hydrateFromParsedPrice(parsedPrice, serviceTypes),
       };
     }
     return {
-      ...empty,
-      remark: "Standard",
+      serviceConfigs: buildEmptyServiceConfigs(serviceTypes),
     };
   }, [isEditing, parsedPrice, serviceTypes]);
 
   const handleSubmit = async (values: TownFormValues) => {
+    const submitServiceTypeId = activeTabId ?? serviceTypes[0]?.id;
+    if (!submitServiceTypeId) {
+      toast.error("Select a service type before saving.");
+      return;
+    }
+    const st = serviceTypes.find((s) => s.id === submitServiceTypeId);
+    if (!st) {
+      toast.error("Select a service type before saving.");
+      return;
+    }
     try {
       setLoading(true);
-      const payload = buildPayload(values, serviceTypes);
+      const payload = buildPayloadForServiceType(values, st);
 
       if (isEditing && parsedPrice?.id) {
         await api.patch(`/pricing/tariff/${parsedPrice.id as string}`, payload);
@@ -339,7 +458,13 @@ export default function TownPricingForm({
         <Formik<TownFormValues>
           enableReinitialize
           initialValues={initialValues}
-          validate={(v) => validateValues(v, serviceTypes)}
+          validate={(v) =>
+            validateValues(
+              v,
+              serviceTypes,
+              activeTabId ?? serviceTypes[0]?.id ?? null,
+            )
+          }
           onSubmit={handleSubmit}
         >
           {({ values, errors, touched, setFieldValue, setFieldTouched }) => (
@@ -352,31 +477,31 @@ export default function TownPricingForm({
                 }
               />
 
-              <div className="mb-6">
-                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                    Remark type
-                  </h3>
-                  <PricingShadcnSelect
-                    id="remark"
-                    label="Select remark type"
-                    placeholder="Select remark type"
-                    value={values.remark}
-                    onValueChange={(v) => setFieldValue("remark", v)}
-                    onClose={() => setFieldTouched("remark", true)}
-                    options={[...remarkOptions]}
-                    error={errors.remark}
-                    touched={touched.remark}
-                  />
-                </div>
-              </div>
-
               <div className="mb-2">
                 <h3 className="text-sm font-medium text-gray-700 mb-2">
                   Service types
                 </h3>
+                <div className="flex flex-wrap gap-2 pb-1">
+                  {serviceTypes.map((st) => {
+                    const active = activeTabId === st.id;
+                    return (
+                      <button
+                        key={st.id}
+                        type="button"
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer border ${
+                          active
+                            ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                            : "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200 hover:border-gray-300"
+                        }`}
+                        onClick={() => setActiveTabId(st.id)}
+                      >
+                        {st.name}
+                      </button>
+                    );
+                  })}
+                </div>
                 <div
-                  className="mb-4 flex gap-2.5 rounded-lg border border-blue-200/80 bg-blue-50/90 px-3 py-2.5 text-sm text-blue-900"
+                  className="mt-3 mb-4 flex gap-2.5 rounded-lg border border-blue-200/80 bg-blue-50/90 px-3 py-2.5 text-sm text-blue-900"
                   role="status"
                 >
                   <Info
@@ -384,62 +509,96 @@ export default function TownPricingForm({
                     aria-hidden
                   />
                   <p className="leading-snug">
-                    Set base price and profit margin for each service type.
+                    One save sends one request for the selected service type
+                    only—same pattern as regional/international pricing. Add
+                    another town tariff by switching tabs and saving again.
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-4 mb-8">
-                {serviceTypes.map((st) => {
-                  const scErr = errors.serviceConfigs?.[st.id];
-                  const scTouch = touched.serviceConfigs?.[st.id];
-                  return (
-                    <div
-                      key={st.id}
-                      className="border border-gray-100 rounded-lg p-4 bg-gray-50/50 space-y-4"
-                    >
-                      <h4 className="text-base font-semibold text-gray-900">
-                        {st.name}
-                      </h4>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                          <Label className="mb-1">Base price (ETB)</Label>
-                          <Field
-                            as={Input}
-                            type="number"
-                            step="0.01"
-                            min={0}
-                            name={`serviceConfigs.${st.id}.basePrice`}
-                            className="py-2"
-                          />
-                          {scErr?.basePrice && scTouch?.basePrice && (
-                            <p className="text-red-500 text-sm mt-1">
-                              {scErr.basePrice}
-                            </p>
-                          )}
-                        </div>
-                        <div>
-                          <Label className="mb-1">Profit margin (%)</Label>
-                          <Field
-                            as={Input}
-                            type="number"
-                            step="0.01"
-                            min={0}
-                            max={100}
-                            name={`serviceConfigs.${st.id}.profitMargin`}
-                            className="py-2"
-                          />
-                          {scErr?.profitMargin && scTouch?.profitMargin && (
-                            <p className="text-red-500 text-sm mt-1">
-                              {scErr.profitMargin}
-                            </p>
-                          )}
-                        </div>
+              {serviceTypes.map((st) => {
+                if (st.id !== activeTabId) return null;
+                const cfg = values.serviceConfigs[st.id];
+                if (!cfg) return null;
+                const scErr = errors.serviceConfigs?.[st.id];
+                const scTouch = touched.serviceConfigs?.[st.id];
+                return (
+                  <div
+                    key={st.id}
+                    className="space-y-6 border border-gray-100 rounded-lg p-4 bg-gray-50/50 mb-8"
+                  >
+                    <div>
+                      <Label className="mb-1">Name</Label>
+                      <Field
+                        as={Input}
+                        name={`serviceConfigs.${st.id}.name`}
+                        placeholder={`e.g. ${st.name}`}
+                        className="py-2 max-w-md"
+                      />
+                      {scErr?.name && scTouch?.name && (
+                        <p className="text-red-500 text-sm mt-1">{scErr.name}</p>
+                      )}
+                    </div>
+
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                        Remark type
+                      </h3>
+                      <PricingShadcnSelect
+                        id={`remark-${st.id}`}
+                        label="Select remark type"
+                        placeholder="Select remark type"
+                        value={cfg.remark}
+                        onValueChange={(v) =>
+                          setFieldValue(`serviceConfigs.${st.id}.remark`, v)
+                        }
+                        onClose={() =>
+                          setFieldTouched(`serviceConfigs.${st.id}.remark`, true)
+                        }
+                        options={[...remarkOptions]}
+                        error={scErr?.remark}
+                        touched={scTouch?.remark}
+                      />
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <Label className="mb-1">Base price (ETB)</Label>
+                        <Field
+                          as={Input}
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          name={`serviceConfigs.${st.id}.basePrice`}
+                          className="py-2"
+                        />
+                        {scErr?.basePrice && scTouch?.basePrice && (
+                          <p className="text-red-500 text-sm mt-1">
+                            {scErr.basePrice}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="mb-1">Profit margin (%)</Label>
+                        <Field
+                          as={Input}
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          max={100}
+                          name={`serviceConfigs.${st.id}.profitMargin`}
+                          className="py-2"
+                        />
+                        {scErr?.profitMargin && scTouch?.profitMargin && (
+                          <p className="text-red-500 text-sm mt-1">
+                            {scErr.profitMargin}
+                          </p>
+                        )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
 
               <ActionButtons isEditing={isEditing} loading={loading} />
             </Form>

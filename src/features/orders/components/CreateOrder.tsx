@@ -113,7 +113,55 @@ interface ConvertedShipment {
   originCity?: any;
   destinationCity?: any;
   selectedVehicleTypeId?: string;
+  /** From pricing summary vehicle row — required with selected vehicle for submit. */
+  sessionId?: string;
   vehicleTypeIds?: string[];
+}
+
+interface OrderSummaryBreakdown {
+  categoryId?: string;
+  qty?: number;
+  actualWeight?: number;
+  chargeableWeight?: number;
+  basePrice?: number;
+  distance?: number;
+}
+
+interface OrderSummaryVehicle {
+  sessionId?: string;
+  vehicleTypeId: string;
+  vehicleName?: string;
+  imageUrl?: string | null;
+  type?: string;
+  commission?: number;
+  totalPrice?: number;
+}
+
+interface OrderSummaryData {
+  breakdown: OrderSummaryBreakdown | null;
+  vehicles: OrderSummaryVehicle[];
+  currency?: string;
+}
+
+function formatOrderMoney(amount: number | undefined, currency?: string): string {
+  if (amount === undefined || Number.isNaN(amount)) return "—";
+  const c = currency?.trim();
+  if (c && c.length === 3) {
+    try {
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: c,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      }).format(amount);
+    } catch {
+      /* invalid ISO code */
+    }
+  }
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
 function VehicleTypeTile({
@@ -189,10 +237,13 @@ export default function OrderForm() {
     originCity: "",
     destinationCity: "",
     selectedVehicleTypeId: "",
+    sessionId: "",
     vehicleTypeIds: [] as string[],
   };
   const navigate = useNavigate();
-  const [estimatePrice, setEstimatePrice] = useState(""); // sample estimate
+  const [orderSummary, setOrderSummary] = useState<OrderSummaryData | null>(
+    null,
+  );
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState("");
   const [loading, setLoading] = useState(false);
@@ -284,8 +335,14 @@ export default function OrderForm() {
     fetchBranches();
   }, [branchSearch]);
 
-  const onEstimate = async (_values: any) => {
+  const onEstimate = async (
+    _values: any,
+    setFieldValue: (field: string, value: unknown) => void,
+  ) => {
     setPriceLoading(true);
+    setOrderSummary(null);
+    setFieldValue("selectedVehicleTypeId", "");
+    setFieldValue("sessionId", "");
     const converted: ConvertedShipment = {
       // name:_values.name,
       // email:_values.email,
@@ -381,19 +438,35 @@ export default function OrderForm() {
       const res = await api.post("/pricing/order/summary", converted);
       console.log("res of create order: ", res.data);
       toast.success(res.data?.message);
-      console.log("priceeeeeee: ", res.data);
-      setEstimatePrice(
-        Intl.NumberFormat("en-us", {
-          style: "currency",
-          currency: res?.data?.data?.result?.currency,
-          minimumIntegerDigits: 2,
-        }).format(res.data.data?.result?.finalPrice),
-      );
-      // const tracking = generateTrackingNumber();
-      // setTrackingNumber(tracking);
-      // setIsSuccessModalOpen(true);
-      // resetForm();
-      // setEstimatePrice("");
+      const payload = res.data?.data;
+      const breakdown =
+        payload?.breakdown && typeof payload.breakdown === "object"
+          ? (payload.breakdown as OrderSummaryBreakdown)
+          : null;
+      const vehiclesRaw = payload?.vehicles;
+      const vehicles: OrderSummaryVehicle[] = Array.isArray(vehiclesRaw)
+        ? vehiclesRaw
+            .filter(
+              (v: unknown) =>
+                v &&
+                typeof v === "object" &&
+                typeof (v as OrderSummaryVehicle).vehicleTypeId === "string",
+            )
+            .map((v: unknown) => v as OrderSummaryVehicle)
+        : [];
+      const currency =
+        typeof payload?.currency === "string"
+          ? payload.currency
+          : typeof payload?.result?.currency === "string"
+            ? payload.result.currency
+            : undefined;
+
+      if (vehicles.length === 0) {
+        toast.error("Estimate returned no vehicles to choose from.");
+        setOrderSummary(null);
+      } else {
+        setOrderSummary({ breakdown, vehicles, currency });
+      }
       setPriceLoading(false);
     } catch (error: any) {
       console.log(error.response?.data);
@@ -407,6 +480,16 @@ export default function OrderForm() {
     _values: any,
     { resetForm }: { resetForm: () => void },
   ) => {
+    if (!_values.selectedVehicleTypeId?.trim()) {
+      toast.error("Generate an estimate and select a vehicle before submitting.");
+      return;
+    }
+    if (!_values.sessionId?.trim()) {
+      toast.error(
+        "Generate an estimate and select a vehicle so the pricing session is included.",
+      );
+      return;
+    }
     console.log(
       "-----------------------------------------: ========: ",
       _values,
@@ -457,6 +540,7 @@ export default function OrderForm() {
         ? new Date(_values.deliveryDate).toISOString()
         : undefined,
       selectedVehicleTypeId: _values.selectedVehicleTypeId,
+      sessionId: _values.sessionId?.trim(),
       vehicleTypeIds: [...(_values.vehicleTypeIds || [])],
     };
 
@@ -513,7 +597,7 @@ export default function OrderForm() {
       setTrackingNumber(res.data.data?.trackingCode);
       setIsSuccessModalOpen(true);
       resetForm();
-      setEstimatePrice("");
+      setOrderSummary(null);
 
       setManagerSearch("");
       setBranchSearch("");
@@ -1141,6 +1225,7 @@ export default function OrderForm() {
                               "selectedVehicleTypeId",
                               next[0] ?? "",
                             );
+                            setFieldValue("sessionId", "");
                             setFieldTouched("vehicleTypeIds", true);
                           }}
                         />
@@ -1386,66 +1471,198 @@ export default function OrderForm() {
                 )}
               </div>
             </div>
-            {/* Action buttons */}
+            {/* Estimate & submit */}
 
             <div className="bg-gray-50 p-6 rounded-lg mt-6 space-y-4">
               <h2 className="text-lg font-medium mb-4">Complete order</h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center gap-2">
-                  <Label
-                    className="mb-1 text-lg font-medium"
-                    htmlFor="requirement"
-                  >
-                    Requirement Checklist
-                  </Label>
-                  <Checkbox className="border-gray-300 ml-2 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 data-[state=checked]:text-white" />
-                </div>
-                <div className="col-span-2 grid grid-cols-2 gap-4">
-                  <Button
-                    type="button"
-                    className="mb-1 flex flex-row justify-center items-center cursor-pointer hover:bg-blue-700"
-                    onClick={() => onEstimate(values)}
-                  >
-                    {priceLoading ? (
-                      <Spinner className="h-6 w-6 text-center text-white mr-2" />
-                    ) : (
-                      "Generate Estimate price"
-                    )}
-                  </Button>
+              <div className="flex items-center gap-2">
+                <Label
+                  className="mb-1 text-lg font-medium"
+                  htmlFor="requirement"
+                >
+                  Requirement Checklist
+                </Label>
+                <Checkbox className="border-gray-300 ml-2 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 data-[state=checked]:text-white" />
+              </div>
 
-                  <Input
-                    className="py-7 font-bold !text-2xl border-gray-300"
-                    disabled={true}
-                    value={estimatePrice}
-                  />
-                </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  type="button"
+                  className="flex flex-row justify-center items-center cursor-pointer hover:bg-blue-700 sm:flex-1"
+                  onClick={() => onEstimate(values, setFieldValue)}
+                >
+                  {priceLoading ? (
+                    <Spinner className="h-6 w-6 text-center text-white mr-2" />
+                  ) : (
+                    "Generate estimate"
+                  )}
+                </Button>
+              </div>
 
-                <div className="col-span-2 grid grid-cols-2 gap-4 ">
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="mb-1 flex flex-row justify-center items-center cursor-pointer hover:bg-blue-700"
-                  >
-                    {loading ? (
-                      <span className="flex items-center justify-center w-full">
-                        <Spinner className="h-6 w-6 text-white mr-2" />
-                        <span>Submitting...</span>
-                      </span>
-                    ) : (
-                      "Submit order"
-                    )}
-                  </Button>
+              {orderSummary && (
+                <div className="space-y-4 pt-2 border-t border-gray-200">
+                  {orderSummary.breakdown && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-800 mb-2">
+                        Price breakdown
+                      </h3>
+                      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-700 sm:grid-cols-3">
+                        <div>
+                          <dt className="text-gray-500">Qty</dt>
+                          <dd>{orderSummary.breakdown.qty ?? "—"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">Actual weight</dt>
+                          <dd>{orderSummary.breakdown.actualWeight ?? "—"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">Chargeable weight</dt>
+                          <dd>
+                            {orderSummary.breakdown.chargeableWeight ?? "—"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">Base price</dt>
+                          <dd>
+                            {formatOrderMoney(
+                              orderSummary.breakdown.basePrice,
+                              orderSummary.currency,
+                            )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">Distance</dt>
+                          <dd>
+                            {orderSummary.breakdown.distance != null
+                              ? `${orderSummary.breakdown.distance} km`
+                              : "—"}
+                          </dd>
+                        </div>
+                      </dl>
+                    </div>
+                  )}
+
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-800 mb-2">
+                      Choose a vehicle
+                    </h3>
+                    <p className="text-xs text-gray-500 mb-3">
+                      Select one option below. Submit sends{" "}
+                      <code className="text-xs bg-gray-100 px-1 rounded">
+                        selectedVehicleTypeId
+                      </code>{" "}
+                      and{" "}
+                      <code className="text-xs bg-gray-100 px-1 rounded">
+                        sessionId
+                      </code>{" "}
+                      from this estimate.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {orderSummary.vehicles.map((v) => {
+                        const selected =
+                          values.selectedVehicleTypeId === v.vehicleTypeId &&
+                          values.sessionId === (v.sessionId?.trim() ?? "");
+                        return (
+                          <button
+                            key={`${v.sessionId ?? ""}-${v.vehicleTypeId}`}
+                            type="button"
+                            onClick={() => {
+                              setFieldValue(
+                                "selectedVehicleTypeId",
+                                v.vehicleTypeId,
+                              );
+                              setFieldValue(
+                                "sessionId",
+                                v.sessionId?.trim() ?? "",
+                              );
+                              setFieldTouched("selectedVehicleTypeId", true);
+                            }}
+                            className={cn(
+                              "flex gap-3 p-3 rounded-lg border text-left transition-colors",
+                              selected
+                                ? "border-blue-600 bg-blue-50 ring-2 ring-blue-500"
+                                : "border-gray-200 bg-white hover:border-gray-300",
+                            )}
+                          >
+                            {v.imageUrl ? (
+                              <img
+                                src={v.imageUrl}
+                                alt=""
+                                className="h-16 w-16 shrink-0 rounded object-contain bg-gray-50"
+                              />
+                            ) : (
+                              <div className="h-16 w-16 shrink-0 rounded bg-gray-100" />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium text-gray-900 truncate">
+                                {v.vehicleName ?? v.vehicleTypeId}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                {v.type ? `${v.type} · ` : ""}
+                                Commission:{" "}
+                                {formatOrderMoney(
+                                  v.commission,
+                                  orderSummary.currency,
+                                )}
+                              </div>
+                              <div className="text-sm font-semibold text-gray-800 mt-1">
+                                Total:{" "}
+                                {formatOrderMoney(
+                                  v.totalPrice,
+                                  orderSummary.currency,
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <Button
+                      type="submit"
+                      disabled={
+                        loading ||
+                        !values.selectedVehicleTypeId?.trim() ||
+                        !values.sessionId?.trim()
+                      }
+                      className="flex flex-row justify-center items-center cursor-pointer hover:bg-blue-700"
+                    >
+                      {loading ? (
+                        <span className="flex items-center justify-center w-full">
+                          <Spinner className="h-6 w-6 text-white mr-2" />
+                          <span>Submitting...</span>
+                        </span>
+                      ) : (
+                        "Submit order"
+                      )}
+                    </Button>
+                    <Button
+                      disabled={loading}
+                      type="button"
+                      onClick={() => navigate(-1)}
+                      className="bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300 !w-full"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {!orderSummary && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                   <Button
                     disabled={loading}
                     type="button"
                     onClick={() => navigate(-1)}
-                    className="flex-1 bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300 !w-full"
+                    className="bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300 !w-full sm:col-span-2"
                   >
                     Cancel
                   </Button>
                 </div>
-              </div>
+              )}
             </div>
           </Form>
         )}

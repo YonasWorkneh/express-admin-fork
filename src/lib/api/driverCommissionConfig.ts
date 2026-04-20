@@ -31,8 +31,8 @@ export interface ServiceTypeVehicleCommissionVehicle {
 }
 
 /**
- * One block in `serviceTypeVehicleCommissions`.
- * Include `serviceTypeId` for **create** (POST); omit it for **update** (PATCH) — id is only in the URL.
+ * One block in `serviceTypeVehicleCommissions` (POST create only).
+ * PATCH uses {@link VehicleCommissionPatchBody} instead.
  */
 export interface ServiceTypeVehicleCommissionGroup {
   serviceTypeId?: string;
@@ -56,21 +56,22 @@ export interface ServiceTypeVehicleCommissionGroup {
  * }
  * ```
  *
- * @example PATCH (update) — `serviceTypeId` is in `/pricing/vehicle-commission/:id`, not in the body
+ * @example PATCH (update) — id is `/pricing/vehicle-commission/:id`; body is a flat `vehicles` array only
  * ```json
  * {
- *   "serviceTypeVehicleCommissions": [
- *     {
- *       "vehicles": [
- *         { "vehicleTypeId": "vehicle_type_001", "fixed": 0, "perKm": 0, "percentage": 0 }
- *       ]
- *     }
+ *   "vehicles": [
+ *     { "vehicleTypeId": "vehicle_type_001", "fixed": 0, "perKm": 0, "percentage": 0 }
  *   ]
  * }
  * ```
  */
 export interface ServiceTypeVehicleCommissionsJson {
   serviceTypeVehicleCommissions: ServiceTypeVehicleCommissionGroup[];
+}
+
+/** Body for PATCH `/pricing/vehicle-commission/:id`. */
+export interface VehicleCommissionPatchBody {
+  vehicles: ServiceTypeVehicleCommissionVehicle[];
 }
 
 function optionalNumber(v: unknown): number | undefined {
@@ -299,22 +300,18 @@ function rowToExclusiveVehicleCommission(
   };
 }
 
-/** Build `{ serviceTypeVehicleCommissions: [...] }` from form rows (one non-zero commission mode per vehicle). */
+function driverCommissionRowsToVehicles(
+  rows: DriverCommissionRow[],
+): ServiceTypeVehicleCommissionVehicle[] {
+  return rows.map(rowToExclusiveVehicleCommission);
+}
+
+/** Build POST body `{ serviceTypeVehicleCommissions: [...] }` from form rows (one non-zero commission mode per vehicle). */
 export function driverCommissionRowsToServiceTypeVehicleCommissionsJson(
   serviceTypeId: string,
   rows: DriverCommissionRow[],
-  options?: { forPatch?: boolean },
 ): ServiceTypeVehicleCommissionsJson {
-  const vehicles: ServiceTypeVehicleCommissionVehicle[] = rows.map(
-    rowToExclusiveVehicleCommission,
-  );
-
-  if (options?.forPatch) {
-    return {
-      serviceTypeVehicleCommissions: [{ vehicles }],
-    };
-  }
-
+  const vehicles = driverCommissionRowsToVehicles(rows);
   const sid = serviceTypeId.trim();
   return {
     serviceTypeVehicleCommissions: sid
@@ -332,18 +329,20 @@ export async function saveDriverCommissionConfig(
   existingResourceId?: string | null,
 ): Promise<void> {
   const id = existingResourceId?.trim();
-  const body = driverCommissionRowsToServiceTypeVehicleCommissionsJson(
-    serviceType,
-    rows,
-    id ? { forPatch: true } : undefined,
-  );
   try {
     if (id) {
+      const body: VehicleCommissionPatchBody = {
+        vehicles: driverCommissionRowsToVehicles(rows),
+      };
       await api.patch(
         `/pricing/vehicle-commission/${encodeURIComponent(id)}`,
         body,
       );
     } else {
+      const body = driverCommissionRowsToServiceTypeVehicleCommissionsJson(
+        serviceType,
+        rows,
+      );
       await api.post("/pricing/vehicle-commission", body);
     }
   } catch (error: unknown) {

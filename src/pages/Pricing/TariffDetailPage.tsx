@@ -30,6 +30,13 @@ function normalizeScope(
   if (row.townConfig != null && typeof row.townConfig === "object") {
     return "TOWN";
   }
+  if (
+    row.townPricing != null &&
+    typeof row.townPricing === "object" &&
+    !Array.isArray(row.townPricing)
+  ) {
+    return "TOWN";
+  }
   if (Array.isArray(row.categoryPricing) && row.categoryPricing.length > 0) {
     return inferZonalKindFromName(row.name);
   }
@@ -118,6 +125,18 @@ export default function TariffDetailPage() {
 
   const townServiceRows = useMemo(() => {
     if (!tariff || scope !== "TOWN") return [];
+    const tp = tariff.townPricing;
+    if (tp && typeof tp === "object" && !Array.isArray(tp)) {
+      const tpr = tp as Record<string, unknown>;
+      const sid = tariff.serviceTypeId;
+      return [
+        {
+          serviceTypeId: typeof sid === "string" ? sid : undefined,
+          baseFee: tpr.baseFee,
+          profitPerc: tpr.profitPct ?? tpr.profitMargin,
+        },
+      ];
+    }
     const tc = tariff.townConfig;
     if (tc && typeof tc === "object" && !Array.isArray(tc)) {
       const inner = (tc as Record<string, unknown>).serviceTypes;
@@ -166,8 +185,10 @@ export default function TariffDetailPage() {
         </Button>
         <p className="text-amber-800">
           This tariff has no recognized type (no{" "}
-          <code className="text-xs">shippingScope</code>,{" "}
-          <code className="text-xs">townConfig</code>, or{" "}
+          <code className="text-xs">shippingScope</code> /{" "}
+          <code className="text-xs">scope</code>,{" "}
+          <code className="text-xs">townConfig</code>,{" "}
+          <code className="text-xs">townPricing</code>, or{" "}
           <code className="text-xs">categoryPricing</code>). Check{" "}
           <code className="text-xs">scopeId</code> with the backend or open edit
           if a form still applies.
