@@ -7,7 +7,6 @@ import {
   TrendingUp,
   TrendingDown,
   LayoutGrid,
-  Layers,
   Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
