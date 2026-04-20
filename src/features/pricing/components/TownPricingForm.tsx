@@ -44,6 +44,25 @@ function hydrateFromParsedPrice(
   const base = buildEmptyServiceConfigs(serviceTypes);
   if (!parsed) return base;
 
+  const townConfig = parsed.townConfig;
+  if (townConfig != null && typeof townConfig === "object") {
+    const tc = townConfig as Record<string, unknown>;
+    const innerRows = tc.serviceTypes as
+      | Array<Record<string, unknown>>
+      | undefined;
+    if (Array.isArray(innerRows) && innerRows.length > 0) {
+      const merged: Record<string, unknown> = {
+        ...parsed,
+        serviceTypes: innerRows,
+        townConfig: null,
+      };
+      if (typeof tc.remark === "string" && tc.remark.trim()) {
+        merged.remark = tc.remark;
+      }
+      return hydrateFromParsedPrice(merged, serviceTypes);
+    }
+  }
+
   const rows = parsed.serviceTypes as
     | Array<Record<string, unknown>>
     | undefined;
@@ -74,9 +93,11 @@ function hydrateFromParsedPrice(
       const rowProfit =
         typeof row.profitMargin === "number"
           ? row.profitMargin
-          : typeof row.profit === "number"
-            ? row.profit
-            : undefined;
+          : typeof row.profitPerc === "number"
+            ? row.profitPerc
+            : typeof row.profit === "number"
+              ? row.profit
+              : undefined;
       if (typeof rowProfit === "number") {
         base[st.id].profitMargin = rowProfit;
         sawPerRowProfit = true;
@@ -156,7 +177,17 @@ const remarkOptions = [
   { value: "Event", label: "Event" },
 ] as const;
 
-export default function TownPricingForm() {
+export type TownPricingFormProps = {
+  /** When set (e.g. tariff detail page), prefill and PATCH this tariff instead of URL `price`. */
+  prefetchedTariff?: Record<string, unknown> | null;
+  /** Log full tariff list to console for debugging (create flow only). */
+  enableTariffListProbe?: boolean;
+};
+
+export default function TownPricingForm({
+  prefetchedTariff = null,
+  enableTariffListProbe = true,
+}: TownPricingFormProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
@@ -172,18 +203,51 @@ export default function TownPricingForm() {
   } = useServiceTypes();
 
   useEffect(() => {
+    if (prefetchedTariff && Object.keys(prefetchedTariff).length > 0) {
+      setParsedPrice(prefetchedTariff);
+      return;
+    }
     const raw = searchParams.get("price");
-    if (!raw) return;
+    if (!raw) {
+      setParsedPrice(null);
+      return;
+    }
     try {
       const decoded = decodeURIComponent(raw);
       setParsedPrice(JSON.parse(decoded) as Record<string, unknown>);
     } catch {
       setParsedPrice(null);
     }
-  }, [searchParams]);
+  }, [prefetchedTariff, searchParams]);
+
+  /** Probe existing tariffs: same path as POST `/pricing/tariff`, GET (for upcoming prefill). */
+  useEffect(() => {
+    if (!enableTariffListProbe) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await api.get<unknown>("/pricing/tariff", {
+          params: { page: 1, pageSize: 100 },
+        });
+        if (!cancelled) {
+          console.log(
+            "[TownPricingForm] GET /pricing/tariff response:",
+            res.data,
+          );
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.log("[TownPricingForm] GET /pricing/tariff error:", e);
+        }
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [enableTariffListProbe]);
 
   const isEditing = Boolean(parsedPrice && parsedPrice.id);
-  console.log("isEditing", isEditing);
   const initialValues: TownFormValues = useMemo(() => {
     const empty: TownFormValues = {
       remark: "",

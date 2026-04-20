@@ -376,7 +376,7 @@ export default function PricingMain() {
                 <TableBody>
                 {loading && (
                   <TableRow>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={6}>
                       <div className="flex justify-center items-center py-8">
                         <Spinner className="h-6 w-6 text-blue-600 mr-2" />
                         <span className="text-gray-600 font-medium">
@@ -386,34 +386,14 @@ export default function PricingMain() {
                     </TableCell>
                   </TableRow>
                 )}
-                  {fleetLogs.map((log:any) => (
+                  {(fleetLogs ?? []).map((log: any) => (
                     <TableRow
                       key={log.id}
                       className="cursor-pointer hover:bg-gray-50"
-                      onClick={() =>
-                    {   if(log?.shippingScope=="TOWN") navigate(
-                          `/pricing/town/${log.id.replace(
-                            "#",
-                            ""
-                          )}?price=${encodeURIComponent(JSON.stringify(log))}`
-                        ) 
-                        if(log?.shippingScope=="REGIONAL") navigate(
-                          `/pricing/regional/${log.id.replace(
-                            "#",
-                            ""
-                          )}?price=${encodeURIComponent(JSON.stringify(log))}`
-                        ) 
-                      
-                        if(log?.shippingScope=="INTERNATIONAL") navigate(
-                          `/pricing/international/${log.id.replace(
-                            "#",
-                            ""
-                          )}?price=${encodeURIComponent(JSON.stringify(log))}`
-                        ) 
-                      
-                        
-                        
-                      }                   }
+                      onClick={() => {
+                        const tid = String(log?.id ?? "").replace(/^#/, "");
+                        if (tid) navigate(`/pricing/tariff/${tid}`);
+                      }}
                     >
                       <TableCell>
                         <div className="flex flex-col">

@@ -1,13 +1,8 @@
-export type PricingServiceType = "STANDARD" | "EXPRESS" | "OVERNIGHT";
-
-export const PRICING_SERVICE_TYPE_OPTIONS: {
-  value: PricingServiceType;
-  label: string;
-}[] = [
-  { value: "STANDARD", label: "Standard" },
-  { value: "EXPRESS", label: "Same day (Express)" },
-  { value: "OVERNIGHT", label: "Overnight" },
-];
+/**
+ * Value sent to vehicle commission APIs as `serviceType` — use the service
+ * type id from GET /orders/service-types (see `useServiceTypes`).
+ */
+export type PricingServiceType = string;
 
 /** Form row: category = vehicle type id */
 export interface DriverCommissionRow {

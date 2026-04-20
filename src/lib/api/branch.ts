@@ -16,9 +16,6 @@ export const fetchBranches = async (
   params: ListBranchesParams = {}
 ): Promise<BranchListResponse> => {
   const response = await api.get<BranchListResponse>("/branch", { params });
-  
-  console.log("Branches API Response:", JSON.stringify(response.data, null, 2));
-  
   return response.data;
 };
 

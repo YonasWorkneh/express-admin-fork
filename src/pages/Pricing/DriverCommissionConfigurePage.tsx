@@ -1,23 +1,23 @@
 "use client";
 
 import { Formik, Form } from "formik";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import Button from "@/components/common/Button";
 import PricingFormHeader from "@/features/pricing/components/PricingFormHeader";
 import PricingShadcnSelect from "@/features/pricing/components/PricingShadcnSelect";
 import DriverCommissionTable from "@/features/pricing/components/DriverCommissionTable";
-import { mergeVehicleTypesWithCommissionConfig } from "@/lib/api/driverCommissionConfig";
+import {
+  driverCommissionRowsHaveConfiguredRates,
+  mergeVehicleTypesWithCommissionConfig,
+} from "@/lib/api/driverCommissionConfig";
 import {
   useDriverCommissionConfigQuery,
   useFleetVehicleTypesQuery,
   useSaveDriverCommissionConfig,
 } from "@/hooks/useDriverCommissionConfig";
-import {
-  PRICING_SERVICE_TYPE_OPTIONS,
-  type PricingServiceType,
-} from "@/types/driverCommission";
+import { useServiceTypes } from "@/hooks/useServiceTypes";
+import type { PricingServiceType } from "@/types/driverCommission";
 import { Spinner } from "@/utils/spinner";
 
 type FormValues = {
@@ -26,8 +26,22 @@ type FormValues = {
 
 export default function DriverCommissionConfigurePage() {
   const navigate = useNavigate();
-  const [serviceType, setServiceType] =
-    useState<PricingServiceType>("STANDARD");
+  const [serviceType, setServiceType] = useState<PricingServiceType>("");
+
+  const serviceTypesQuery = useServiceTypes();
+  const serviceTypeOptions = useMemo(
+    () =>
+      (serviceTypesQuery.data ?? []).map((st) => ({
+        value: st.id,
+        label: st.name,
+      })),
+    [serviceTypesQuery.data],
+  );
+
+  useEffect(() => {
+    if (serviceType || !serviceTypesQuery.data?.length) return;
+    setServiceType(serviceTypesQuery.data[0].id);
+  }, [serviceTypesQuery.data, serviceType]);
 
   const fleetQuery = useFleetVehicleTypesQuery();
   const configQuery = useDriverCommissionConfigQuery(
@@ -36,15 +50,31 @@ export default function DriverCommissionConfigurePage() {
   );
   const saveMutation = useSaveDriverCommissionConfig();
 
+  const commissionResourceId = configQuery.data?.resourceId ?? null;
+
   const mergedRows = useMemo(() => {
     const vehicles = fleetQuery.data ?? [];
-    const lines = configQuery.data ?? [];
+    const lines = configQuery.data?.lines ?? [];
     return mergeVehicleTypesWithCommissionConfig(vehicles, lines);
   }, [fleetQuery.data, configQuery.data]);
 
+  /**
+   * Edit vs save for this service type, fixed when server data loads (merged rows + resource id).
+   * Does not change when the user edits form fields.
+   */
+  const persistedCommissionLooksExisting = useMemo(() => {
+    const id = (configQuery.data?.resourceId ?? "").trim();
+    return (
+      driverCommissionRowsHaveConfiguredRates(mergedRows) || Boolean(id)
+    );
+  }, [mergedRows, configQuery.data?.resourceId]);
+
   const pageLoading =
+    serviceTypesQuery.isLoading ||
     fleetQuery.isLoading ||
-    (Boolean(fleetQuery.data?.length) && configQuery.isFetching);
+    (Boolean(fleetQuery.data?.length) &&
+      Boolean(serviceType.trim()) &&
+      configQuery.isFetching);
 
   const initialValues: FormValues = useMemo(
     () => ({ driverCommission: mergedRows }),
@@ -81,10 +111,24 @@ export default function DriverCommissionConfigurePage() {
             placeholder="Select service type"
             value={serviceType}
             onValueChange={(v) => setServiceType(v)}
-            options={PRICING_SERVICE_TYPE_OPTIONS}
+            options={serviceTypeOptions}
           />
         </div>
       </div>
+
+      {serviceTypesQuery.isError && (
+        <p className="text-red-600 text-sm mb-4">
+          Could not load service types. Refresh the page or try again later.
+        </p>
+      )}
+
+      {!serviceTypesQuery.isLoading &&
+        (serviceTypesQuery.data?.length ?? 0) === 0 && (
+          <p className="text-amber-700 text-sm mb-4">
+            No service types found. Add service types under Service Type
+            Management first.
+          </p>
+        )}
 
       {fleetQuery.isError && (
         <p className="text-red-600 text-sm mb-4">
@@ -112,11 +156,18 @@ export default function DriverCommissionConfigurePage() {
         initialValues={initialValues}
         onSubmit={async (values) => {
           try {
+            const patchId =
+              (commissionResourceId?.trim() || serviceType.trim()) || null;
             await saveMutation.mutateAsync({
               serviceType,
               rows: values.driverCommission,
+              resourceId: persistedCommissionLooksExisting ? patchId : null,
             });
-            toast.success("Driver commission saved");
+            toast.success(
+              persistedCommissionLooksExisting
+                ? "Driver commission updated"
+                : "Driver commission saved",
+            );
           } catch (e) {
             const msg =
               e instanceof Error ? e.message : "Failed to save driver commission";
@@ -135,41 +186,16 @@ export default function DriverCommissionConfigurePage() {
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 mb-6">
               <DriverCommissionTable
                 driverCommission={values.driverCommission}
+                hasExistingCommission={persistedCommissionLooksExisting}
+                submitDisabled={
+                  pageLoading ||
+                  !serviceType.trim() ||
+                  (fleetQuery.data?.length ?? 0) === 0 ||
+                  (serviceTypesQuery.data?.length ?? 0) === 0
+                }
+                isSubmitting={saveMutation.isPending}
+                onCancel={() => navigate("/pricing")}
               />
-            </div>
-
-            <div className="bg-gray-50 p-6 rounded-lg space-y-4">
-              <h2 className="text-lg font-medium text-gray-800 mb-4">
-                Complete configuration
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button
-                  type="submit"
-                  className="cursor-pointer hover:bg-blue-700"
-                  disabled={
-                    saveMutation.isPending ||
-                    pageLoading ||
-                    (fleetQuery.data?.length ?? 0) === 0
-                  }
-                >
-                  {saveMutation.isPending ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Spinner className="h-4 w-4" />
-                      Saving…
-                    </span>
-                  ) : (
-                    "Save driver commission"
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => navigate("/pricing")}
-                  className="bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300 !w-full"
-                  disabled={saveMutation.isPending || pageLoading}
-                >
-                  Cancel
-                </Button>
-              </div>
             </div>
           </Form>
         )}

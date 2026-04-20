@@ -30,13 +30,13 @@ export function usePublicFleetVehicleTypesQuery() {
 }
 
 export function useDriverCommissionConfigQuery(
-  serviceType: PricingServiceType,
+  serviceTypeId: string,
   enabled: boolean,
 ) {
   return useQuery({
-    queryKey: ["driverCommissionConfig", serviceType],
-    queryFn: () => fetchDriverCommissionConfig(serviceType),
-    enabled,
+    queryKey: ["driverCommissionConfig", serviceTypeId] as const,
+    queryFn: () => fetchDriverCommissionConfig(serviceTypeId),
+    enabled: enabled && Boolean(serviceTypeId.trim()),
   });
 }
 
@@ -46,13 +46,15 @@ export function useSaveDriverCommissionConfig() {
     mutationFn: ({
       serviceType,
       rows,
+      resourceId,
     }: {
       serviceType: PricingServiceType;
       rows: DriverCommissionRow[];
-    }) => saveDriverCommissionConfig(serviceType, rows),
-    onSuccess: (_data, { serviceType }) => {
-      queryClient.invalidateQueries({
-        queryKey: ["driverCommissionConfig", serviceType],
+      resourceId?: string | null;
+    }) => saveDriverCommissionConfig(serviceType, rows, resourceId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["driverCommissionConfig"],
       });
     },
   });

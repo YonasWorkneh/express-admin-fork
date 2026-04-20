@@ -16,12 +16,17 @@ import MapAddressSelector from "@/components/common/MapAddressSelector";
 import SuccessModal from "@/components/common/SuccessModal";
 import { IoArrowBack, IoLogoDropbox } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import * as Yup from "yup";
 import api from "@/lib/api/api";
 import toast from "react-hot-toast";
-import type { Customer, CustomerListResponse, Branch, BranchListResponse } from "@/types/types";
+import type {
+  Customer,
+  CustomerListResponse,
+  Branch,
+  BranchListResponse,
+} from "@/types/types";
 import { Spinner } from "@/utils/spinner";
 import { Select as Style2 } from "antd";
 import { useServiceTypes } from "@/hooks/useServiceTypes";
@@ -41,8 +46,12 @@ const OrderValidationSchema = Yup.object().shape({
     .required("Receiver email is required"),
   receiverPhone: Yup.string().required("Receiver phone is required"),
   receiverAddress: Yup.string().required("Delivery address is required"),
-  pickupAddress: Yup.string().required("Pickup address is required"),
-  serviceType: Yup.string().required("Service type is required"),
+  pickupAddress: Yup.string().when("fulfillmentType", {
+    is: "PICKUP",
+    then: (schema) => schema.required("Pickup address is required"),
+    otherwise: (schema) => schema.notRequired(),
+  }),
+  serviceTypeId: Yup.string().required("Service type is required"),
   fulfillmentType: Yup.string().required("Fulfillment type is required"),
   weight: Yup.number()
     .min(0.1, "Weight must be greater than 0")
@@ -51,24 +60,34 @@ const OrderValidationSchema = Yup.object().shape({
   vehicleTypeIds: Yup.array()
     .of(Yup.string())
     .min(1, "Select at least one vehicle type"),
+  name: Yup.string().optional(),
+  email: Yup.string()
+    .transform((v) => (v === "" ? undefined : v))
+    .email("Invalid email")
+    .optional(),
+  phone: Yup.string().required("Phone is required"),
   // Not required for towns and not globally always required
   // We will do frontend check for these
 });
 
 interface ConvertedShipment {
   customerId: any;
+  name?: any;
+  email?: any;
+  phone?: any;
   receiverName: any;
   receiverEmail: any;
   receiverPhone: any;
-  serviceType: any;
+  serviceTypeId: any;
   fulfillmentType: any;
   weight: any;
-  category: any[];
+  categoryId?: any;
   isFragile: any;
   shipmentType: any;
   shippingScope: any;
 
-  pickupAddress: {
+  isDelivery?: any;
+  pickupAddress?: {
     lat: any;
     long: any;
   };
@@ -132,15 +151,16 @@ export default function OrderForm() {
   //   const { createOrder, isCreatingOrder } = useOrders();
 
   const initialValues = {
-    serviceType: "",
-    fulfillmentType: "",
-    // name: "",
-    // email: "",
-    // phone: "",
+    serviceTypeId: "",
+    fulfillmentType: "DROPOFF",
+    isDelivery: false,
+    name: "",
+    email: "",
+    phone: "",
     customerId: "",
     weight: 0,
     quantity: 0,
-    category: [],
+    categoryId: "",
     isFragile: false,
     shipmentType: "",
     shippingScope: "",
@@ -185,6 +205,16 @@ export default function OrderForm() {
   // const [searchText, setSearchText] = useState("");
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [custoemr, setCustomer] = useState<Customer[]>([]);
+  /** Last customer picked in the sender dropdown — used to prefill optional sender contact fields */
+  const [selectedCustomerForSender, setSelectedCustomerForSender] =
+    useState<Customer | null>(null);
+  const canPrefillSender = useMemo(() => {
+    if (!selectedCustomerForSender) return false;
+    const name = selectedCustomerForSender.name?.trim();
+    const email = selectedCustomerForSender.email?.trim();
+    const phone = selectedCustomerForSender.phone?.trim();
+    return Boolean(name || email || phone);
+  }, [selectedCustomerForSender]);
   const [priceLoading, setPriceLoading] = useState(false);
 
   // Branch selection state (for DROPOFF)
@@ -209,7 +239,7 @@ export default function OrderForm() {
       setLoadingStaff(true);
 
       const staffs = await api.get<CustomerListResponse>(
-        `/users/customers?search=all:${managerSearch}&page=${1}&pageSize=${20}`
+        `/users/customers?search=all:${managerSearch}&page=${1}&pageSize=${20}`,
       );
       setCustomer(staffs.data.data);
       // setPagination(staffs.data.pagination);
@@ -235,7 +265,7 @@ export default function OrderForm() {
       setLoadingBranch(true);
 
       const response = await api.get<BranchListResponse>(
-        `/branch?search=all:${branchSearch}&page=${1}&pageSize=${20}`
+        `/branch?search=all:${branchSearch}&page=${1}&pageSize=${20}`,
       );
       setBranches(response.data.data);
       setLoadingBranch(false);
@@ -253,9 +283,10 @@ export default function OrderForm() {
   useEffect(() => {
     fetchBranches();
   }, [branchSearch]);
-  const onEstimate =async (_values:any) => {
-    setPriceLoading(true)
-    const converted :ConvertedShipment= {
+
+  const onEstimate = async (_values: any) => {
+    setPriceLoading(true);
+    const converted: ConvertedShipment = {
       // name:_values.name,
       // email:_values.email,
       // phone:_values.phone,
@@ -267,12 +298,12 @@ export default function OrderForm() {
       receiverPhone: _values.receiverPhone,
 
       // service
-      serviceType: _values.serviceType,
+      serviceTypeId: _values.serviceTypeId,
       fulfillmentType: _values.fulfillmentType,
+      isDelivery: Boolean(_values.isDelivery),
 
       // package details
       weight: _values.weight,
-      category: _values.category,
       isFragile: _values.isFragile,
       shipmentType: _values.shipmentType,
       shippingScope: _values.destination,
@@ -281,11 +312,6 @@ export default function OrderForm() {
       // height: _values.height,
 
       // locations (converted to template structure)
-      pickupAddress: {
-        lat: String(_values.pickupLatitude),
-        long: String(_values.pickupLongitude),
-      },
-
       deliveryAddress: {
         lat: String(_values.receiverLatitude),
         long: String(_values.receiverLongitude),
@@ -299,18 +325,30 @@ export default function OrderForm() {
       quantity: _values.quantity,
       // pickupAddressText: _values.pickupAddress,
       // deliveryAddressText: _values.receiverAddress,
-      // senderName: _values.name,
-      // senderPhone: _values.phone,
+      // name / email / phone — sender contact
       // senderEntity: _values.senderEntity,
       // shippingScope: _values.destination,
       // cost: _values.cost,
-      pickupDate: _values.pickupDate ? new Date(_values.pickupDate).toISOString() : undefined,
-      deliveryDate: _values.deliveryDate ? new Date(_values.deliveryDate).toISOString() : undefined,
-      selectedVehicleTypeId: _values.selectedVehicleTypeId,
+      deliveryDate: _values.deliveryDate
+        ? new Date(_values.deliveryDate).toISOString()
+        : undefined,
       vehicleTypeIds: [...(_values.vehicleTypeIds || [])],
     };
 
-    if ((_values.destination === "REGIONAL" || _values.destination === "INTERNATIONAL")) {
+    if (_values.fulfillmentType === "PICKUP") {
+      converted.pickupAddress = {
+        lat: String(_values.pickupLatitude),
+        long: String(_values.pickupLongitude),
+      };
+      if (_values.pickupDate) {
+        converted.pickupDate = new Date(_values.pickupDate).toISOString();
+      }
+    }
+
+    if (
+      _values.destination === "REGIONAL" ||
+      _values.destination === "INTERNATIONAL"
+    ) {
       converted.originCity = _values.originCity;
       converted.destinationCity = _values.destinationCity;
     }
@@ -319,49 +357,61 @@ export default function OrderForm() {
       converted.branchId = _values.branchId;
     }
 
-    if(_values.shipmentType=="PARCEL"){
-      converted.width= _values?.width
-      converted.height= _values?.height
-      converted.length= _values?.length
+    if (_values.name?.trim()) {
+      converted.name = _values.name.trim();
+    }
+    if (_values.email?.trim()) {
+      converted.email = _values.email.trim();
+    }
+    if (_values.phone?.trim()) {
+      converted.phone = _values.phone.trim();
+    }
 
+    const categoryIdTrim = String(_values.categoryId ?? "").trim();
+    if (categoryIdTrim) {
+      converted.categoryId = categoryIdTrim;
+    }
+
+    if (_values.shipmentType == "PARCEL") {
+      converted.width = _values?.width;
+      converted.height = _values?.height;
+      converted.length = _values?.length;
     }
     try {
-
       const res = await api.post("/pricing/order/summary", converted);
       console.log("res of create order: ", res.data);
       toast.success(res.data?.message);
-      console.log("priceeeeeee: ",res.data)
+      console.log("priceeeeeee: ", res.data);
       setEstimatePrice(
         Intl.NumberFormat("en-us", {
           style: "currency",
           currency: res?.data?.data?.result?.currency,
           minimumIntegerDigits: 2,
-        }).format(res.data.data?.result?.finalPrice)
+        }).format(res.data.data?.result?.finalPrice),
       );
       // const tracking = generateTrackingNumber();
       // setTrackingNumber(tracking);
       // setIsSuccessModalOpen(true);
       // resetForm();
       // setEstimatePrice("");
-      setPriceLoading(false)
+      setPriceLoading(false);
     } catch (error: any) {
       console.log(error.response?.data);
       toast.error(error?.response?.data?.message || "Somethign went wrong!");
     } finally {
-      setPriceLoading(false)
+      setPriceLoading(false);
     }
-
   };
 
   const handleSubmit = async (
     _values: any,
-    { resetForm }: { resetForm: () => void }
+    { resetForm }: { resetForm: () => void },
   ) => {
     console.log(
       "-----------------------------------------: ========: ",
-      _values
+      _values,
     );
-    const converted :ConvertedShipment= {
+    const converted: ConvertedShipment = {
       // name:_values.name,
       // email:_values.email,
       // phone:_values.phone,
@@ -373,24 +423,18 @@ export default function OrderForm() {
       receiverPhone: _values.receiverPhone,
 
       // service
-      serviceType: _values.serviceType,
+      serviceTypeId: _values.serviceTypeId,
       fulfillmentType: _values.fulfillmentType,
+      isDelivery: Boolean(_values.isDelivery),
 
       // package details
       weight: _values.weight,
-      category: _values.category,
       isFragile: _values.isFragile,
       shipmentType: _values.shipmentType,
       shippingScope: _values.destination,
       // length: _values.length,
       // width: _values.width,
       // height: _values.height,
-
-      // locations (converted to template structure)
-      pickupAddress: {
-        lat: String(_values.pickupLatitude),
-        long: String(_values.pickupLongitude),
-      },
 
       deliveryAddress: {
         lat: String(_values.receiverLatitude),
@@ -405,18 +449,31 @@ export default function OrderForm() {
       quantity: _values.quantity,
       // pickupAddressText: _values.pickupAddress,
       // deliveryAddressText: _values.receiverAddress,
-      // senderName: _values.name,
-      // senderPhone: _values.phone,
+      // name / email / phone — sender contact
       // senderEntity: _values.senderEntity,
       // shippingScope: _values.destination,
       // cost: _values.cost,
-      pickupDate: _values.pickupDate ? new Date(_values.pickupDate).toISOString() : undefined,
-      deliveryDate: _values.deliveryDate ? new Date(_values.deliveryDate).toISOString() : undefined,
+      deliveryDate: _values.deliveryDate
+        ? new Date(_values.deliveryDate).toISOString()
+        : undefined,
       selectedVehicleTypeId: _values.selectedVehicleTypeId,
       vehicleTypeIds: [...(_values.vehicleTypeIds || [])],
     };
 
-    if ((_values.destination === "REGIONAL" || _values.destination === "INTERNATIONAL")) {
+    if (_values.fulfillmentType === "PICKUP") {
+      converted.pickupAddress = {
+        lat: String(_values.pickupLatitude),
+        long: String(_values.pickupLongitude),
+      };
+      if (_values.pickupDate) {
+        converted.pickupDate = new Date(_values.pickupDate).toISOString();
+      }
+    }
+
+    if (
+      _values.destination === "REGIONAL" ||
+      _values.destination === "INTERNATIONAL"
+    ) {
       converted.originCity = _values.originCity;
       converted.destinationCity = _values.destinationCity;
     }
@@ -425,12 +482,26 @@ export default function OrderForm() {
       converted.branchId = _values.branchId;
     }
 
-    console.log("values: ", converted);
-    if(_values.shipmentType=="PARCEL"){
-      converted.width= _values?.width
-      converted.height= _values?.height
-      converted.length= _values?.length
+    if (_values.name?.trim()) {
+      converted.name = _values.name.trim();
+    }
+    if (_values.email?.trim()) {
+      converted.email = _values.email.trim();
+    }
+    if (_values.phone?.trim()) {
+      converted.phone = _values.phone.trim();
+    }
 
+    const categoryIdTrimSubmit = String(_values.categoryId ?? "").trim();
+    if (categoryIdTrimSubmit) {
+      converted.categoryId = categoryIdTrimSubmit;
+    }
+
+    console.log("values: ", converted);
+    if (_values.shipmentType == "PARCEL") {
+      converted.width = _values?.width;
+      converted.height = _values?.height;
+      converted.length = _values?.length;
     }
     try {
       setLoading(true);
@@ -446,7 +517,6 @@ export default function OrderForm() {
 
       setManagerSearch("");
       setBranchSearch("");
-
     } catch (error: any) {
       console.log(error.response?.data);
       toast.error(error?.response?.data?.message || "Somethign went wrong!");
@@ -469,36 +539,56 @@ export default function OrderForm() {
   };
 
   const clearManager = (
-    setFieldValue: (field: string, value: string) => void
+    setFieldValue: (field: string, value: string) => void,
   ) => {
     setFieldValue("customerId", "");
     setFieldValue("managerName", "");
     setManagerSearch("");
+    setSelectedCustomerForSender(null);
   };
 
   const selectManager = (
-    manager: { id: string; name: string; email: string },
-    setFieldValue: (field: string, value: string) => void
+    manager: Customer,
+    setFieldValue: (field: string, value: string | unknown) => void,
   ) => {
     setFieldValue("customerId", manager.id);
     setFieldValue("managerName", manager.name);
-    setManagerSearch(`${manager.name} (${manager.id})`);
+    setManagerSearch(manager.name);
+    setSelectedCustomerForSender(manager);
     setShowManagerDropdown(false);
   };
 
+  const prefillSenderFromSelectedCustomer = (
+    setFieldValue: (field: string, value: unknown) => void,
+  ) => {
+    if (!selectedCustomerForSender || !canPrefillSender) return;
+    setFieldValue("name", selectedCustomerForSender.name ?? "");
+    setFieldValue("email", selectedCustomerForSender.email ?? "");
+    setFieldValue("phone", selectedCustomerForSender.phone ?? "");
+  };
+
   const clearBranch = (
-    setFieldValue: (field: string, value: string) => void
+    setFieldValue: (field: string, value: string) => void,
   ) => {
     setFieldValue("branchId", "");
     setBranchSearch("");
   };
 
+  const clearPickupFields = (
+    setFieldValue: (field: string, value: unknown) => void,
+  ) => {
+    setFieldValue("pickupAddress", "");
+    setFieldValue("pickupLatitude", 0);
+    setFieldValue("pickupLongitude", 0);
+    setFieldValue("pickupDate", "");
+  };
+
   const selectBranch = (
     branch: { id: string; name: string },
-    setFieldValue: (field: string, value: string) => void
+    setFieldValue: (field: string, value: string) => void,
   ) => {
     setFieldValue("branchId", branch.id);
-    setBranchSearch(`${branch.name} (${branch.id})`);
+    setBranchSearch(branch.name);
     setShowBranchDropdown(false);
   };
 
@@ -588,9 +678,6 @@ export default function OrderForm() {
                               <div className="font-medium text-gray-900">
                                 {manager.name}
                               </div>
-                              <div className="text-sm text-gray-600">
-                                ID: {manager.id}
-                              </div>
                               <div className="text-sm text-gray-500">
                                 {manager.email}
                               </div>
@@ -609,70 +696,78 @@ export default function OrderForm() {
                       </div>
                     )}
                   </div>
-                </div>
-                {/* <div>
-                  <Label className="mb-1">Name</Label>
-                  <Field
-                    as={Input}
-                    name="name"
-                    placeholder="Customer name"
-                    className={`py-7 ${
-                      errors.name && touched.name ? "border-red-500" : ""
-                    }`}
-                  />
-                  {errors.name && touched.name && (
-                    <p className="text-red-500 text-sm mt-1">{errors.name}</p>
-                  )}
-                </div>
-                <div>
-                  <Label className="mb-1">Email</Label>
-                  <Field
-                    as={Input}
-                    type="email"
-                    name="email"
-                    placeholder="Email"
-                    className={`py-7 ${
-                      errors.email && touched.email ? "border-red-500" : ""
-                    }`}
-                  />
-                  {errors.email && touched.email && (
-                    <p className="text-red-500 text-sm mt-1">{errors.email}</p>
-                  )}
-                </div>
-                <div> */}
 
-                {/* <Label className="mb-1">Phone</Label>
-                  <Field
-                    as={Input}
-                    type="tel"
-                    name="phone"
-                    placeholder="Phone"
-                    className={`py-7 ${
-                      errors.phone && touched.phone ? "border-red-500" : ""
-                    }`}
-                  />
-                  {errors.phone && touched.phone && (
-                    <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
-                  )}
-                </div> */}
-                <div>
-                  <Label className="mb-1">Pickup Address</Label>
-                  <MapAddressSelector
-                    onAddressSelect={(addressData) => {
-                      setFieldValue("pickupAddress", addressData.address);
-                      setFieldValue("pickupLatitude", addressData.latitude);
-                      setFieldValue("pickupLongitude", addressData.longitude);
-                    }}
-                    initialAddress={values.pickupAddress}
-                    initialLat={values.pickupLatitude}
-                    initialLng={values.pickupLongitude}
-                    height="300px"
-                  />
-                  {errors.pickupAddress && touched.pickupAddress && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.pickupAddress}
+                  <div className="space-y-3 pt-2 border-t border-gray-200">
+                    <p className="text-sm text-gray-600">
+                      Enter manually or prefill from the customer you selected
+                      above.
                     </p>
-                  )}
+                    <Button
+                      type="button"
+                      disabled={!canPrefillSender}
+                      className={cn(
+                        "!w-full text-sm border transition-colors",
+                        canPrefillSender
+                          ? "!bg-blue-600 hover:!bg-blue-700 !text-white border-blue-600 cursor-pointer"
+                          : "!bg-gray-100 !text-gray-400 border-gray-200 cursor-not-allowed opacity-80",
+                      )}
+                      onClick={() =>
+                        prefillSenderFromSelectedCustomer(setFieldValue)
+                      }
+                    >
+                      Prefill from selected customer
+                    </Button>
+                    <div>
+                      <Label className="mb-1">Name</Label>
+                      <Field
+                        as={Input}
+                        name="name"
+                        placeholder="Name (optional)"
+                        className={`py-7 ${
+                          errors.name && touched.name ? "border-red-500" : ""
+                        }`}
+                      />
+                      {errors.name && touched.name && (
+                        <p className="text-red-500 text-sm mt-1">
+                          {errors.name}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="mb-1">Email</Label>
+                      <Field
+                        as={Input}
+                        type="email"
+                        name="email"
+                        placeholder="Email (optional)"
+                        className={`py-7 ${
+                          errors.email && touched.email ? "border-red-500" : ""
+                        }`}
+                      />
+                      {errors.email && touched.email && (
+                        <p className="text-red-500 text-sm mt-1">
+                          {errors.email}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="mb-1">Phone *</Label>
+                      <Field
+                        as={Input}
+                        type="tel"
+                        name="phone"
+                        placeholder="Phone"
+                        className={`py-7 ${
+                          errors.phone && touched.phone ? "border-red-500" : ""
+                        }`}
+                      />
+                      {errors.phone && touched.phone && (
+                        <p className="text-red-500 text-sm mt-1">
+                          {errors.phone}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -764,12 +859,12 @@ export default function OrderForm() {
               <div>
                 <Label className="mb-1">Service Type</Label>
                 <Select
-                  value={values.serviceType}
-                  onValueChange={(val) => setFieldValue("serviceType", val)}
+                  value={values.serviceTypeId || undefined}
+                  onValueChange={(val) => setFieldValue("serviceTypeId", val)}
                 >
                   <SelectTrigger
                     className={`py-7 !w-full bg-none border ${
-                      errors.serviceType && touched.serviceType
+                      errors.serviceTypeId && touched.serviceTypeId
                         ? "border-red-500"
                         : ""
                     }`}
@@ -784,9 +879,9 @@ export default function OrderForm() {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.serviceType && touched.serviceType && (
+                {errors.serviceTypeId && touched.serviceTypeId && (
                   <p className="text-red-500 text-sm mt-1">
-                    {errors.serviceType}
+                    {errors.serviceTypeId}
                   </p>
                 )}
               </div>
@@ -800,6 +895,9 @@ export default function OrderForm() {
                     if (val !== "DROPOFF") {
                       setFieldValue("branchId", "");
                       setBranchSearch("");
+                    }
+                    if (val === "DROPOFF") {
+                      clearPickupFields(setFieldValue);
                     }
                   }}
                 >
@@ -824,10 +922,52 @@ export default function OrderForm() {
                 )}
               </div>
 
+              {values.fulfillmentType === "PICKUP" && (
+                <div>
+                  <Label className="mb-1">Pickup Address</Label>
+                  <MapAddressSelector
+                    onAddressSelect={(addressData) => {
+                      setFieldValue("pickupAddress", addressData.address);
+                      setFieldValue("pickupLatitude", addressData.latitude);
+                      setFieldValue("pickupLongitude", addressData.longitude);
+                    }}
+                    initialAddress={values.pickupAddress}
+                    initialLat={values.pickupLatitude}
+                    initialLng={values.pickupLongitude}
+                    height="300px"
+                  />
+                  {errors.pickupAddress && touched.pickupAddress && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.pickupAddress}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
+                <Checkbox
+                  id="is-delivery"
+                  checked={values.isDelivery}
+                  onCheckedChange={(c) =>
+                    setFieldValue("isDelivery", c === true)
+                  }
+                  className="border-gray-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 data-[state=checked]:text-white"
+                />
+                <Label
+                  htmlFor="is-delivery"
+                  className="cursor-pointer text-sm font-medium leading-none"
+                >
+                  Is delivery (ship to receiver address)
+                </Label>
+              </div>
+
               {/* Branch Selection (only for DROPOFF) */}
               {values.fulfillmentType === "DROPOFF" && (
-                <div className="relative">
+                <div className="relative space-y-3">
                   <Label className="mb-2">Branch *</Label>
+                  <p className="text-sm text-gray-600">
+                    Search and select the branch for this drop-off order.
+                  </p>
                   <div className="relative">
                     <Input
                       placeholder="Search branch"
@@ -873,9 +1013,6 @@ export default function OrderForm() {
                             <div className="font-medium text-gray-900">
                               {branch.name}
                             </div>
-                            <div className="text-sm text-gray-600">
-                              ID: {branch.id}
-                            </div>
                             {branch.location && (
                               <div className="text-sm text-gray-500">
                                 {branch.location}
@@ -898,21 +1035,25 @@ export default function OrderForm() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="mb-1">Pickup Date</Label>
-                  <Field
-                    as={Input}
-                    type="datetime-local"
-                    name="pickupDate"
-                    className="py-7"
-                  />
-                  {errors.pickupDate && touched.pickupDate && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.pickupDate}
-                    </p>
-                  )}
-                </div>
+              <div
+                className={`grid grid-cols-1 gap-4 ${values.fulfillmentType === "PICKUP" ? "md:grid-cols-2" : ""}`}
+              >
+                {values.fulfillmentType === "PICKUP" && (
+                  <div>
+                    <Label className="mb-1">Pickup Date</Label>
+                    <Field
+                      as={Input}
+                      type="datetime-local"
+                      name="pickupDate"
+                      className="py-7"
+                    />
+                    {errors.pickupDate && touched.pickupDate && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {errors.pickupDate}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div>
                   <Label className="mb-1">Delivery Date</Label>
                   <Field
@@ -991,7 +1132,9 @@ export default function OrderForm() {
                           selected={selected}
                           onToggle={() => {
                             const next = selected
-                              ? values.vehicleTypeIds.filter((id) => id !== vt.id)
+                              ? values.vehicleTypeIds.filter(
+                                  (id) => id !== vt.id,
+                                )
                               : [...values.vehicleTypeIds, vt.id];
                             setFieldValue("vehicleTypeIds", next);
                             setFieldValue(
@@ -1120,10 +1263,10 @@ export default function OrderForm() {
                       </p>
                     )}
                   <Style2
-                    mode="multiple"
+                    allowClear
                     placeholder="Select category"
-                    value={values.category}
-                    onChange={(val) => setFieldValue("category", val)}
+                    value={values.categoryId || undefined}
+                    onChange={(val) => setFieldValue("categoryId", val ?? "")}
                     disabled={
                       loadingOrderItemCategories ||
                       orderItemCategories.length === 0
@@ -1162,10 +1305,7 @@ export default function OrderForm() {
                   <Select
                     value={String(values.isUnusual)}
                     onValueChange={(val) =>
-                      setFieldValue(
-                        "isUnusual",
-                        val === "true" ? true : false
-                      )
+                      setFieldValue("isUnusual", val === "true" ? true : false)
                     }
                   >
                     <SelectTrigger className="!w-full py-7">
@@ -1221,7 +1361,8 @@ export default function OrderForm() {
                   )}
                 </div>
                 {/* Origin and Destination City - only for REGIONAL/INTERNATIONAL */}
-                {(values.destination === "REGIONAL" || values.destination === "INTERNATIONAL") && (
+                {(values.destination === "REGIONAL" ||
+                  values.destination === "INTERNATIONAL") && (
                   <>
                     <div>
                       <Label className="mb-1">Origin City</Label>
@@ -1258,18 +1399,19 @@ export default function OrderForm() {
                   >
                     Requirement Checklist
                   </Label>
-                  <Checkbox className="border-gray-300 ml-2" />
+                  <Checkbox className="border-gray-300 ml-2 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 data-[state=checked]:text-white" />
                 </div>
                 <div className="col-span-2 grid grid-cols-2 gap-4">
                   <Button
                     type="button"
                     className="mb-1 flex flex-row justify-center items-center cursor-pointer hover:bg-blue-700"
                     onClick={() => onEstimate(values)}
-                    >
-                    {priceLoading?
-                            <Spinner className="h-6 w-6 text-center text-white mr-2" />
-                    :
-                    "Generate Estimate price"}
+                  >
+                    {priceLoading ? (
+                      <Spinner className="h-6 w-6 text-center text-white mr-2" />
+                    ) : (
+                      "Generate Estimate price"
+                    )}
                   </Button>
 
                   <Input
@@ -1303,7 +1445,6 @@ export default function OrderForm() {
                     Cancel
                   </Button>
                 </div>
-
               </div>
             </div>
           </Form>

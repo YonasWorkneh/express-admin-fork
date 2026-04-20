@@ -150,6 +150,9 @@ function hydrateOneTariffTab(
   const cp = t.categoryPricing as Array<Record<string, unknown>> | undefined;
   if (!cp?.length) return;
 
+  let inferredProfit: number | undefined;
+  let inferredAirport: number | undefined;
+
   for (const item of cp) {
     const cid = item.categoryId as string | undefined;
     if (!cid || !tab.categories[cid]) continue;
@@ -184,6 +187,26 @@ function hydrateOneTariffTab(
       cv.ratePerKg =
         typeof config.ratePerKg === "number" ? config.ratePerKg : 0;
     }
+
+    if (
+      typeof item.profitPerc === "number" &&
+      inferredProfit === undefined
+    ) {
+      inferredProfit = item.profitPerc;
+    }
+    if (
+      typeof item.airportFeePerKg === "number" &&
+      inferredAirport === undefined
+    ) {
+      inferredAirport = item.airportFeePerKg;
+    }
+  }
+
+  if (typeof t.profitMargin !== "number" && inferredProfit !== undefined) {
+    tab.profitMargin = inferredProfit;
+  }
+  if (typeof t.additionalCost !== "number" && inferredAirport !== undefined) {
+    tab.additionalCost = inferredAirport;
   }
 }
 
@@ -195,6 +218,34 @@ function hydrateFromParsedPrice(
 ): Record<string, ServiceTabValues> {
   const base = buildEmptyServiceConfigs(serviceTypes, categories);
   if (!parsed) return base;
+
+  /** GET /pricing/tariff/:id — rows in categoryPricing carry serviceTypeId; junction serviceTypes[] optional */
+  if (Array.isArray(parsed.categoryPricing) && parsed.categoryPricing.length) {
+    const cp = parsed.categoryPricing as Record<string, unknown>[];
+    const sidFromRow =
+      typeof cp[0]?.serviceTypeId === "string"
+        ? (cp[0].serviceTypeId as string)
+        : undefined;
+    const junction = parsed.serviceTypes as Record<string, unknown>[] | undefined;
+    const sidFromJunction =
+      Array.isArray(junction) &&
+      junction[0] &&
+      typeof junction[0].serviceTypeId === "string"
+        ? (junction[0].serviceTypeId as string)
+        : undefined;
+    const derivedServiceTypeId = sidFromRow ?? sidFromJunction;
+    if (typeof derivedServiceTypeId === "string" && derivedServiceTypeId.trim()) {
+      const enriched: Record<string, unknown> = {
+        ...parsed,
+        serviceTypeId: derivedServiceTypeId,
+      };
+      const st = serviceTypes.find((s) => s.id === derivedServiceTypeId);
+      if (st) {
+        hydrateOneTariffTab(base[st.id], enriched, tariffDisplayName);
+      }
+      return base;
+    }
+  }
 
   if (
     typeof parsed.serviceTypeId === "string" &&
@@ -519,12 +570,16 @@ type ZonalTariffPricingFormProps = {
   shippingScope: "INTERNATIONAL" | "REGIONAL";
   tariffDisplayName: string;
   headerTitle: { create: string; edit: string };
+  prefetchedTariff?: Record<string, unknown> | null;
+  enableTariffListProbe?: boolean;
 };
 
 export default function ZonalTariffPricingForm({
   shippingScope,
   tariffDisplayName,
   headerTitle,
+  prefetchedTariff = null,
+  enableTariffListProbe = true,
 }: ZonalTariffPricingFormProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -545,15 +600,52 @@ export default function ZonalTariffPricingForm({
     useOrderItemCategories();
 
   useEffect(() => {
+    if (prefetchedTariff && Object.keys(prefetchedTariff).length > 0) {
+      setParsedPrice(prefetchedTariff);
+      return;
+    }
     const raw = searchParams.get("price");
-    if (!raw) return;
+    if (!raw) {
+      setParsedPrice(null);
+      return;
+    }
     try {
       const decoded = decodeURIComponent(raw);
       setParsedPrice(JSON.parse(decoded) as Record<string, unknown>);
     } catch {
       setParsedPrice(null);
     }
-  }, [searchParams]);
+  }, [prefetchedTariff, searchParams]);
+
+  /** Probe existing tariffs: same path as POST `/pricing/tariff`, GET (for upcoming prefill). */
+  useEffect(() => {
+    if (!enableTariffListProbe) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await api.get<unknown>("/pricing/tariff", {
+          params: { page: 1, pageSize: 100 },
+        });
+        if (!cancelled) {
+          console.log(
+            `[ZonalTariffPricingForm][${shippingScope}] GET /pricing/tariff response:`,
+            res.data,
+          );
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.log(
+            `[ZonalTariffPricingForm][${shippingScope}] GET /pricing/tariff error:`,
+            e,
+          );
+        }
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [shippingScope, enableTariffListProbe]);
 
   const isEditing = Boolean(parsedPrice && parsedPrice.id);
 
@@ -562,6 +654,15 @@ export default function ZonalTariffPricingForm({
       setActiveTabId(serviceTypes[0].id);
     }
   }, [serviceTypes, activeTabId]);
+
+  /** PATCH submits the active tab’s service type; align tab with API when editing one ST. */
+  useEffect(() => {
+    if (!isEditing || !parsedPrice || !serviceTypes.length) return;
+    const sid = parsedPrice.serviceTypeId;
+    if (typeof sid === "string" && serviceTypes.some((s) => s.id === sid)) {
+      setActiveTabId(sid);
+    }
+  }, [isEditing, parsedPrice, serviceTypes]);
 
   useEffect(() => {
     if (!categories.length || !serviceTypes.length) return;
@@ -576,7 +677,6 @@ export default function ZonalTariffPricingForm({
 
   const initialValues: ZonalTariffFormValues = useMemo(() => {
     const empty = buildEmptyServiceConfigs(serviceTypes, categories);
-    console.log("isEditing", isEditing);
     if (isEditing && parsedPrice) {
       return {
         serviceConfigs: hydrateFromParsedPrice(
