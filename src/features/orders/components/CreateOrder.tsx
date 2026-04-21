@@ -35,11 +35,15 @@ import { usePublicFleetVehicleTypesQuery } from "@/hooks/useDriverCommissionConf
 import type { FleetVehicleTypeListItem } from "@/lib/api/fleet";
 import { VehicleTypeThumbnail } from "@/lib/vehicleTypeVisual";
 import { cn } from "@/lib/utils";
+import { DateTimePicker } from "@/components/ui/date-picker";
 
 // import { useOrders } from "@/hooks/useOrders"; // custom hook
 
+const hasSelectedCustomer = (customerId: unknown) =>
+  Boolean(String(customerId ?? "").trim());
+
 const OrderValidationSchema = Yup.object().shape({
-  customerId: Yup.string().required("Customer is required"),
+  customerId: Yup.string(),
   receiverName: Yup.string().required("Receiver name is required"),
   receiverEmail: Yup.string()
     .email("Invalid email")
@@ -60,18 +64,37 @@ const OrderValidationSchema = Yup.object().shape({
   vehicleTypeIds: Yup.array()
     .of(Yup.string())
     .min(1, "Select at least one vehicle type"),
-  name: Yup.string().optional(),
+  /** When no customer is selected from search, sender name / email / phone are required */
+  name: Yup.string().when("customerId", {
+    is: (val: unknown) => !hasSelectedCustomer(val),
+    then: (schema) =>
+      schema.required("Name is required when no customer is selected"),
+    otherwise: (schema) => schema.notRequired(),
+  }),
   email: Yup.string()
     .transform((v) => (v === "" ? undefined : v))
-    .email("Invalid email")
-    .optional(),
-  phone: Yup.string().required("Phone is required"),
-  // Not required for towns and not globally always required
-  // We will do frontend check for these
+    .when("customerId", {
+      is: (val: unknown) => !hasSelectedCustomer(val),
+      then: (schema) =>
+        schema
+          .required("Email is required when no customer is selected")
+          .email("Invalid email"),
+      otherwise: (schema) =>
+        schema
+          .transform((v) => (v === "" ? undefined : v))
+          .email("Invalid email")
+          .optional(),
+    }),
+  phone: Yup.string().when("customerId", {
+    is: (val: unknown) => !hasSelectedCustomer(val),
+    then: (schema) =>
+      schema.required("Phone is required when no customer is selected"),
+    otherwise: (schema) => schema.notRequired(),
+  }),
 });
 
 interface ConvertedShipment {
-  customerId: any;
+  customerId?: any;
   name?: any;
   email?: any;
   phone?: any;
@@ -141,6 +164,26 @@ interface OrderSummaryData {
   breakdown: OrderSummaryBreakdown | null;
   vehicles: OrderSummaryVehicle[];
   currency?: string;
+}
+
+/** Sender: either existing `customerId` or manual `name` + `email` + `phone` (validated in schema). */
+function applySenderToShipmentPayload(
+  converted: ConvertedShipment,
+  values: {
+    customerId?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+  },
+) {
+  const cid = String(values.customerId ?? "").trim();
+  if (cid) {
+    converted.customerId = cid;
+    return;
+  }
+  converted.name = String(values.name ?? "").trim();
+  converted.email = String(values.email ?? "").trim();
+  converted.phone = String(values.phone ?? "").trim();
 }
 
 function formatOrderMoney(amount: number | undefined, currency?: string): string {
@@ -344,11 +387,6 @@ export default function OrderForm() {
     setFieldValue("selectedVehicleTypeId", "");
     setFieldValue("sessionId", "");
     const converted: ConvertedShipment = {
-      // name:_values.name,
-      // email:_values.email,
-      // phone:_values.phone,
-
-      customerId: _values.customerId,
       // receiver info
       receiverName: _values.receiverName,
       receiverEmail: _values.receiverEmail,
@@ -414,15 +452,7 @@ export default function OrderForm() {
       converted.branchId = _values.branchId;
     }
 
-    if (_values.name?.trim()) {
-      converted.name = _values.name.trim();
-    }
-    if (_values.email?.trim()) {
-      converted.email = _values.email.trim();
-    }
-    if (_values.phone?.trim()) {
-      converted.phone = _values.phone.trim();
-    }
+    applySenderToShipmentPayload(converted, _values);
 
     const categoryIdTrim = String(_values.categoryId ?? "").trim();
     if (categoryIdTrim) {
@@ -495,11 +525,6 @@ export default function OrderForm() {
       _values,
     );
     const converted: ConvertedShipment = {
-      // name:_values.name,
-      // email:_values.email,
-      // phone:_values.phone,
-
-      customerId: _values.customerId,
       // receiver info
       receiverName: _values.receiverName,
       receiverEmail: _values.receiverEmail,
@@ -566,15 +591,7 @@ export default function OrderForm() {
       converted.branchId = _values.branchId;
     }
 
-    if (_values.name?.trim()) {
-      converted.name = _values.name.trim();
-    }
-    if (_values.email?.trim()) {
-      converted.email = _values.email.trim();
-    }
-    if (_values.phone?.trim()) {
-      converted.phone = _values.phone.trim();
-    }
+    applySenderToShipmentPayload(converted, _values);
 
     const categoryIdTrimSubmit = String(_values.categoryId ?? "").trim();
     if (categoryIdTrimSubmit) {
@@ -712,7 +729,9 @@ export default function OrderForm() {
                 <h2 className="text-lg font-medium mb-4">Sender Info</h2>
                 <div className="bg-gray-50  rounded-lg space-y-4">
                   <div className="relative">
-                    <Label className="mb-2">Customer *</Label>
+                    <Label className="mb-2">
+                      Customer (optional if sender details below)
+                    </Label>
                     <div className="relative">
                       <Input
                         // type="text"
@@ -774,17 +793,13 @@ export default function OrderForm() {
                         )}
                       </div>
                     )}
-                    {errors.customerId && touched.customerId && (
-                      <div className="text-red-500 text-sm mt-1">
-                        {errors.customerId}
-                      </div>
-                    )}
                   </div>
 
                   <div className="space-y-3 pt-2 border-t border-gray-200">
                     <p className="text-sm text-gray-600">
-                      Enter manually or prefill from the customer you selected
-                      above.
+                      If you did not pick a customer above, enter sender name,
+                      email, and phone (all required). Otherwise only{" "}
+                      <span className="font-medium">customerId</span> is sent.
                     </p>
                     <Button
                       type="button"
@@ -802,11 +817,16 @@ export default function OrderForm() {
                       Prefill from selected customer
                     </Button>
                     <div>
-                      <Label className="mb-1">Name</Label>
+                      <Label className="mb-1">
+                        Name{" "}
+                        <span className="text-gray-500 font-normal">
+                          (required without customer)
+                        </span>
+                      </Label>
                       <Field
                         as={Input}
                         name="name"
-                        placeholder="Name (optional)"
+                        placeholder="Sender name"
                         className={`py-7 ${
                           errors.name && touched.name ? "border-red-500" : ""
                         }`}
@@ -818,12 +838,17 @@ export default function OrderForm() {
                       )}
                     </div>
                     <div>
-                      <Label className="mb-1">Email</Label>
+                      <Label className="mb-1">
+                        Email{" "}
+                        <span className="text-gray-500 font-normal">
+                          (required without customer)
+                        </span>
+                      </Label>
                       <Field
                         as={Input}
                         type="email"
                         name="email"
-                        placeholder="Email (optional)"
+                        placeholder="Sender email"
                         className={`py-7 ${
                           errors.email && touched.email ? "border-red-500" : ""
                         }`}
@@ -835,12 +860,17 @@ export default function OrderForm() {
                       )}
                     </div>
                     <div>
-                      <Label className="mb-1">Phone *</Label>
+                      <Label className="mb-1">
+                        Phone{" "}
+                        <span className="text-gray-500 font-normal">
+                          (required without customer)
+                        </span>
+                      </Label>
                       <Field
                         as={Input}
                         type="tel"
                         name="phone"
-                        placeholder="Phone"
+                        placeholder="Sender phone"
                         className={`py-7 ${
                           errors.phone && touched.phone ? "border-red-500" : ""
                         }`}
@@ -1124,12 +1154,18 @@ export default function OrderForm() {
               >
                 {values.fulfillmentType === "PICKUP" && (
                   <div>
-                    <Label className="mb-1">Pickup Date</Label>
-                    <Field
-                      as={Input}
-                      type="datetime-local"
-                      name="pickupDate"
-                      className="py-7"
+                    <Label className="mb-1" htmlFor="order-pickup-datetime">
+                      Pickup Date
+                    </Label>
+                    <DateTimePicker
+                      id="order-pickup-datetime"
+                      value={values.pickupDate}
+                      onChange={(v) => setFieldValue("pickupDate", v)}
+                      onBlur={() => setFieldTouched("pickupDate", true)}
+                      placeholder="Pick date and time"
+                      error={Boolean(
+                        errors.pickupDate && touched.pickupDate,
+                      )}
                     />
                     {errors.pickupDate && touched.pickupDate && (
                       <p className="text-red-500 text-sm mt-1">
@@ -1139,12 +1175,18 @@ export default function OrderForm() {
                   </div>
                 )}
                 <div>
-                  <Label className="mb-1">Delivery Date</Label>
-                  <Field
-                    as={Input}
-                    type="datetime-local"
-                    name="deliveryDate"
-                    className="py-7"
+                  <Label className="mb-1" htmlFor="order-delivery-datetime">
+                    Delivery Date
+                  </Label>
+                  <DateTimePicker
+                    id="order-delivery-datetime"
+                    value={values.deliveryDate}
+                    onChange={(v) => setFieldValue("deliveryDate", v)}
+                    onBlur={() => setFieldTouched("deliveryDate", true)}
+                    placeholder="Pick date and time"
+                    error={Boolean(
+                      errors.deliveryDate && touched.deliveryDate,
+                    )}
                   />
                   {errors.deliveryDate && touched.deliveryDate && (
                     <p className="text-red-500 text-sm mt-1">
