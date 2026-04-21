@@ -1006,34 +1006,21 @@ export default function OrdersPage() {
                               scope === "TOWN" &&
                               fulfillmentType === "DROPOFF"
                             ) {
-                              // 2. Status: CREATED, ShippingScope: TOWN, fulfillmentType: DROPOFF => Action Request Approval/ Validate
+                              // CREATED + DROPOFF: accept dropoff — prefilled editable order form
                               return (
-                                <div className="flex flex-row gap-2">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setIsDialogOpen(true);
-                                      setSelectedOrder(order);
-                                    }}
-                                  >
-                                    Request Approval
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="p-2 text-green-600 bg-green-50 hover:bg-green-100 hover:text-green-700 cursor-pointer"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setIsDialogOpen(true);
-                                      setSelectedOrder(order);
-                                    }}
-                                  >
-                                    Validate
-                                  </Button>
-                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="p-2 text-green-700 bg-green-50 hover:bg-green-100 hover:text-green-800 cursor-pointer border border-green-200"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(
+                                      `/order/new?editMode=dropoffAccept&orderId=${encodeURIComponent(order.id)}`,
+                                    );
+                                  }}
+                                >
+                                  Accept Dropoff
+                                </Button>
                               );
                             }
                             if (
@@ -1062,34 +1049,20 @@ export default function OrdersPage() {
                                 scope === "INTERNATIONAL") &&
                               fulfillmentType === "DROPOFF"
                             ) {
-                              // 4. Status: CREATED, ShippingScope: REGIONAL/INTERNATIONAL, fulfillmentType: DROPOFF => Action Request Approval/Validate
                               return (
-                                <div className="flex flex-row gap-2">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setIsDialogOpen(true);
-                                      setSelectedOrder(order);
-                                    }}
-                                  >
-                                    Request Approval
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="p-2 text-green-600 bg-green-50 hover:bg-green-100 hover:text-green-700 cursor-pointer"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setIsDialogOpen(true);
-                                      setSelectedOrder(order);
-                                    }}
-                                  >
-                                    Validate
-                                  </Button>
-                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="p-2 text-green-700 bg-green-50 hover:bg-green-100 hover:text-green-800 cursor-pointer border border-green-200"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(
+                                      `/order/new?editMode=dropoffAccept&orderId=${encodeURIComponent(order.id)}`,
+                                    );
+                                  }}
+                                >
+                                  Accept Dropoff
+                                </Button>
                               );
                             }
                           }

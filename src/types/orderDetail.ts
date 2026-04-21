@@ -50,6 +50,11 @@ export interface OrderDetailApi {
   status: string;
   weight: number;
   finalPrice: number;
+  /** Optional — used when prefilling accept-dropoff flow */
+  vehicleTypeId?: string | null;
+  unusualReason?: string | null;
+  validatedNotes?: string | null;
+  branch?: { id: string; name?: string } | null;
   cost?: number;
   currency?: string;
   shipmentType?: string;
