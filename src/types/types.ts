@@ -291,6 +291,56 @@ export interface FleetVehicle {
   vehicleType: any;
 }
 
+/** Nested driver on GET /fleet/:id (may omit `user`) */
+export interface FleetDriverDetail {
+  id: string;
+  userId: string;
+  vehicleId: string | null;
+  status: string;
+  type: string;
+  currentLat?: number;
+  currentLon?: number;
+  updatedAt: string | null;
+  createdBy: string | null;
+  licenseExpiry: string | null;
+  licenseNumber: string | null;
+  availablityStatus: string;
+  backImageUrl: string | null;
+  frontImageUrl: string | null;
+  licenseIssue: string | null;
+  verifiedByOCR: boolean;
+  isApproved?: boolean;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  user?: any;
+}
+
+export interface FleetVehicleTypeDetail {
+  id: string;
+  name: string;
+  description?: string | null;
+  iconPublicId?: string | null;
+  iconUrl?: string | null;
+}
+
+/** GET /fleet/:id */
+export interface FleetVehicleDetailApi {
+  id: string;
+  plateNumber: string;
+  status: string;
+  driverId: string;
+  createdAt: string;
+  updatedAt: string;
+  model: string;
+  createdBy: string | null;
+  maxLoad: number;
+  vehicleTypeId: string;
+  type: string;
+  driver?: FleetDriverDetail | null;
+  fleetLogs: unknown[];
+  vehicleType?: FleetVehicleTypeDetail | null;
+}
+
 /** ───── Vehicle ───── */
 export interface Vehicle {
   id: string;
@@ -509,7 +559,7 @@ export type BranchListResponse = PaginatedResponse<Branch>;
 export type CustomerDetailResponse = ApiResponse<Customer>;
 export type CustomerListResponse = PaginatedResponse<Customer>;
 
-export type FleetDetailResponse = ApiResponse<FleetVehicle>;
+export type FleetDetailResponse = ApiResponse<FleetVehicleDetailApi>;
 export type FleetListResponse = PaginatedResponse<FleetVehicle>;
 
 export interface GenericResponse {

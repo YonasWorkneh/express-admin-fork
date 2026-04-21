@@ -1,6 +1,28 @@
 import api from "./api";
-import type { ApiResponse } from "@/types/types";
+import type {
+  ApiResponse,
+  FleetDetailResponse,
+  FleetVehicleDetailApi,
+} from "@/types/types";
 import type { VehicleType } from "@/features/fleet/types";
+
+/** GET /fleet/:id */
+export async function fetchFleetVehicleById(
+  id: string,
+): Promise<FleetVehicleDetailApi> {
+  const clean = id.replace(/^#/, "").trim();
+  if (!clean) {
+    throw new Error("Invalid vehicle id");
+  }
+  const response = await api.get<FleetDetailResponse>(
+    `/fleet/${encodeURIComponent(clean)}`,
+  );
+  const vehicle = response.data.data;
+  if (!vehicle) {
+    throw new Error("Vehicle not found");
+  }
+  return vehicle;
+}
 
 export interface CreateVehicleTypeInput {
   name: string;

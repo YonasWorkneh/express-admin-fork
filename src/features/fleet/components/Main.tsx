@@ -537,15 +537,7 @@ console.log(staffs.data)
                     <TableRow
                       key={vehicle.id}
                       className="cursor-pointer hover:bg-gray-50"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(
-                          `/fleet/details/${vehicle.id}?fleet=${encodeURIComponent(
-                            JSON.stringify(vehicle),
-                          )}`,
-                        );
-                        // navigate(`/fleet/details/${vehicle.id}`)
-                      }}
+                      onClick={() => navigate(`/fleet/${vehicle.id}`)}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox />

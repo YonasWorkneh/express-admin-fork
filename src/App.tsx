@@ -337,14 +337,6 @@ const App = () => {
                 }
               />
               <Route
-                path="/fleet/details/:id"
-                element={
-                  <ProtectedRoute requiredPermission={Permission.FLEET}>
-                    <VehicleDetailsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="/fleet/create"
                 element={
                   <ProtectedRoute requiredPermission={Permission.FLEET}>
@@ -397,6 +389,14 @@ const App = () => {
                 element={
                   <ProtectedRoute requiredPermission={Permission.FLEET}>
                     <EditMaintenanceLogPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/fleet/:id"
+                element={
+                  <ProtectedRoute requiredPermission={Permission.FLEET}>
+                    <VehicleDetailsPage />
                   </ProtectedRoute>
                 }
               />
