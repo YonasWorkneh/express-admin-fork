@@ -13,7 +13,7 @@ import { BsBuildingFillAdd } from "react-icons/bs";
 import {  useNavigate, useParams } from "react-router-dom";
 import api from "@/lib/api/api";
 import toast from "react-hot-toast";
-import type { Branch, BranchDetailResponse } from "@/types/types";
+import type { BranchDetailApi, BranchDetailResponse } from "@/types/types";
 
 const EditBranchPage = () => {
   const [status] = useState<"idle" | "submitting" | "success" | "error">(
@@ -36,7 +36,7 @@ const EditBranchPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = !!id;
-  const [branch,setBranch] =useState<Branch|null>(null);
+  const [branch, setBranch] = useState<BranchDetailApi | null>(null);
 console.log(branch)
 
 

@@ -386,17 +386,7 @@ interface BranchDashboardStats {
                 <TableRow
                   key={index}
                   className="border-gray-100 hover:bg-gray-50 cursor-pointer"
-                  onClick={() =>{
-                    
-                    
-                      navigate(
-                        `/branch/details/${branch.id}?branch=${encodeURIComponent(
-                          JSON.stringify(branch)
-                        )}`
-                      )
-                    
-                    // navigate(`/branch/details/${branch.id}`)
-                  }}
+                  onClick={() => navigate(`/branch/${branch.id}`)}
                 >
                   <TableCell>
                     <Checkbox />

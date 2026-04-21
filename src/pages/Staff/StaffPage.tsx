@@ -381,7 +381,7 @@ function StaffPage() {
                 <TableRow
                   key={index}
                   className="border-gray-100 hover:bg-gray-50 cursor-pointer"
-                  onClick={() => navigate(`/staff/details/${member.id}`)}
+                  onClick={() => navigate(`/staff/${member.id}`)}
                 >
                   <TableCell>
                     <Checkbox />

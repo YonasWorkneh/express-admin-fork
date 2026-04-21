@@ -140,6 +140,47 @@ export interface Branch {
   customId: string;
 }
 
+/** GET /branch/:id — detail payload */
+export interface BranchManagerSummary {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+}
+
+export interface BranchStaffSummary {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+}
+
+export interface BranchAddressDetail {
+  id: string;
+  label: string;
+  state: string;
+  city: string;
+  country: string;
+}
+
+export interface BranchOrderSummary {
+  id: string;
+  trackingCode: string;
+}
+
+export interface BranchDetailApi {
+  id: string;
+  name: string;
+  branchId: string;
+  location: string;
+  createdAt: string;
+  createdBy: string;
+  manager: BranchManagerSummary | null;
+  staff: BranchStaffSummary[];
+  address?: BranchAddressDetail | null;
+  orders?: BranchOrderSummary[];
+}
+
 export interface Staff {
   id: string;
   name: string;
@@ -154,6 +195,64 @@ export interface Staff {
   updatedAt: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
+}
+
+/** GET /staff/:id — full payload (may include driver, vehicles, etc.) */
+export interface StaffDetailBranch {
+  id: string;
+  name: string;
+  branchId?: string;
+}
+
+export interface StaffDetailVehicle {
+  id: string;
+  model: string;
+  maxLoad: number;
+  vehicleType?: {
+    id: string;
+    name: string;
+    description?: string;
+    iconPublicId?: string;
+    iconUrl?: string;
+  };
+  plateNumber: string;
+  type: string;
+  status: string;
+}
+
+export interface StaffDetailDriver {
+  id: string;
+  availablityStatus: string;
+  licenseExpiry: string | null;
+  licenseIssue: string | null;
+  licenseNumber: string | null;
+  type: string;
+  status: string;
+  frontImageUrl: string | null;
+  backImageUrl: string | null;
+  isApproved?: boolean;
+  vehicles?: StaffDetailVehicle[];
+}
+
+export interface StaffDetailApi {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  customId?: string;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  emailVerified: boolean;
+  isActive: boolean;
+  driver?: StaffDetailDriver | null;
+  faydaFAN?: string | null;
+  profilePictures?: ProfilePicture[];
+  isStaff: boolean;
+  role: Role;
+  branch: StaffDetailBranch;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface FleetDriver {
@@ -392,7 +491,7 @@ export type RoleWithPermissionsResponse = ApiResponse<RoleWithPermissions>;
 export type RoleWithPermissionsListResponse =
   PaginatedResponse<RoleWithPermissions>;
 
-export type StaffDetailResponse = ApiResponse<Staff>;
+export type StaffDetailResponse = ApiResponse<StaffDetailApi>;
 export type StaffListResponse = PaginatedResponse<Staff>;
 
 export type VehicleDetailResponse = ApiResponse<Vehicle>;
@@ -404,7 +503,7 @@ export type OrderListResponse = PaginatedResponse<Order>;
 export type DriverDetailResponse = ApiResponse<Driver>;
 export type DriverListResponse = PaginatedResponse<Driver>;
 
-export type BranchDetailResponse = ApiResponse<Branch>;
+export type BranchDetailResponse = ApiResponse<BranchDetailApi>;
 export type BranchListResponse = PaginatedResponse<Branch>;
 
 export type CustomerDetailResponse = ApiResponse<Customer>;

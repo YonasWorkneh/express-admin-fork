@@ -1,5 +1,9 @@
 import api from "./api";
-import type { Branch, BranchListResponse } from "@/types/types";
+import type {
+  BranchDetailApi,
+  BranchDetailResponse,
+  BranchListResponse,
+} from "@/types/types";
 
 export interface ListBranchesParams {
   page?: number;
@@ -22,9 +26,17 @@ export const fetchBranches = async (
 /**
  * Fetch a single branch by ID
  */
-export const fetchBranchById = async (id: string): Promise<Branch> => {
-  const response = await api.get<{ success: boolean; data: Branch }>(
-    `/branch/${id}`
+export const fetchBranchById = async (id: string): Promise<BranchDetailApi> => {
+  const clean = id.replace(/^#/, "").trim();
+  if (!clean) {
+    throw new Error("Invalid branch id");
+  }
+  const response = await api.get<BranchDetailResponse>(
+    `/branch/${encodeURIComponent(clean)}`,
   );
-  return response.data.data;
+  const branch = response.data.data;
+  if (!branch) {
+    throw new Error("Branch not found");
+  }
+  return branch;
 };

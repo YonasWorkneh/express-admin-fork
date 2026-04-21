@@ -15,7 +15,7 @@ import type {
   BranchListResponse,
   RoleWithPermissions,
   RoleWithPermissionsListResponse,
-  Staff,
+  StaffDetailApi,
   StaffDetailResponse,
 } from "@/types/types";
 import { Spinner } from "@/utils/spinner";
@@ -50,7 +50,7 @@ const EditStaffPage = () => {
 
   const [roles, setRoles] = useState<RoleWithPermissions[]>([]);
 
-  const [staff, setStaff] = useState<Staff | null>(null);
+  const [staff, setStaff] = useState<StaffDetailApi | null>(null);
 
   console.log("stff detail: ", staff, loadingRole, roles);
 

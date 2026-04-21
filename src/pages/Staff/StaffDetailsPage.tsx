@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,145 +8,75 @@ import {
   ArrowLeft,
   User,
   Building2,
-  
-  MapPin,
-  FileText,
   Calendar,
   Phone,
   Mail,
-  Star,
   Clock,
+  Car,
+  FileText,
+  Shield,
+  ExternalLink,
 } from "lucide-react";
-import api from "@/lib/api/api";
-import type { Branch, BranchListResponse } from "@/types/types";
-import toast from "react-hot-toast";
 import { Spinner } from "@/utils/spinner";
-import { Input } from "@/components/ui/input";
+import { useStaffDetail } from "@/hooks/useStaffDetail";
 
-// Mock staff data - in real app, this would come from API
-const staffData = {
-  id: "STF-001",
-  name: "Abebe Kebede",
-  email: "abebe.k@company.com",
-  phone: "+251 911 234 567",
-  role: "Driver",
-  branch: "Addis Ababa Central",
-  branchId: "1",
-  status: "Active",
-  assignedOrders: 12,
-  completedOrders: 145,
-  rating: 4.8,
-  joinDate: "2022-01-15",
-  department: "Operations",
-  employeeType: "Full-time",
-  salary: "25,000 ETB",
-  address: "Bole, Addis Ababa",
-  emergencyContact: "Tigist Kebede (+251 911 234 568)",
-  licenseNumber: "DL-ET-123456",
-  licenseExpiry: "2026-03-15",
-  vehicleAssigned: "VH-001 (AA-12345)",
-};
-
-// Mock related staff for team management
-
+function formatDate(iso: string | null | undefined) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
+}
 
 export default function StaffDetailsPage() {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  // const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
+  const { data: staff, isPending, isError, error, refetch } = useStaffDetail(id);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Active":
-        return "bg-green-100 text-green-700";
-      case "On Leave":
-        return "bg-yellow-100 text-yellow-700";
-      case "Inactive":
-        return "bg-red-100 text-red-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
+  const getRoleBadgeClass = (roleName: string) => {
+    const r = roleName.toUpperCase();
+    if (r.includes("MANAGER")) return "bg-purple-100 text-purple-700";
+    if (r.includes("DRIVER")) return "bg-blue-100 text-blue-700";
+    if (r.includes("DISPATCH")) return "bg-green-100 text-green-700";
+    return "bg-gray-100 text-gray-700";
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "Manager":
-        return "bg-purple-100 text-purple-700";
-      case "Driver":
-        return "bg-blue-100 text-blue-700";
-      case "Dispatcher":
-        return "bg-green-100 text-green-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
+  if (isPending) {
+    return (
+      <div className="flex justify-center items-center min-h-[40vh]">
+        <Spinner className="h-10 w-10 text-blue-600" />
+      </div>
+    );
+  }
 
-  // const handleStaffSelect = (staffId: string) => {
-  //   setSelectedStaff((prev) =>
-  //     prev.includes(staffId)
-  //       ? prev.filter((id) => id !== staffId)
-  //       : [...prev, staffId]
-  //   );
-  // };
-  const [branchSearch, setBranchSearch] = useState("");
-  const [loadingBrand, setLoadingBrand] = useState(false);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [showBranchDropdown, setShowBranchDropdown] = useState(false);
-  const [brnachId, setBranchId] = useState("");
+  if (isError || !staff) {
+    return (
+      <div className="min-h-screen p-6 max-w-7xl">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/staff")}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to staff
+        </Button>
+        <p className="mt-6 text-red-600">
+          {error?.message ?? "Could not load staff details."}
+        </p>
+        <Button className="mt-4" variant="outline" onClick={() => refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
-  const featchBranch = async () => {
-    try {
-      setLoadingBrand(true);
-
-      const branch = await api.get<BranchListResponse>(`/branch?search=all:${branchSearch}`);
-      setBranches(branch.data.data);
-      setLoadingBrand(false);
-    } catch (error: any) {
-      setLoadingBrand(false);
-
-      const message =
-        error?.response?.data?.message ||
-        "Something went wrong. Please try again.";
-      toast.error(message);
-      console.error(error); // optional: log the full error
-    }
-  };
-
-  useEffect(() => {
-    featchBranch();
-  }, [branchSearch]);
-
-  const selectBranch =async (
-    branch: { id: string; name: string },
-  ) => {
-    setBranchId(branch?.id)
-    setBranchSearch(`${branch.name} (${branch.id})`);
-    setShowBranchDropdown(false);
-    try {
-      // setLoading(true);
-      const data = { managerId: id, branchId: branch?.id };
-
-      const res = await api.post("/branch/assign-manager", data);
-      toast.success(res.data?.message);
-      // navigate("/branch");
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Somethign went wrong!");
-    } finally {
-      // setLoading(false);
-    }
-    
-  };
-
-  const clearBranch = (
-  ) => {
-   setBranchId("")
-    setBranchSearch("");
-  };
+  const displayId = staff.customId ?? staff.id;
+  const driver = staff.driver;
+  const vehicles = driver?.vehicles ?? [];
+  const emergencyLine =
+    staff.emergencyContactName || staff.emergencyContactPhone
+      ? [staff.emergencyContactName, staff.emergencyContactPhone]
+          .filter(Boolean)
+          .join(" · ")
+      : null;
 
   return (
     <div className="min-h-screen p-6 max-w-7xl">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-4">
           <Button
@@ -160,469 +89,332 @@ export default function StaffDetailsPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Staff Details - #{staffData.id}
+              Staff — {displayId}
             </h1>
-            <p className="text-gray-500 text-sm">
-              Manage staff information and work assignments
-            </p>
+            <p className="text-gray-500 text-sm">{staff.name}</p>
           </div>
         </div>
-        <div className="flex items-center space-x-3">
-          <Button
-            variant="outline"
-            className="text-gray-600 bg-white cursor-pointer"
-          >
-            Cancel
-          </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">
-            Save Changes
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          className="text-blue-600 border-blue-200"
+          onClick={() => navigate(`/staff/edit/${staff.id}`)}
+        >
+          Edit staff
+        </Button>
       </div>
 
-      {/* Main Content - Two Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column */}
         <div className="space-y-6">
-          {/* Staff Information */}
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
                 <User className="h-5 w-5 mr-2 text-blue-600" />
-                Staff Information
+                Staff information
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-gray-600">
-                    Employee Name
+                    Name
                   </Label>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {staffData.name}
+                  <p className="text-lg font-semibold text-gray-900 mt-1">
+                    {staff.name}
                   </p>
-                  <p className="text-sm text-gray-500">{staffData.id}</p>
-                  <p className="text-sm text-gray-500">{staffData.email}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    Employment Status
-                  </Label>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <Badge className={getStatusColor(staffData.status)}>
-                      ● {staffData.status}
-                    </Badge>
-                    <Badge className={getRoleColor(staffData.role)}>
-                      {staffData.role}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4 pt-4 border-t">
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    Assigned Orders
-                  </Label>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {staffData.assignedOrders}
+                  <p className="text-xs text-gray-500 mt-1 font-mono">
+                    ID: {staff.id}
                   </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    Completed Orders
-                  </Label>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {staffData.completedOrders}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    Rating
-                  </Label>
-                  <div className="flex items-center space-x-1">
-                    <Star className="h-4 w-4 text-yellow-500" />
-                    <p className="text-lg font-semibold text-gray-900">
-                      {staffData.rating}
+                  {staff.customId ? (
+                    <p className="text-sm text-gray-600 mt-1">
+                      Staff code:{" "}
+                      <span className="font-medium">{staff.customId}</span>
                     </p>
+                  ) : null}
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">
+                    Role &amp; status
+                  </Label>
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <Badge
+                      className={getRoleBadgeClass(staff.role?.name ?? "")}
+                    >
+                      {staff.role?.name ?? "—"}
+                    </Badge>
+                    <Badge
+                      className={
+                        staff.isActive
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                      }
+                    >
+                      {staff.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                    <Badge
+                      variant="secondary"
+                      className={
+                        staff.emailVerified
+                          ? "bg-emerald-50 text-emerald-800"
+                          : "bg-amber-50 text-amber-800"
+                      }
+                    >
+                      Email {staff.emailVerified ? "verified" : "not verified"}
+                    </Badge>
+                    {staff.isStaff ? (
+                      <Badge variant="outline" className="text-gray-700">
+                        Staff account
+                      </Badge>
+                    ) : null}
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Work Configuration */}
-          {/* <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center text-lg font-semibold">
-                <Settings className="h-5 w-5 mr-2 text-blue-600" />
-                Work Configuration
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    Employee Type
-                  </Label>
-                  <Select defaultValue="fulltime">
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fulltime">Full-time</SelectItem>
-                      <SelectItem value="parttime">Part-time</SelectItem>
-                      <SelectItem value="contract">Contract</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    Department
-                  </Label>
-                  <Select defaultValue="operations">
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="operations">Operations</SelectItem>
-                      <SelectItem value="logistics">Logistics</SelectItem>
-                      <SelectItem value="customer-service">
-                        Customer Service
-                      </SelectItem>
-                      <SelectItem value="management">Management</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2 pt-2">
-                <Badge className="bg-blue-100 text-blue-700">
-                  {staffData.employeeType}
-                </Badge>
-                <Badge className="bg-gray-100 text-gray-700">
-                  {staffData.department}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card> */}
-
-          {/* Branch Assignment */}
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
                 <Building2 className="h-5 w-5 mr-2 text-blue-600" />
-                Branch Assignment
+                Branch
               </CardTitle>
             </CardHeader>
-            <CardContent>
-            <div className="bg-gray-50  rounded-lg space-y-4">
-                <div className="relative">
-                  <Label className="mb-2">Branch *</Label>
-                  <div className="relative">
-                    <Input
-                      type="text"
-                      placeholder="Search branches by name, ID, or location..."
-                      value={branchSearch}
-                      onChange={(e) => {
-                        setBranchSearch(e.target.value);
-                        setShowBranchDropdown(true);
-                        if (!e.target.value) {
-                          clearBranch();
-                        }
-                      }}
-                      onFocus={() => setShowBranchDropdown(true)}
-                      onBlur={() =>
-                        setTimeout(() => setShowBranchDropdown(false), 200)
-                      }
-                      className="py-7"
-                    />
-                    {brnachId && (
-                      <button
-                        type="button"
-                        onClick={() => clearBranch()}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-
-                  {showBranchDropdown && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                       {loadingBrand&&   <div className="flex justify-center items-center py-8">
-                        <Spinner className="h-6 w-6 text-blue-600 mr-2" />
-                      </div>}
-                      {branches.length > 0 ? (
-                        branches.map((branch) => (
-                          <div
-                            key={branch.id}
-                            onClick={() => selectBranch(branch)}
-                            className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                          >
-                            <div className="font-medium text-gray-900">
-                              {branch.name}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              ID: {branch.id}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {branch.location}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="px-4 py-3 text-gray-500 text-center">
-                          No branches found
-                        </div>
-                      )}
-                    </div>
-                  )}
-                 
-                </div>
-              </div>
+            <CardContent className="space-y-2">
+              <p className="text-gray-900 font-medium">{staff.branch?.name}</p>
+              {staff.branch?.branchId ? (
+                <p className="text-sm text-gray-600">
+                  Branch code: {staff.branch.branchId}
+                </p>
+              ) : null}
+              <p className="text-xs text-gray-500 font-mono">
+                ID: {staff.branch?.id}
+              </p>
             </CardContent>
           </Card>
 
-          {/* Performance & Status */}
-          {/* <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center text-lg font-semibold">
-                <Shield className="h-5 w-5 mr-2 text-blue-600" />
-                Performance & Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    Performance Level
-                  </Label>
-                  <Select defaultValue="excellent">
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="excellent">Excellent</SelectItem>
-                      <SelectItem value="good">Good</SelectItem>
-                      <SelectItem value="average">Average</SelectItem>
-                      <SelectItem value="needs-improvement">
-                        Needs Improvement
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    Work Status
-                  </Label>
-                  <Select defaultValue="active">
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="on-leave">On Leave</SelectItem>
-                      <SelectItem value="suspended">Suspended</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card> */}
-        </div>
-
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Contact Information */}
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <MapPin className="h-5 w-5 mr-2 text-blue-600" />
-                Contact Information
+                <Car className="h-5 w-5 mr-2 text-blue-600" />
+                Driver profile
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium text-gray-600">
-                    Phone Number
-                  </Label>
-                  <div className="flex items-center space-x-1">
-                    <Phone className="h-3 w-3 text-gray-400" />
-                    <span className="text-sm text-gray-900">
-                      {staffData.phone}
-                    </span>
+              {driver ? (
+                <>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <Label className="text-gray-600">Availability</Label>
+                      <p className="font-medium text-gray-900 mt-0.5">
+                        {driver.availablityStatus}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-600">Status</Label>
+                      <p className="font-medium text-gray-900 mt-0.5">
+                        {driver.status}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-600">Type</Label>
+                      <p className="font-medium text-gray-900 mt-0.5">
+                        {driver.type}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-600">Approved</Label>
+                      <p className="font-medium text-gray-900 mt-0.5">
+                        {driver.isApproved === true
+                          ? "Yes"
+                          : driver.isApproved === false
+                            ? "No"
+                            : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-600">License number</Label>
+                      <p className="font-medium text-gray-900 mt-0.5">
+                        {driver.licenseNumber ?? "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-600">License expiry</Label>
+                      <p className="font-medium text-gray-900 mt-0.5 flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5 text-gray-400" />
+                        {formatDate(driver.licenseExpiry)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium text-gray-600">
-                    Email Address
-                  </Label>
-                  <div className="flex items-center space-x-1">
-                    <Mail className="h-3 w-3 text-gray-400" />
-                    <span className="text-sm text-gray-900">
-                      {staffData.email}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium text-gray-600">
-                    Address
-                  </Label>
-                  <span className="text-sm text-gray-900">
-                    {staffData.address}
+                  {(driver.frontImageUrl || driver.backImageUrl) && (
+                    <div className="flex flex-wrap gap-3 pt-2 border-t">
+                      {driver.frontImageUrl ? (
+                        <a
+                          href={driver.frontImageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                        >
+                          License (front)
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : null}
+                      {driver.backImageUrl ? (
+                        <a
+                          href={driver.backImageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                        >
+                          License (back)
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {vehicles.length > 0 ? (
+                    <div className="pt-2 border-t space-y-3">
+                      <Label className="text-sm font-medium text-gray-700">
+                        Vehicles
+                      </Label>
+                      {vehicles.map((v) => (
+                        <div
+                          key={v.id}
+                          className="rounded-lg border border-gray-200 p-3 bg-gray-50/80"
+                        >
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="font-medium text-gray-900">
+                              {v.plateNumber}
+                            </span>
+                            <Badge variant="secondary">{v.status}</Badge>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {v.vehicleType?.name ?? "Vehicle"} · {v.model} · max{" "}
+                            {v.maxLoad} kg
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Type: {v.type}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  No driver profile linked to this staff member.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center text-lg font-semibold">
+                <Phone className="h-5 w-5 mr-2 text-blue-600" />
+                Contact
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <Label className="text-sm font-medium text-gray-600 shrink-0">
+                  Phone
+                </Label>
+                <div className="flex items-center gap-1 text-right">
+                  <Phone className="h-3 w-3 text-gray-400 shrink-0" />
+                  <span className="text-sm text-gray-900 break-all">
+                    {staff.phone}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium text-gray-600">
-                    Emergency Contact
-                  </Label>
-                  <span className="text-sm text-gray-900">
-                    {staffData.emergencyContact}
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <Label className="text-sm font-medium text-gray-600 shrink-0">
+                  Email
+                </Label>
+                <div className="flex items-center gap-1 text-right">
+                  <Mail className="h-3 w-3 text-gray-400 shrink-0" />
+                  <span className="text-sm text-gray-900 break-all">
+                    {staff.email}
                   </span>
                 </div>
+              </div>
+              {emergencyLine ? (
+                <div className="flex items-start justify-between gap-4 pt-2 border-t">
+                  <Label className="text-sm font-medium text-gray-600 shrink-0">
+                    Emergency contact
+                  </Label>
+                  <span className="text-sm text-gray-900 text-right">
+                    {emergencyLine}
+                  </span>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center text-lg font-semibold">
+                <Shield className="h-5 w-5 mr-2 text-blue-600" />
+                Identifiers
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <Label className="text-sm font-medium text-gray-600">
+                  Fayda FAN
+                </Label>
+                <p className="text-sm text-gray-900 mt-1">
+                  {staff.faydaFAN ?? "—"}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-600">
+                  Profile pictures
+                </Label>
+                <p className="text-sm text-gray-700 mt-1">
+                  {staff.profilePictures && staff.profilePictures.length > 0
+                    ? `${staff.profilePictures.length} file(s) on record`
+                    : "None on record"}
+                </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Team Management */}
-          {/* <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center text-lg font-semibold">
-                <Users className="h-5 w-5 mr-2 text-blue-600" />
-                Team Management
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
-                Select team members for collaborative work assignments:
-              </p>
-              <div className="space-y-3">
-                {relatedStaff.map((staff) => (
-                  <div
-                    key={staff.id}
-                    className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50"
-                  >
-                    <Checkbox
-                      checked={selectedStaff.includes(staff.id)}
-                      onCheckedChange={() => handleStaffSelect(staff.id)}
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">
-                        {staff.name} ({staff.id})
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {staff.role} - {staff.department}
-                      </div>
-                    </div>
-                    <div className="text-sm font-medium text-gray-900">
-                      {staff.distance}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card> */}
-
-          {/* Staff Summary */}
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
                 <FileText className="h-5 w-5 mr-2 text-blue-600" />
-                Staff Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    Join Date
-                  </Label>
-                  <div className="flex items-center space-x-1 mt-1">
-                    <Calendar className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-900">
-                      {new Date(staffData.joinDate).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    License Number
-                  </Label>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {staffData.licenseNumber}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    Vehicle Assigned
-                  </Label>
-                  <p className="text-sm text-gray-900">
-                    {staffData.vehicleAssigned}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    License Expiry
-                  </Label>
-                  <div className="flex items-center space-x-1">
-                    <Clock className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-900">
-                      {new Date(staffData.licenseExpiry).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Work History */}
-          {/* <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center text-lg font-semibold">
-                <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
-                Recent Work History
+                Record
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {workHistory.map((record) => (
-                  <div
-                    key={record.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900">
-                          {record.type}
-                        </span>
-                        <Badge className="bg-green-100 text-green-700">
-                          {record.status}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {record.description}
-                      </p>
-                      <div className="flex items-center space-x-4 mt-2 text-xs text-gray-400">
-                        <span>
-                          {new Date(record.date).toLocaleDateString()}
-                        </span>
-                        <span>{record.location}</span>
-                        {record.rating && (
-                          <div className="flex items-center space-x-1">
-                            <Star className="h-3 w-3 text-yellow-500" />
-                            <span>{record.rating}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <Label className="text-gray-600">Created</Label>
+                  <div className="flex items-center gap-1 mt-1 text-gray-900">
+                    <Calendar className="h-4 w-4 text-gray-400" />
+                    {formatDate(staff.createdAt)}
                   </div>
-                ))}
+                </div>
+                <div>
+                  <Label className="text-gray-600">Last updated</Label>
+                  <div className="flex items-center gap-1 mt-1 text-gray-900">
+                    <Clock className="h-4 w-4 text-gray-400" />
+                    {formatDate(staff.updatedAt)}
+                  </div>
+                </div>
+                {staff.createdBy ? (
+                  <div className="sm:col-span-2">
+                    <Label className="text-gray-600">Created by</Label>
+                    <p className="text-gray-900 mt-1 font-mono text-xs">
+                      {staff.createdBy}
+                    </p>
+                  </div>
+                ) : null}
               </div>
             </CardContent>
-          </Card> */}
+          </Card>
         </div>
       </div>
     </div>

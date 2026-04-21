@@ -177,14 +177,6 @@ const App = () => {
                 }
               />
               <Route
-                path="/branch/details/:id"
-                element={
-                  <ProtectedRoute requiredPermission={Permission.BRANCH}>
-                    <BranchDetailsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="/branch/create"
                 element={
                   <ProtectedRoute requiredPermission={Permission.BRANCH}>
@@ -217,18 +209,18 @@ const App = () => {
                 }
               />
               <Route
-                path="/staff"
+                path="/branch/:id"
                 element={
-                  <ProtectedRoute requiredPermission={Permission.STAFF}>
-                    <StaffPage />
+                  <ProtectedRoute requiredPermission={Permission.BRANCH}>
+                    <BranchDetailsPage />
                   </ProtectedRoute>
                 }
               />
               <Route
-                path="/staff/details/:id"
+                path="/staff"
                 element={
                   <ProtectedRoute requiredPermission={Permission.STAFF}>
-                    <StaffDetailsPage />
+                    <StaffPage />
                   </ProtectedRoute>
                 }
               />
@@ -245,6 +237,14 @@ const App = () => {
                 element={
                   <ProtectedRoute requiredPermission={Permission.STAFF}>
                     <EditStaffPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/staff/:id"
+                element={
+                  <ProtectedRoute requiredPermission={Permission.STAFF}>
+                    <StaffDetailsPage />
                   </ProtectedRoute>
                 }
               />
