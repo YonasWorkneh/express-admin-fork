@@ -32,6 +32,29 @@ interface DispatchModalProps {
   order: Order;
 }
 
+const toDisplayText = (value: unknown, fallback = "-"): string => {
+  if (value == null) return fallback;
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    const text = String(value).trim();
+    return text || fallback;
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    for (const key of ["name", "label", "title", "value", "id"]) {
+      const v = obj[key];
+      if (typeof v === "string" || typeof v === "number") {
+        const text = String(v).trim();
+        if (text) return text;
+      }
+    }
+  }
+  return fallback;
+};
+
 const getStatusColor = (status: string) => {
   switch (status) {
     case "Available":
@@ -179,6 +202,17 @@ function DispatchModal({
   ]);
   // Reset selections when switching tabs
   useEffect(() => {
+    console.log("[DispatchModal] mounted/open state", {
+      isOpen,
+      orderId: order?.id,
+      trackingCode: order?.trackingCode,
+      fulfillmentType: order?.fulfillmentType,
+      serviceTypeType: typeof order?.serviceType,
+      serviceTypeRaw: order?.serviceType,
+    });
+  }, [isOpen, order]);
+
+  useEffect(() => {
     if (activeTab === "internal") {
       setSelectedExternalDrivers([]);
     } else {
@@ -207,6 +241,7 @@ function DispatchModal({
           orderId: order?.id,
           driverIds: driverIds,
         };
+        console.log("[DispatchModal] external dispatch payload", payload);
 
         const res = await api.post<any>("/dispatch/driver/requests", payload);
         
@@ -223,6 +258,10 @@ function DispatchModal({
           orderId: order?.id,
           driverId: selectedDriver?.userId,
         };
+        console.log("[DispatchModal] internal dispatch payload", {
+          payload,
+          selectedDriver,
+        });
 
         const res = await api.post<any>("/dispatch/assign-pickup", payload);
         
@@ -236,6 +275,13 @@ function DispatchModal({
         onClose();
       }
     } catch (error: any) {
+      console.error("[DispatchModal] dispatch error", {
+        activeTab,
+        selectedDriver,
+        selectedExternalDrivers,
+        errorResponse: error?.response?.data,
+        errorMessage: error?.message,
+      });
       const message =
         error?.response?.data?.message ||
         "Something went wrong. Please try again.";
@@ -338,8 +384,9 @@ function DispatchModal({
             </Button>
           </div>
           <div className="text-sm text-gray-600">
-            Customer: {order?.customer?.name} • Scope: {order?.shippingScope} • Service:{" "}
-            {order?.serviceType}
+            Customer: {toDisplayText(order?.customer?.name)} • Scope:{" "}
+            {toDisplayText(order?.shippingScope)} • Service:{" "}
+            {toDisplayText(order?.serviceType)}
           </div>
         </CardHeader>
 
@@ -358,7 +405,13 @@ function DispatchModal({
               </div>
               <div className="md:col-span-2">
                 <Label className="text-gray-600">Delivery Address</Label>
-                <p className="font-medium">{order?.deliveryAddress?.label}</p>
+                <p className="font-medium">
+                  {toDisplayText(
+                    order?.deliveryAddress?.label ??
+                      order?.deliveryAddress?.landMark ??
+                      order?.deliveryAddress?.addressLine,
+                  )}
+                </p>
               </div>
             </div>
           </div>

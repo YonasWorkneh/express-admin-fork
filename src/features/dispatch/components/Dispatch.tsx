@@ -303,6 +303,25 @@ const reverseGeocode = async (lat: string, lng: string) => {
   }
 };
 
+const toDisplayText = (value: unknown, fallback = "-"): string => {
+  if (value == null) return fallback;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    const text = String(value).trim();
+    return text.length ? text : fallback;
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["name", "label", "title", "value", "id"]) {
+      const v = record[key];
+      if (typeof v === "string" || typeof v === "number") {
+        const text = String(v).trim();
+        if (text.length) return text;
+      }
+    }
+  }
+  return fallback;
+};
+
 export default function Dispatch() {
   const navigate = useNavigate();
   // const [selectedDriver, setSelectedDriver] = useState("");
@@ -591,7 +610,16 @@ const [loading] = useState<boolean>(true);
   // };
 
   const handleDispatchOrder = (order: any) => {
-    console.log("Dispatching order:", order);
+    console.log("[Dispatch] opening assign driver modal", {
+      orderId: order?.id,
+      trackingCode: order?.trackingCode,
+      status: order?.status,
+      fulfillmentType: order?.fulfillmentType,
+      shippingScope: order?.shippingScope,
+      serviceTypeType: typeof order?.serviceType,
+      serviceTypeRaw: order?.serviceType,
+      deliveryAddress: order?.deliveryAddress,
+    });
     setSelectedOrder(order);
     setIsDispatchModalOpen(true);
   };
@@ -610,6 +638,9 @@ const [loading] = useState<boolean>(true);
   };
 
   const handleCloseDispatchModal = () => {
+    console.log("[Dispatch] closing assign driver modal", {
+      selectedOrderId: selectedOrder?.id,
+    });
     setIsDispatchModalOpen(false);
     setSelectedOrder(null);
   };
@@ -899,7 +930,7 @@ const [loading] = useState<boolean>(true);
                               : "-"}
                           </TableCell>
                           <TableCell className="text-gray-900">
-                            {order.customer.name}
+                            {toDisplayText(order?.customer?.name ?? (order as any)?.customer)}
                           </TableCell>
                           <TableCell>
                             {(() => {
@@ -922,12 +953,15 @@ const [loading] = useState<boolean>(true);
                             })()}
                           </TableCell>
                           <TableCell className="font-medium text-gray-900">
-                            {order.finalPrice?.toFixed(2)} ETB
+                            {Number.isFinite(Number(order?.finalPrice))
+                              ? `${Number(order.finalPrice).toFixed(2)} ETB`
+                              : "-"}
                           </TableCell>
                         
 
                           <TableCell className="text-gray-600">
-                    {
+                    {toDisplayText(
+                      (
                       (order?.pickupAddress?.addressLine === "Unknown" ||
                         order?.pickupAddress?.landMark === "Unknown" ||
                         !order?.pickupAddress?.addressLine ||
@@ -942,14 +976,16 @@ const [loading] = useState<boolean>(true);
                             )
                         )
                       : order?.pickupAddress?.landMark
-                    }
+                      )
+                    )}
                   </TableCell>
 
                           <TableCell className="text-gray-600">
                             {(order as any).quantity ?? 0}
                           </TableCell>
                           <TableCell className="text-gray-600">
-                    {
+                    {toDisplayText(
+                      (
                       (order?.deliveryAddress?.addressLine === "Unknown" ||
                         order?.deliveryAddress?.landMark === "Unknown" ||
                         !order?.deliveryAddress?.addressLine ||
@@ -963,10 +999,11 @@ const [loading] = useState<boolean>(true);
                             )
                         )
                       : order?.deliveryAddress?.landMark
-                    }
+                      )
+                    )}
                   </TableCell>
                           <TableCell className="text-gray-600">
-                            {order?.shippingScope}
+                            {toDisplayText(order?.shippingScope)}
                           </TableCell>
                           <TableCell>
                             <Badge
@@ -981,7 +1018,7 @@ const [loading] = useState<boolean>(true);
                                   : "bg-red-100 text-red-700 hover:bg-red-100"
                               }
                             >
-                              ● {order.fulfillmentType}
+                              ● {toDisplayText(order?.fulfillmentType)}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -993,7 +1030,7 @@ const [loading] = useState<boolean>(true);
                                   : "bg-orange-100 text-orange-700"
                               }
                             >
-                              {order.status}
+                              {toDisplayText(order?.status)}
                             </Badge>
                           </TableCell>
                           {/* Batch indicator */}
