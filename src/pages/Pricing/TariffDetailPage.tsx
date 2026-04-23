@@ -43,21 +43,34 @@ function normalizeScope(
   return null;
 }
 
-function zonalServiceTypeId(tariff: Record<string, unknown>): string | undefined {
-  if (typeof tariff.serviceTypeId === "string" && tariff.serviceTypeId.trim()) {
-    return tariff.serviceTypeId;
+function displayServiceType(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
   }
-  const cp = tariff.categoryPricing;
-  if (Array.isArray(cp) && cp.length > 0) {
-    const first = cp[0] as Record<string, unknown>;
-    if (typeof first.serviceTypeId === "string") return first.serviceTypeId;
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const candidate = obj.name ?? obj.label ?? obj.title;
+    if (typeof candidate === "string" || typeof candidate === "number") {
+      const text = String(candidate).trim();
+      return text || "Unknown service type";
+    }
   }
-  const st = tariff.serviceTypes;
-  if (Array.isArray(st) && st.length > 0) {
-    const first = st[0] as Record<string, unknown>;
-    if (typeof first.serviceTypeId === "string") return first.serviceTypeId;
+  return "Unknown service type";
+}
+
+function displayCategory(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
   }
-  return undefined;
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const candidate = obj.name ?? obj.label ?? obj.title;
+    if (typeof candidate === "string" || typeof candidate === "number") {
+      const text = String(candidate).trim();
+      return text || "Uncategorized";
+    }
+  }
+  return "Uncategorized";
 }
 
 function formatCell(v: unknown): string {
@@ -147,6 +160,12 @@ export default function TariffDetailPage() {
     return st as Record<string, unknown>[];
   }, [tariff, scope]);
 
+  const zonalRows = useMemo(() => {
+    if (!tariff || scope === "TOWN") return [];
+    if (!Array.isArray(tariff.categoryPricing)) return [];
+    return tariff.categoryPricing as Record<string, unknown>[];
+  }, [tariff, scope]);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3 p-6 bg-white">
@@ -189,9 +208,8 @@ export default function TariffDetailPage() {
           <code className="text-xs">scope</code>,{" "}
           <code className="text-xs">townConfig</code>,{" "}
           <code className="text-xs">townPricing</code>, or{" "}
-          <code className="text-xs">categoryPricing</code>). Check{" "}
-          <code className="text-xs">scopeId</code> with the backend or open edit
-          if a form still applies.
+          <code className="text-xs">categoryPricing</code>). Check the backend
+          payload or open edit if a form still applies.
         </p>
       </div>
     );
@@ -309,12 +327,6 @@ export default function TariffDetailPage() {
                 <p className="font-medium mt-1">{formatCell(tariff.mode)}</p>
               </div>
               <div>
-                <Label className="text-gray-600">Scope ID</Label>
-                <p className="font-mono text-xs mt-1 break-all">
-                  {formatCell(tariff.scopeId)}
-                </p>
-              </div>
-              <div>
                 <Label className="text-gray-600">Currency</Label>
                 <p className="font-medium text-green-700 mt-1">
                   {formatCell(tariff.currency)}
@@ -354,12 +366,6 @@ export default function TariffDetailPage() {
                     : "—"}
                 </p>
               </div>
-              <div className="sm:col-span-2">
-                <Label className="text-gray-600">Tariff ID</Label>
-                <p className="font-mono text-xs mt-1 break-all">
-                  {formatCell(tariff.id)}
-                </p>
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -367,7 +373,7 @@ export default function TariffDetailPage() {
         {scope === "TOWN" && townServiceRows.length > 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Service types</CardTitle>
+              <CardTitle className="text-lg">Configuration</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {townServiceRows.map((row, i) => (
@@ -376,7 +382,7 @@ export default function TariffDetailPage() {
                   className="flex flex-wrap gap-x-6 gap-y-1 py-2 border-b border-gray-100 last:border-0 text-sm"
                 >
                   <span className="font-medium">
-                    {formatCell(row.serviceTypeId ?? row.serviceType)}
+                    {displayServiceType(row.serviceType ?? row.serviceTypeName)}
                   </span>
                   <span className="text-gray-600">
                     Base: {formatCell(row.baseFee ?? row.basePrice)}
@@ -397,44 +403,49 @@ export default function TariffDetailPage() {
         {scope !== "TOWN" ? (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Zonal configuration</CardTitle>
+              <CardTitle className="text-lg">Configuration</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-gray-700 space-y-2">
-              <p>
-                <span className="text-gray-600">Service type ID: </span>
-                <span className="font-mono break-all">
-                  {formatCell(zonalServiceTypeId(tariff))}
-                </span>
-              </p>
+            <CardContent className="text-sm text-gray-700 space-y-3">
               <p>
                 <span className="text-gray-600">Category pricing entries: </span>
                 <span className="font-medium">
-                  {Array.isArray(tariff.categoryPricing)
-                    ? tariff.categoryPricing.length
-                    : "—"}
+                  {zonalRows.length}
                 </span>
               </p>
-              {Array.isArray(tariff.categoryPricing) &&
-              tariff.categoryPricing.length > 0 ? (
-                <p>
-                  <span className="text-gray-600">Sample margin / airport: </span>
-                  <span className="font-medium">
-                    {formatCell(
-                      (tariff.categoryPricing[0] as Record<string, unknown>)
-                        ?.profitPerc,
-                    )}
-                    % / {formatCell(
-                      (tariff.categoryPricing[0] as Record<string, unknown>)
-                        ?.airportFeePerKg,
-                    )}{" "}
-                    per kg
-                  </span>
-                </p>
-              ) : null}
-              <p className="text-gray-500">
-                Use <strong>Edit</strong> to view and change per-category
-                pricing, brackets, and margins.
-              </p>
+              {zonalRows.length > 0 ? (
+                <div className="space-y-2">
+                  {zonalRows.map((row, index) => (
+                    <div
+                      key={index}
+                      className="flex flex-wrap gap-x-6 gap-y-1 py-2 border-b border-gray-100 last:border-0"
+                    >
+                      <span className="font-medium">
+                        {displayCategory(
+                          row.category ?? row.categoryName ?? row.categoryType,
+                        )}
+                      </span>
+                      <span className="text-gray-600">
+                        Service:{" "}
+                        {displayServiceType(
+                          row.serviceType ?? row.serviceTypeName,
+                        )}
+                      </span>
+                      <span className="text-gray-600">
+                        Margin:{" "}
+                        {formatCell(
+                          row.profitPerc ?? row.profitMargin ?? row.profitPct,
+                        )}
+                        %
+                      </span>
+                      <span className="text-gray-600">
+                        Airport: {formatCell(row.airportFeePerKg)} / kg
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500">No category pricing entries found.</p>
+              )}
             </CardContent>
           </Card>
         ) : null}
