@@ -339,13 +339,26 @@ function DispatchModal({
       console.warn("[DispatchModal] fetchExternalDriver skipped: missing order id");
       return;
     }
+    const pickupLat = Number(order?.pickupAddress?.lat);
+    const pickupLon = Number(order?.pickupAddress?.long);
+    if (!Number.isFinite(pickupLat) || !Number.isFinite(pickupLon)) {
+      console.warn("[DispatchModal] fetchExternalDriver skipped: invalid pickup coordinates", {
+        orderId: order?.id,
+        pickupLatRaw: order?.pickupAddress?.lat,
+        pickupLonRaw: order?.pickupAddress?.long,
+      });
+      setExternalDriver([]);
+      return;
+    }
     try {
       setLoadingExternalDriver(true);
 
       const res = await api.get<any>(
         `maps/external/nearby-drivers?orderId=${encodeURIComponent(
           order.id,
-        )}&lat=9.0079232&lon=38.7678208&radius=232`
+        )}&lat=${encodeURIComponent(String(pickupLat))}&lon=${encodeURIComponent(
+          String(pickupLon),
+        )}&radius=10000`
       );
       setExternalDriver(res.data.data);
       setLoadingExternalDriver(false);

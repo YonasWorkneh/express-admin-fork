@@ -1121,6 +1121,7 @@ const [loading] = useState<boolean>(true);
                                   e.stopPropagation();
                                   // setIsDialogOpen(true);
                                   // setSelectedOrder(order)
+                                  console.log("order to assign driver", order);
                                   handleDispatchOrder(order);
                                 }}
                               >
