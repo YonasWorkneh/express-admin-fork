@@ -43,6 +43,16 @@ interface Metric {
   color: "blue" | "green" | "purple" | "orange";
 }
 
+interface BranchOfficer {
+  id: string;
+  name?: string;
+  email?: string;
+  user?: {
+    name?: string;
+    email?: string;
+  };
+}
+
 const getServiceTypeLabel = (serviceType: unknown): string => {
   if (typeof serviceType === "string" || typeof serviceType === "number") {
     const text = String(serviceType).trim();
@@ -73,16 +83,17 @@ function BatchPage() {
   const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [assigning, setAssigning] = useState(false);
-  const [cargoOfficers, setCargoOfficers] = useState<any[]>([]);
-  const [selectedOfficer, setSelectedOfficer] = useState<any>(null);
+  const [cargoOfficers, setCargoOfficers] = useState<BranchOfficer[]>([]);
+  const [selectedOfficer, setSelectedOfficer] = useState<BranchOfficer | null>(
+    null,
+  );
   const [officerSearch, setOfficerSearch] = useState("");
   const [loadingOfficers, setLoadingOfficers] = useState(false);
   const [isAssignCargoOfficerModal, setisAssignCargoOfficerModal] = useState(false);
   const [selectedBatchForOfficer, setSelectedBatchForOfficer] = useState<Batch | null>(null);
   const [isAssignCargoOfficerLoading, setIsAssignCargoOfficerLoading] = useState(false);
-  const [showCargoOfficerDropdown, setShowCargoOfficerDropdown] = useState(false);
-  const [cargoOfficerSearch, setCargoOfficerSearch] = useState("");
-  const [selectedCargoOfficer, setSelectedCargoOfficer] = useState<any>(null);
+  const [selectedCargoOfficer, setSelectedCargoOfficer] =
+    useState<BranchOfficer | null>(null);
   const [loadingCargoOfficer, setLoadingCargoOfficer] = useState(false);
 
   const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
@@ -127,7 +138,7 @@ function BatchPage() {
   const fetchBatches = async (page = 1, limit = 10) => {
     try {
       setLoading(true);
-      const response :any= await getBatches({
+      const response = await getBatches({
         page,
         pageSize: limit,
         search: searchText || undefined,
@@ -135,10 +146,16 @@ function BatchPage() {
 
       //console.log("Batches API Response:", response);
 
-      // Backend shape:
-      // { success, message, data: { batches: Batch[], pagination: Pagination } }
-      const batchesData: any[] = response.data?.batches ?? [];
-      const paginationData: Pagination | null = response.data?.pagination ?? null;
+      // Backend shape can vary; normalize both nested and flat forms.
+      const normalized = response as unknown as {
+        data?: { batches?: Batch[]; pagination?: Pagination | null };
+        batches?: Batch[];
+        pagination?: Pagination | null;
+      };
+      const batchesData: Batch[] =
+        normalized.data?.batches ?? normalized.batches ?? [];
+      const paginationData: Pagination | null =
+        normalized.data?.pagination ?? normalized.pagination ?? null;
 
       setBatches(batchesData);
       setPagination(paginationData);
@@ -247,7 +264,9 @@ function BatchPage() {
   const fetchCargoOfficers = async () => {
     try {
       setLoadingOfficers(true);
-      const response = await api.get<any>(
+      const response = await api.get<{
+        data?: { cargoOfficers?: BranchOfficer[] };
+      }>(
         `/users/cargo-officer?search=all:${officerSearch}&page=1&pageSize=20`
       );
       setCargoOfficers(response.data.data?.cargoOfficers || []);
@@ -258,13 +277,77 @@ function BatchPage() {
     }
   };
 
+  const getBranchIdForOfficerLookup = () =>
+    (
+      selectedBatchForOfficer as Batch & {
+        originBranchId?: string | null;
+        destinationBranchId?: string | null;
+        originId?: string | null;
+        destinationId?: string | null;
+      }
+    )?.originBranchId ||
+    (
+      selectedBatchForOfficer as Batch & {
+        originBranchId?: string | null;
+        destinationBranchId?: string | null;
+        originId?: string | null;
+        destinationId?: string | null;
+      }
+    )?.destinationBranchId ||
+    (
+      selectedBatchForOfficer as Batch & {
+        originBranchId?: string | null;
+        destinationBranchId?: string | null;
+        originId?: string | null;
+        destinationId?: string | null;
+      }
+    )?.originId ||
+    (
+      selectedBatchForOfficer as Batch & {
+        originBranchId?: string | null;
+        destinationBranchId?: string | null;
+        originId?: string | null;
+        destinationId?: string | null;
+      }
+    )?.destinationId ||
+    "";
+
   const featchCargoOfficer = async (page = 1, limit = 10) => {
+    const branchId = getBranchIdForOfficerLookup();
+    if (!branchId) {
+      setCargoOfficers([]);
+      return;
+    }
     try {
       setLoadingCargoOfficer(true);
-      const response = await api.get<any>(
-        `/users/cargo-officer?search=all:${cargoOfficerSearch}&page=${page}&pageSize=${limit}`
+      const response = await api.get<{
+        success?: boolean;
+        message?: string;
+        data?:
+          | BranchOfficer[]
+          | {
+              staff?: BranchOfficer[];
+              cargoOfficers?: BranchOfficer[];
+              officers?: BranchOfficer[];
+              rows?: BranchOfficer[];
+            };
+        pagination?: Pagination;
+      }>(
+        `/staff/branch/${encodeURIComponent(
+          branchId,
+        )}?page=${page}&pageSize=${limit}`
       );
-      setCargoOfficers(response.data.data?.cargoOfficers || []);
+      const payload = response.data?.data;
+      const payloadObject =
+        payload && !Array.isArray(payload) ? payload : undefined;
+      const list =
+        (Array.isArray(payload) ? payload : undefined) ??
+        payloadObject?.staff ??
+        payloadObject?.cargoOfficers ??
+        payloadObject?.officers ??
+        payloadObject?.rows ??
+        [];
+      setCargoOfficers(list);
       setLoadingCargoOfficer(false);
     } catch (error: any) {
       setLoadingCargoOfficer(false);
@@ -288,7 +371,7 @@ function BatchPage() {
       featchCargoOfficer();
     }
     // eslint-disable-next-line
-  }, [cargoOfficerSearch, isAssignCargoOfficerModal]);
+  }, [isAssignCargoOfficerModal, selectedBatchForOfficer]);
 
   const handleAssignOfficer = async () => {
     if (selectedBatches.length === 0) {
@@ -343,7 +426,6 @@ function BatchPage() {
       setisAssignCargoOfficerModal(false);
       setSelectedBatchForOfficer(null);
       setSelectedCargoOfficer(null);
-      setCargoOfficerSearch("");
       fetchBatches(currentPage, pageSize);
     } catch (error: any) {
       const message =
@@ -808,10 +890,9 @@ function BatchPage() {
           setisAssignCargoOfficerModal(false);
           setSelectedBatchForOfficer(null);
           setSelectedCargoOfficer(null);
-          setCargoOfficerSearch("");
         }}
         title="Assign Cargo Officer"
-        description={`Assign a cargo officer to batch: ${selectedBatchForOfficer?.batchCode || ""}`}
+        description={`${selectedBatchForOfficer?.batchCode || ""}`}
         onConfirm={handleAssignCargoOfficer}
         variant="info"
         confirmText="Assign"
@@ -819,85 +900,50 @@ function BatchPage() {
         isLoading={isAssignCargoOfficerLoading}
       >
         <div className="mt-4 space-y-4">
-          <div className="relative">
+          <div>
             <label className="text-sm font-medium mb-2 block">
-              Search Cargo Officer
+              Select Cargo Officer
             </label>
-            <div className="relative">
-              <Input
-                placeholder="Search cargo officer by name or email..."
-                value={cargoOfficerSearch}
-                onChange={(e) => {
-                  setCargoOfficerSearch(e.target.value);
-                  setShowCargoOfficerDropdown(true);
-                  if (!e.target.value) {
-                    setSelectedCargoOfficer(null);
-                  }
-                }}
-                onFocus={() => setShowCargoOfficerDropdown(true)}
-                onBlur={() =>
-                  setTimeout(() => setShowCargoOfficerDropdown(false), 200)
-                }
-                className="py-7"
-              />
-              {selectedCargoOfficer && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedCargoOfficer(null);
-                    setCargoOfficerSearch("");
-                  }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 z-20"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            {showCargoOfficerDropdown && (
-              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                {loadingCargoOfficer ? (
-                  <div className="flex justify-center items-center py-8">
-                    <Spinner className="h-6 w-6 text-blue-600 mr-2" />
-                    <span className="text-gray-600">Loading...</span>
-                  </div>
-                ) : cargoOfficers.length > 0 ? (
-                  cargoOfficers.map((officer: any) => (
-                    <div
-                      key={officer?.id}
-                      onClick={() => {
-                        setSelectedCargoOfficer(officer);
-                        setCargoOfficerSearch(
-                          officer?.user?.name || officer?.name || ""
-                        );
-                        setShowCargoOfficerDropdown(false);
+            <div className="border border-gray-300 rounded-lg max-h-60 overflow-y-auto">
+              {loadingCargoOfficer ? (
+                <div className="flex justify-center items-center py-8">
+                  <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                  <span className="text-gray-600">Loading...</span>
+                </div>
+              ) : cargoOfficers.length > 0 ? (
+                cargoOfficers.map((officer) => (
+                  <label
+                    key={officer.id}
+                    className={`flex items-start gap-3 px-4 py-3 cursor-pointer border-b border-gray-100 last:border-b-0 ${
+                      selectedCargoOfficer?.id === officer.id ? "bg-blue-50" : ""
+                    }`}
+                  >
+                    <Checkbox
+                      checked={selectedCargoOfficer?.id === officer.id}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedCargoOfficer(officer);
+                        } else if (selectedCargoOfficer?.id === officer.id) {
+                          setSelectedCargoOfficer(null);
+                        }
                       }}
-                      className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 ${
-                        selectedCargoOfficer?.id === officer?.id
-                          ? "bg-blue-50"
-                          : ""
-                      }`}
-                    >
+                    />
+                    <div>
                       <div className="font-medium text-gray-900">
-                        {officer?.user?.name || officer?.name || "Unknown"}
+                        {officer.user?.name || officer.name || "Unknown"}
                       </div>
                       <div className="text-sm text-gray-600">
-                        {officer?.user?.email || officer?.email || ""}
+                        {officer.user?.email || officer.email || ""}
                       </div>
-                      {officer?.id && (
-                        <div className="text-xs text-gray-500">
-                          ID: {officer.id}
-                        </div>
-                      )}
                     </div>
-                  ))
-                ) : (
-                  <div className="px-4 py-3 text-gray-500 text-center">
-                    No cargo officers found
-                  </div>
-                )}
-              </div>
-            )}
+                  </label>
+                ))
+              ) : (
+                <div className="px-4 py-3 text-gray-500 text-center">
+                  No cargo officers found for this branch
+                </div>
+              )}
+            </div>
           </div>
 
           {selectedCargoOfficer && (
