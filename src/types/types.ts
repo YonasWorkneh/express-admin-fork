@@ -668,7 +668,7 @@ export interface Batch {
   id: string;
   batchCode: string;
   scope: "IN_TOWN" | "REGIONAL" | "INTERNATIONAL";
-  serviceType: ServiceType;
+  serviceType: ServiceType | string;
   category: string[];
   isFragile: boolean;
   status: DispatchStatus;
@@ -691,7 +691,11 @@ export interface CreateBatchRequest {
   // Backend currently expects "TOWN" for in-town scope,
   // but we keep "IN_TOWN" for internal usage as well.
   scope: "IN_TOWN" | "REGIONAL" | "INTERNATIONAL" | "TOWN";
-  serviceType: ServiceType;
+  /**
+   * Backend currently validates this exact (legacy) key casing.
+   * NOTE: `serviceTypeId` is rejected by the API for this endpoint.
+   */
+  serviceTYpeId: string;
   // Can be a single category or multiple
   category?: string | string[];
   isFragile?: boolean;

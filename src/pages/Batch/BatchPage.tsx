@@ -43,6 +43,23 @@ interface Metric {
   color: "blue" | "green" | "purple" | "orange";
 }
 
+const getServiceTypeLabel = (serviceType: unknown): string => {
+  if (typeof serviceType === "string" || typeof serviceType === "number") {
+    const text = String(serviceType).trim();
+    return text || "N/A";
+  }
+  if (serviceType && typeof serviceType === "object") {
+    const obj = serviceType as Record<string, unknown>;
+    const candidate =
+      obj.name ?? obj.label ?? obj.title ?? obj.value ?? obj.id;
+    if (typeof candidate === "string" || typeof candidate === "number") {
+      const text = String(candidate).trim();
+      return text || "N/A";
+    }
+  }
+  return "N/A";
+};
+
 function BatchPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -191,7 +208,7 @@ function BatchPage() {
     exportToExcel("batches", batches, (b) => ({
       "Batch Code": b.batchCode ?? "",
       Scope: b.scope ?? "",
-      "Service Type": b.serviceType ?? "",
+      "Service Type": getServiceTypeLabel(b.serviceType),
       Status: b.status ?? "",
       "Order Count": b.orders?.length ?? 0,
       Weight: b.weight ?? "N/A",
@@ -585,7 +602,7 @@ function BatchPage() {
                               {batch.scope}
                             </Badge>
                           </TableCell>
-                          <TableCell>{batch.serviceType}</TableCell>
+                          <TableCell>{getServiceTypeLabel(batch.serviceType)}</TableCell>
                           <TableCell>
                             <Badge className={getStatusColor(batch.status)}>
                               {batch.status}

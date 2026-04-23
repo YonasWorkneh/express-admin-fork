@@ -19,11 +19,13 @@ import { IoArrowBack } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { getCategorizedOrders, createBatch } from "@/lib/api/batch";
 import api from "@/lib/api/api";
+import { useServiceTypes } from "@/hooks/useServiceTypes";
 import type {
   Order,
   CategorizedOrdersResponse,
   Branch,
   BranchListResponse,
+  CreateBatchRequest,
 } from "@/types/types";
 import toast from "react-hot-toast";
 import { Skeleton } from "antd";
@@ -32,10 +34,33 @@ import SuccessModal from "@/components/common/SuccessModal";
 
 // Scopes and service types for UI select
 const SCOPES = ["TOWN", "REGIONAL", "INTERNATIONAL"] as const;
-const SERVICE_TYPES = ["SAME_DAY", "EXPRESS", "STANDARD", "OVERNIGHT"] as const;
+
+const normalizeServiceTypeKey = (value: string): string =>
+  String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+
+const getScopeCandidates = (scopeKey: string): string[] => {
+  const key = String(scopeKey ?? "").trim().toUpperCase();
+  if (key === "TOWN") return ["TOWN", "IN_TOWN"];
+  return [key];
+};
+
+const toCategoryLabel = (cat: unknown): string | null => {
+  if (typeof cat === "string") return cat;
+  if (cat && typeof cat === "object") {
+    const obj = cat as Record<string, unknown>;
+    if (typeof obj.name === "string") return obj.name;
+    if (typeof obj.label === "string") return obj.label;
+    if (typeof obj.id === "string") return obj.id;
+  }
+  return null;
+};
 
 function CreateBatchPage() {
   const navigate = useNavigate();
+  const { data: serviceTypes = [] } = useServiceTypes();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [categorizedOrders, setCategorizedOrders] =
@@ -46,8 +71,7 @@ function CreateBatchPage() {
   // Form state
   const [selectedScope, setSelectedScope] = useState<typeof SCOPES[number] | "">("");
   const [selectedRoute, setSelectedRoute] = useState<string>(""); // Add selected route (country/city-pair)
-  const [selectedServiceType, setSelectedServiceType] =
-    useState<typeof SERVICE_TYPES[number] | "">("");
+  const [selectedServiceType, setSelectedServiceType] = useState<string>("");
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   // Remove all category input state and logic
   const [notes, setNotes] = useState("");
@@ -61,10 +85,74 @@ function CreateBatchPage() {
   const [originBranchId, setOriginBranchId] = useState("");
   const [destinationBranchId, setDestinationBranchId] = useState("");
 
+  const serviceTypeLabelsByNormalized = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const st of serviceTypes) {
+      const normalizedName = normalizeServiceTypeKey(st.name);
+      map.set(normalizedName, st.name);
+      map.set(st.id, st.name);
+    }
+    return map;
+  }, [serviceTypes]);
+
+  const serviceTypeIdByKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const st of serviceTypes) {
+      const normalizedName = normalizeServiceTypeKey(st.name);
+      map.set(normalizedName, st.id);
+      map.set(st.id, st.id);
+      map.set(st.name, st.id);
+    }
+    return map;
+  }, [serviceTypes]);
+
+  const getServiceTypeLabel = (rawType: string): string => {
+    const normalized = normalizeServiceTypeKey(rawType);
+    return (
+      serviceTypeLabelsByNormalized.get(normalized) ??
+      serviceTypeLabelsByNormalized.get(rawType) ??
+      rawType.replace(/_/g, " ")
+    );
+  };
+
+  const getScopeData = (scopeKey: string): Record<string, unknown> | null => {
+    if (!categorizedOrders) return null;
+    const grouped = categorizedOrders.grouped as Record<string, unknown>;
+    for (const candidate of getScopeCandidates(scopeKey)) {
+      const data = grouped[candidate];
+      if (data && typeof data === "object") {
+        return data as Record<string, unknown>;
+      }
+    }
+    return null;
+  };
+
   const fetchCategorizedOrders = async () => {
     try {
       setLoading(true);
       const response = await getCategorizedOrders({ pageSize: 100 });
+      const grouped = (response.data as any)?.grouped ?? {};
+      const scopeKeys = Object.keys(grouped);
+      const firstScopeKey = scopeKeys[0];
+      const firstRouteKey = firstScopeKey
+        ? Object.keys(grouped[firstScopeKey] ?? {})[0]
+        : undefined;
+      const firstServiceKeys =
+        firstScopeKey && firstRouteKey
+          ? Object.keys(grouped[firstScopeKey]?.[firstRouteKey] ?? {})
+          : [];
+      const sample =
+        firstScopeKey && firstRouteKey && firstServiceKeys[0]
+          ? grouped[firstScopeKey]?.[firstRouteKey]?.[firstServiceKeys[0]]?.[0]
+          : undefined;
+      console.log("[CreateBatchPage] categorized orders debug", {
+        scopeKeys,
+        firstScopeKey,
+        firstRouteKey,
+        firstServiceKeys,
+        sampleServiceType: sample?.serviceType,
+        sampleCategory: sample?.category,
+      });
       setCategorizedOrders(response.data);
       setLoading(false);
     } catch (error: any) {
@@ -98,6 +186,14 @@ function CreateBatchPage() {
     fetchBranches();
   }, []);
 
+  useEffect(() => {
+    if (!serviceTypes.length) return;
+    console.log(
+      "[CreateBatchPage] serviceTypes from hook",
+      serviceTypes.map((s) => ({ id: s.id, name: s.name })),
+    );
+  }, [serviceTypes]);
+
   const handleOrderToggle = (orderId: string) => {
     setSelectedOrders((prev) =>
       prev.includes(orderId)
@@ -121,24 +217,19 @@ function CreateBatchPage() {
 
   // Utility: Get all country-route keys for a selected scope
   const getRouteKeysForScope = (scopeKey: string): string[] => {
-    if (!categorizedOrders) return [];
-    const grouped = categorizedOrders.grouped as any;
-    const scopeData = grouped[scopeKey];
+    const scopeData = getScopeData(scopeKey);
     if (!scopeData) return [];
     return Object.keys(scopeData);
   };
 
   // Helper to get all possible ServiceTypes for a scope+route
   const getServiceTypesForRoute = (scopeKey: string, routeKey: string): string[] => {
-    if (!categorizedOrders) return [];
-    const grouped = categorizedOrders.grouped as any;
-    const scopeData = grouped[scopeKey];
+    const scopeData = getScopeData(scopeKey) as Record<string, unknown> | null;
     if (!scopeData) return [];
-    const routeObj = scopeData[routeKey];
+    const routeObj = scopeData[routeKey] as Record<string, unknown> | undefined;
     if (!routeObj) return [];
-    // Only include ServiceTypes that have at least one order
-    return SERVICE_TYPES.filter((type) => {
-      const ordersForType = routeObj[type];
+    return Object.keys(routeObj).filter((typeKey) => {
+      const ordersForType = routeObj[typeKey];
       return Array.isArray(ordersForType) && ordersForType.length > 0;
     });
   };
@@ -153,12 +244,26 @@ function CreateBatchPage() {
     ) {
       return [];
     }
-    const grouped = categorizedOrders.grouped as any;
-    const scopeData = grouped[selectedScope];
+    const scopeData = getScopeData(selectedScope) as Record<string, unknown> | null;
     if (!scopeData) return [];
-    const routeObj = scopeData[selectedRoute];
+    const routeObj = scopeData[selectedRoute] as Record<string, unknown> | undefined;
     if (!routeObj) return [];
-    const ordersForServiceType = routeObj[selectedServiceType];
+    const selectedNorm = normalizeServiceTypeKey(selectedServiceType);
+    const matchedServiceTypeKey =
+      Object.keys(routeObj).find(
+        (k) => normalizeServiceTypeKey(k) === selectedNorm
+      ) ?? selectedServiceType;
+    const ordersForServiceType = routeObj[matchedServiceTypeKey];
+    console.log("[CreateBatchPage] serviceType match", {
+      selectedScope,
+      selectedRoute,
+      selectedServiceType,
+      matchedServiceTypeKey,
+      availableServiceKeys: Object.keys(routeObj),
+      ordersCount: Array.isArray(ordersForServiceType)
+        ? ordersForServiceType.length
+        : 0,
+    });
     if (!Array.isArray(ordersForServiceType)) return [];
     return ordersForServiceType;
   };
@@ -185,14 +290,14 @@ function CreateBatchPage() {
   // For a given scope, count orders across all routes and service types
   const getScopeOrderCount = (scope: string): number => {
     if (!categorizedOrders) return 0;
-    const grouped = categorizedOrders.grouped as any;
-    const scopeKey = scope;
-    const scopeData = grouped[scopeKey];
+    const scopeData = getScopeData(scope);
     if (!scopeData) return 0;
     let total = 0;
     Object.values(scopeData).forEach((routeObj: any) => {
-      SERVICE_TYPES.forEach((serviceType) => {
-        const arr: Order[] = routeObj[serviceType] || [];
+      Object.keys(routeObj ?? {}).forEach((serviceType) => {
+        const arr: Order[] = Array.isArray(routeObj[serviceType])
+          ? routeObj[serviceType]
+          : [];
         total += arr.length;
       });
     });
@@ -202,14 +307,15 @@ function CreateBatchPage() {
   // For a given route within the currently-selected scope, count orders across its serviceTypes
   const getRouteOrderCount = (routeKey: string): number => {
     if (!categorizedOrders || !selectedScope) return 0;
-    const grouped = categorizedOrders.grouped as any;
-    const scopeData = grouped[selectedScope];
+    const scopeData = getScopeData(selectedScope);
     if (!scopeData) return 0;
-    const routeObj = scopeData[routeKey];
+    const routeObj = (scopeData as any)[routeKey];
     if (!routeObj) return 0;
     let total = 0;
-    SERVICE_TYPES.forEach((serviceType) => {
-      const arr: Order[] = routeObj[serviceType] || [];
+    Object.keys(routeObj ?? {}).forEach((serviceType) => {
+      const arr: Order[] = Array.isArray(routeObj[serviceType])
+        ? routeObj[serviceType]
+        : [];
       total += arr.length;
     });
     return total;
@@ -218,12 +324,17 @@ function CreateBatchPage() {
   // For a given serviceType within currently-selected scope+route, count orders
   const getServiceTypeOrderCount = (type: string): number => {
     if (!categorizedOrders || !selectedScope || !selectedRoute) return 0;
-    const grouped = categorizedOrders.grouped as any;
-    const scopeData = grouped[selectedScope];
+    const scopeData = getScopeData(selectedScope);
     if (!scopeData) return 0;
-    const routeObj = scopeData[selectedRoute];
+    const routeObj = (scopeData as any)[selectedRoute];
     if (!routeObj) return 0;
-    const arr: Order[] = routeObj[type] || [];
+    const matchedType =
+      Object.keys(routeObj).find(
+        (k) => normalizeServiceTypeKey(k) === normalizeServiceTypeKey(type)
+      ) ?? type;
+    const arr: Order[] = Array.isArray(routeObj[matchedType])
+      ? routeObj[matchedType]
+      : [];
     return arr.length;
   };
 
@@ -246,13 +357,19 @@ function CreateBatchPage() {
     selectedOrders.includes(o.id)
   );
   // Get unique category values from selected orders
-  const selectedCategories = Array.from(
+  const selectedCategories: string[] = Array.from(
     new Set(
       selectedOrdersData
         .flatMap((o) =>
-          Array.isArray(o.category) ? o.category : typeof o.category === "string" ? [o.category] : []
+          Array.isArray(o.category)
+            ? o.category
+                .map(toCategoryLabel)
+                .filter((v): v is string => Boolean(v))
+            : typeof o.category === "string"
+              ? [o.category]
+              : []
         )
-        .filter(Boolean)
+        .filter((v): v is string => Boolean(v))
     )
   );
   const batchIsFragile = selectedOrdersData.some((o) => o.isFragile);
@@ -327,8 +444,10 @@ function CreateBatchPage() {
     let batchCategories: string[] | undefined;
     if (selectedCategories.length > 0) {
       batchCategories = selectedCategories;
-    } else if(Array.isArray(firstSelectedOrder.category)) {
-      batchCategories = [...firstSelectedOrder.category];
+    } else if (Array.isArray(firstSelectedOrder.category)) {
+      batchCategories = firstSelectedOrder.category
+        .map(toCategoryLabel)
+        .filter((v): v is string => Boolean(v));
     }
 
     // ====== Get originCity and destinationCity from route string, fallback to "" if can't parse ======
@@ -349,10 +468,27 @@ function CreateBatchPage() {
 
     try {
       setSubmitting(true);
+      const serviceTypeId =
+        serviceTypeIdByKey.get(normalizeServiceTypeKey(selectedServiceType)) ??
+        serviceTypeIdByKey.get(selectedServiceType);
+      if (!serviceTypeId) {
+        toast.error(
+          `Could not resolve service type id for "${selectedServiceType}"`,
+        );
+        console.log("[CreateBatchPage] unresolved service type id", {
+          selectedServiceType,
+          availableServiceTypes: serviceTypes.map((s) => ({
+            id: s.id,
+            name: s.name,
+          })),
+        });
+        setSubmitting(false);
+        return;
+      }
       const batchData = {
         scope: selectedScope,
         // route: selectedRoute,
-        serviceType: selectedServiceType,
+        serviceTYpeId: serviceTypeId,
         category: batchCategories,
         isFragile: hasFragileItem,
         originId: originBranchId || originId, // Always prefer UI-selected originBranchId
@@ -365,7 +501,7 @@ function CreateBatchPage() {
         destinationCity: destinationCity,
       };
 
-      const response: any = await createBatch(batchData);
+      const response: any = await createBatch(batchData as CreateBatchRequest);
       toast.success(response.message || "Batch created successfully");
       const code = response?.data?.batch?.batchCode || response?.batch?.batchCode || "";
       setBatchCode(code);
@@ -535,7 +671,7 @@ function CreateBatchPage() {
                     <Select
                       value={selectedServiceType}
                       onValueChange={(value) => {
-                        setSelectedServiceType(value as typeof SERVICE_TYPES[number]);
+                        setSelectedServiceType(value);
                         setSelectedOrders([]);
                       }}
                     >
@@ -555,7 +691,7 @@ function CreateBatchPage() {
                                 disabled={count === 0}
                               >
                                 <div className="flex items-center justify-between w-full">
-                                  <span>{type.replace("_", " ")}</span>
+                                  <span>{getServiceTypeLabel(type)}</span>
                                   <Badge
                                     variant={count > 0 ? "default" : "secondary"}
                                     className="ml-2"
