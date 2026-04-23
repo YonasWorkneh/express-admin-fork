@@ -335,11 +335,17 @@ function DispatchModal({
   }, [driverSearch,order]);
   
   const fetchExternalDriver = async () => {
+    if (!order?.id) {
+      console.warn("[DispatchModal] fetchExternalDriver skipped: missing order id");
+      return;
+    }
     try {
       setLoadingExternalDriver(true);
 
       const res = await api.get<any>(
-        `maps/external/nearby-drivers?lat=9.0079232&lon=38.7678208&radius=232`
+        `maps/external/nearby-drivers?orderId=${encodeURIComponent(
+          order.id,
+        )}&lat=9.0079232&lon=38.7678208&radius=232`
       );
       setExternalDriver(res.data.data);
       setLoadingExternalDriver(false);
@@ -358,7 +364,7 @@ function DispatchModal({
     if (activeTab === "external") {
       fetchExternalDriver();
     }
-  }, [driverSearch, activeTab]);
+  }, [driverSearch, activeTab, order?.id]);
   
 
   if (!isOpen) return null;
