@@ -187,7 +187,6 @@ export default function CreateDriverModal({
       // Text fields
       formDataToSend.append("name", formData.name);
       formDataToSend.append("email", formData.email);
-      formDataToSend.append("password", formData.password);
       formDataToSend.append("phone", formData.phone);
       formDataToSend.append("licenseNumber", formData.licenseNumber);
       formDataToSend.append("licenseExpiry", new Date(formData.licenseExpiry).toISOString());
@@ -291,18 +290,6 @@ export default function CreateDriverModal({
                     value={formData.email}
                     onChange={(e) => handleInputChange("email", e.target.value)}
                     placeholder="driver@example.com"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label className="mb-2">Password *</Label>
-                  <Input
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) =>
-                      handleInputChange("password", e.target.value)
-                    }
-                    placeholder="Enter password"
                     required
                   />
                 </div>
