@@ -12,7 +12,7 @@ import {
 import Button from "@/components/common/Button";
 // import api from "../../../lib/api/api";
 import { CreateStaffSchema } from "@/features/staff/schemas/CreateStaffSchema";
-import { IoArrowBack, IoPersonAdd, IoEye, IoEyeOff } from "react-icons/io5";
+import { IoArrowBack, IoPersonAdd } from "react-icons/io5";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import api from "@/lib/api/api";
@@ -29,12 +29,10 @@ const CreateStaffPage = () => {
     "idle"
   );
   const [message] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState<boolean>(false);
   // const [loading] = useState(false);
   const [initialValues] = useState({
     name: "",
     email: "",
-    password: "",
     branchId: "",
     phone: "",
     role: "",
@@ -251,36 +249,6 @@ navigate("/staff")
                   />
                   {errors.phone && touched.phone && (
                     <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
-                  )}
-                </div>
-                <div className="relative">
-                  <Label className="mb-1">Password *</Label>
-                  <Field
-                    as={Input}
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    placeholder="Enter password"
-                    className={`py-7 pr-10 ${
-                      errors.password && touched.password
-                        ? "border-red-500"
-                        : ""
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-12 text-gray-400 hover:text-gray-600 cursor-pointer"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <IoEye className="h-5 w-5" />
-                    ) : (
-                      <IoEyeOff className="h-5 w-5" />
-                    )}
-                  </button>
-                  {errors.password && touched.password && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.password}
-                    </p>
                   )}
                 </div>
               </div>

@@ -14,7 +14,6 @@ export const CreateStaffSchema = yup.object().shape({
       "Please enter a valid email address (e.g., example@domain.com)"
     )
     .required("Email is required"),
-  password: yup.string().required("Password is required"),
   role: yup.string().default(""),
   branchId: yup.string().optional().nullable(),
   phone: yup
