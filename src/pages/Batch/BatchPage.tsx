@@ -60,8 +60,7 @@ const getServiceTypeLabel = (serviceType: unknown): string => {
   }
   if (serviceType && typeof serviceType === "object") {
     const obj = serviceType as Record<string, unknown>;
-    const candidate =
-      obj.name ?? obj.label ?? obj.title ?? obj.value ?? obj.id;
+    const candidate = obj.name ?? obj.label ?? obj.title ?? obj.value ?? obj.id;
     if (typeof candidate === "string" || typeof candidate === "number") {
       const text = String(candidate).trim();
       return text || "N/A";
@@ -89,9 +88,12 @@ function BatchPage() {
   );
   const [officerSearch, setOfficerSearch] = useState("");
   const [loadingOfficers, setLoadingOfficers] = useState(false);
-  const [isAssignCargoOfficerModal, setisAssignCargoOfficerModal] = useState(false);
-  const [selectedBatchForOfficer, setSelectedBatchForOfficer] = useState<Batch | null>(null);
-  const [isAssignCargoOfficerLoading, setIsAssignCargoOfficerLoading] = useState(false);
+  const [isAssignCargoOfficerModal, setisAssignCargoOfficerModal] =
+    useState(false);
+  const [selectedBatchForOfficer, setSelectedBatchForOfficer] =
+    useState<Batch | null>(null);
+  const [isAssignCargoOfficerLoading, setIsAssignCargoOfficerLoading] =
+    useState(false);
   const [selectedCargoOfficer, setSelectedCargoOfficer] =
     useState<BranchOfficer | null>(null);
   const [loadingCargoOfficer, setLoadingCargoOfficer] = useState(false);
@@ -101,22 +103,29 @@ function BatchPage() {
   const [approveReason, setApproveReason] = useState("");
 
   // 1. Helper: Download manifest by ID
-  const downloadManifest = async (manifestId: string | null | undefined, type: "sending" | "receiving") => {
+  const downloadManifest = async (
+    manifestId: string | null | undefined,
+    type: "sending" | "receiving",
+  ) => {
     if (!manifestId) {
-      toast.error(`No ${type === "sending" ? "sending" : "receiving"} manifestId`);
+      toast.error(
+        `No ${type === "sending" ? "sending" : "receiving"} manifestId`,
+      );
       return;
     }
     try {
-      const response = await api.get(`/order/manifest/download/pdf/${manifestId}`, {
-        responseType: "blob",
-      });
-      const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+      const response = await api.get(
+        `/order/manifest/download/pdf/${manifestId}`,
+        {
+          responseType: "blob",
+        },
+      );
+      const url = window.URL.createObjectURL(
+        new Blob([response.data], { type: "application/pdf" }),
+      );
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute(
-        "download",
-        `${type}-manifest-${manifestId}.pdf`
-      );
+      link.setAttribute("download", `${type}-manifest-${manifestId}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
@@ -180,9 +189,15 @@ function BatchPage() {
   useEffect(() => {
     if (Array.isArray(batches) && batches.length > 0) {
       const totalBatches = batches.length;
-      const pendingBatches = batches.filter((b) => b.status === "PENDING").length;
-      const acceptedBatches = batches.filter((b) => b.status === "ACCEPTED").length;
-      const inTransitBatches = batches.filter((b) => b.status === "IN_TRANSIT").length;
+      const pendingBatches = batches.filter(
+        (b) => b.status === "PENDING",
+      ).length;
+      const acceptedBatches = batches.filter(
+        (b) => b.status === "ACCEPTED",
+      ).length;
+      const inTransitBatches = batches.filter(
+        (b) => b.status === "IN_TRANSIT",
+      ).length;
 
       setMetrics([
         {
@@ -229,7 +244,9 @@ function BatchPage() {
       Status: b.status ?? "",
       "Order Count": b.orders?.length ?? 0,
       Weight: b.weight ?? "N/A",
-      "Created At": b.createdAt ? new Date(b.createdAt).toLocaleDateString() : "",
+      "Created At": b.createdAt
+        ? new Date(b.createdAt).toLocaleDateString()
+        : "",
     }));
   };
 
@@ -244,7 +261,7 @@ function BatchPage() {
     setSelectedBatches((prev) =>
       prev.includes(batchId)
         ? prev.filter((id) => id !== batchId)
-        : [...prev, batchId]
+        : [...prev, batchId],
     );
   };
 
@@ -252,7 +269,7 @@ function BatchPage() {
   const handleSelectAll = () => {
     if (Array.isArray(batches)) {
       setSelectedBatches(
-        batches.filter((b) => isBatchSelectable(b)).map((b) => b.id)
+        batches.filter((b) => isBatchSelectable(b)).map((b) => b.id),
       );
     }
   };
@@ -266,9 +283,7 @@ function BatchPage() {
       setLoadingOfficers(true);
       const response = await api.get<{
         data?: { cargoOfficers?: BranchOfficer[] };
-      }>(
-        `/users/cargo-officer?search=all:${officerSearch}&page=1&pageSize=20`
-      );
+      }>(`/users/cargo-officer?search=all:${officerSearch}&page=1&pageSize=20`);
       setCargoOfficers(response.data.data?.cargoOfficers || []);
       setLoadingOfficers(false);
     } catch (error: any) {
@@ -335,7 +350,7 @@ function BatchPage() {
       }>(
         `/staff/branch/${encodeURIComponent(
           branchId,
-        )}?page=${page}&pageSize=${limit}`
+        )}/officers?page=${page}&pageSize=${limit}`,
       );
       const payload = response.data?.data;
       const payloadObject =
@@ -422,7 +437,9 @@ function BatchPage() {
         batchId: [selectedBatchForOfficer.id],
         officerId: selectedCargoOfficer.id,
       });
-      toast.success(response.data.message || "Cargo officer assigned successfully");
+      toast.success(
+        response.data.message || "Cargo officer assigned successfully",
+      );
       setisAssignCargoOfficerModal(false);
       setSelectedBatchForOfficer(null);
       setSelectedCargoOfficer(null);
@@ -459,8 +476,7 @@ function BatchPage() {
       fetchBatches(currentPage, pageSize);
     } catch (error: any) {
       toast.error(
-        error?.response?.data?.message ||
-          "Error approving selected batches"
+        error?.response?.data?.message || "Error approving selected batches",
       );
     } finally {
       setApproveLoading(false);
@@ -506,9 +522,7 @@ function BatchPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Batch Management
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">Batch Management</h1>
           <p className="text-sm text-gray-600 mt-1">
             Manage and track batch dispatches
           </p>
@@ -640,8 +654,10 @@ function BatchPage() {
                         <Checkbox
                           checked={
                             Array.isArray(batches) &&
-                            batches.filter(b => isBatchSelectable(b)).length > 0 &&
-                            selectedBatches.length === batches.filter(b => isBatchSelectable(b)).length
+                            batches.filter((b) => isBatchSelectable(b)).length >
+                              0 &&
+                            selectedBatches.length ===
+                              batches.filter((b) => isBatchSelectable(b)).length
                           }
                           // Checkbox component does not accept 'indeterminate' directly.
                           // If you want to show indeterminate state visually, you need a ref and set the 'indeterminate' property on the HTMLInputElement.
@@ -672,7 +688,9 @@ function BatchPage() {
                           <TableCell>
                             <Checkbox
                               checked={selectedBatches.includes(batch.id)}
-                              onCheckedChange={() => handleBatchToggle(batch.id)}
+                              onCheckedChange={() =>
+                                handleBatchToggle(batch.id)
+                              }
                               disabled={!isBatchSelectable(batch)}
                             />
                           </TableCell>
@@ -684,7 +702,9 @@ function BatchPage() {
                               {batch.scope}
                             </Badge>
                           </TableCell>
-                          <TableCell>{getServiceTypeLabel(batch.serviceType)}</TableCell>
+                          <TableCell>
+                            {getServiceTypeLabel(batch.serviceType)}
+                          </TableCell>
                           <TableCell>
                             <Badge className={getStatusColor(batch.status)}>
                               {batch.status}
@@ -709,7 +729,10 @@ function BatchPage() {
                                   title="Download Sending Manifest"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    downloadManifest(batch.sendingManifestId, "sending");
+                                    downloadManifest(
+                                      batch.sendingManifestId,
+                                      "sending",
+                                    );
                                   }}
                                   className="flex items-center gap-1 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                                 >
@@ -724,7 +747,10 @@ function BatchPage() {
                                   title="Download Receiving Manifest"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    downloadManifest(batch.receivingManifestId, "receiving");
+                                    downloadManifest(
+                                      batch.receivingManifestId,
+                                      "receiving",
+                                    );
                                   }}
                                   className="flex items-center gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                                 >
@@ -805,7 +831,7 @@ function BatchPage() {
             Approval Reason
             <Input
               value={approveReason}
-              onChange={e => setApproveReason(e.target.value)}
+              onChange={(e) => setApproveReason(e.target.value)}
               placeholder="Enter a reason for approving..."
               className="mt-1"
             />
@@ -915,7 +941,9 @@ function BatchPage() {
                   <label
                     key={officer.id}
                     className={`flex items-start gap-3 px-4 py-3 cursor-pointer border-b border-gray-100 last:border-b-0 ${
-                      selectedCargoOfficer?.id === officer.id ? "bg-blue-50" : ""
+                      selectedCargoOfficer?.id === officer.id
+                        ? "bg-blue-50"
+                        : ""
                     }`}
                   >
                     <Checkbox
@@ -951,7 +979,10 @@ function BatchPage() {
               <p className="text-sm font-medium">Selected Cargo Officer:</p>
               <p className="text-sm text-gray-600">
                 {selectedCargoOfficer?.user?.name || selectedCargoOfficer?.name}{" "}
-                ({selectedCargoOfficer?.user?.email || selectedCargoOfficer?.email})
+                (
+                {selectedCargoOfficer?.user?.email ||
+                  selectedCargoOfficer?.email}
+                )
               </p>
             </div>
           )}

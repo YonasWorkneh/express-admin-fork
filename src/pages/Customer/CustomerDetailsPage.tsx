@@ -1,160 +1,280 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import api from "@/lib/api/api";
+import toast from "react-hot-toast";
+import { Spinner } from "@/utils/spinner";
 import {
   ArrowLeft,
   User,
-  Settings,
-  CreditCard,
-  Shield,
-  MapPin,
-  Users,
-  FileText,
+  SlidersHorizontal,
+  Wallet,
+  Contact,
   Calendar,
-  Star,
   TrendingUp,
-  Clock,
   Phone,
   Mail,
   Building2,
+  Bell,
+  MapPin,
 } from "lucide-react";
 
-// Mock customer data - in real app, this would come from API
-const customerData = {
-  id: "CUST-001",
-  customerId: "C001",
-  name: "Abebe Kebede",
-  email: "abebe.k@email.com",
-  phone: "+251 911 234 567",
-  type: "Individual",
-  status: "Active",
-  registrationDate: "2024-01-15",
-  lastOrderDate: "2024-12-10",
-  totalOrders: 12,
-  totalSpent: 45000,
-  loyaltyPoints: 450,
-  address: "Bole, Addis Ababa",
-  city: "Addis Ababa",
-  companyName: null,
-  contactPerson: null,
-  preferredLanguage: "Amharic",
-  communicationPreference: "SMS",
-  creditLimit: "50,000 ETB",
-  paymentTerms: "Net 30",
-  discountRate: "5%",
-  preferredDeliveryTime: "Morning",
-  specialInstructions: "Call before delivery",
+type CustomerOrder = {
+  trackingCode?: string;
+  createdAt?: string;
+  status?: string;
+  finalPrice?: number | string | null;
+  estimatedPrice?: number | string | null;
+  shippingScope?: string;
+  serviceType?: string | { name?: string };
+  category?: { name?: string; label?: string };
+  actualDeliveryAt?: string | null;
 };
 
-// Mock related customers for grouping
-const relatedCustomers = [
-  {
-    id: "CUST-002",
-    name: "Ethiopian Airlines",
-    type: "Corporate",
-    contactPerson: "Tigist Hailu",
-    location: "Bole International Airport",
-    distance: "5.2 km",
-  },
-  {
-    id: "CUST-003",
-    name: "Marta Tadesse",
-    type: "Individual",
-    contactPerson: null,
-    location: "Merkato, Addis Ababa",
-    distance: "12.8 km",
-  },
-  {
-    id: "CUST-004",
-    name: "Dashen Bank",
-    type: "Corporate",
-    contactPerson: "Yohannes Desta",
-    location: "Ras Abebe Aregay Street",
-    distance: "8.5 km",
-  },
-];
+type AddressEntry = {
+  label?: string;
+  addressLine?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+};
 
-// Mock order history
-const orderHistory = [
-  {
-    id: "ORD-001",
-    date: "2024-12-10",
-    type: "Standard Delivery",
-    description: "Package delivery to Bole area",
-    amount: "3,500 ETB",
-    status: "Delivered",
-    rating: 5,
-  },
-  {
-    id: "ORD-002",
-    date: "2024-12-05",
-    type: "Express Delivery",
-    description: "Urgent document delivery",
-    amount: "2,800 ETB",
-    status: "Delivered",
-    rating: 4,
-  },
-  {
-    id: "ORD-003",
-    date: "2024-12-01",
-    type: "Bulk Delivery",
-    description: "Multiple package delivery",
-    amount: "8,200 ETB",
-    status: "Delivered",
-    rating: 5,
-  },
-];
+type CustomerDetail = {
+  customId?: string;
+  name?: string;
+  email?: string;
+  phone?: string | null;
+  customerType?: string;
+  isActive?: boolean;
+  ordersCount?: number;
+  ordersTotalPrice?: number;
+  loyaltyPoints?: number;
+  companyName?: string | null;
+  contactPerson?: string | null;
+  preferredLanguage?: string | null;
+  creditLimit?: string | number | null;
+  paymentTerms?: string | null;
+  discountRate?: string | number | null;
+  preferredDeliveryTime?: string | null;
+  specialInstructions?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  address?: string | { label?: string; city?: string; addressLine?: string } | null;
+  addresses?: AddressEntry[];
+  wallet?: { balance?: string | number | null } | null;
+  corporateInfo?: { companyName?: string; contactPerson?: string } | null;
+  notificationPreference?: {
+    email?: boolean;
+    inApp?: boolean;
+    push?: boolean;
+  } | null;
+  preferences?: unknown;
+  orders?: CustomerOrder[];
+  createdBy?: string;
+};
+
+const toText = (value: unknown, fallback = "—"): string => {
+  if (value == null) return fallback;
+  if (typeof value === "string" || typeof value === "number") {
+    const normalized = String(value).trim();
+    return normalized || fallback;
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const candidate = record.label ?? record.name ?? record.addressLine ?? record.city;
+    if (typeof candidate === "string" || typeof candidate === "number") {
+      const normalized = String(candidate).trim();
+      return normalized || fallback;
+    }
+  }
+  return fallback;
+};
+
+/** Backend may return `data` as a single object or a one-item list. */
+function extractCustomerPayload(
+  raw: unknown,
+): CustomerDetail | null {
+  if (raw == null) return null;
+  if (Array.isArray(raw)) {
+    const first = raw[0];
+    if (first && typeof first === "object") return first as CustomerDetail;
+    return null;
+  }
+  if (typeof raw === "object") return raw as CustomerDetail;
+  return null;
+}
+
+function formatAddressLine(a: AddressEntry): string {
+  const line =
+    toText(a.addressLine, "") ||
+    toText(a.label, "");
+  const city = toText(a.city, "");
+  const state = toText(a.state, "");
+  const country = toText(a.country, "");
+  const parts = [line, city, state, country].filter((p) => p && p !== "—");
+  return parts.length ? parts.join(" · ") : toText(a.label);
+}
+
+function orderDeliveryLabel(order: CustomerOrder): string | null {
+  if (order.actualDeliveryAt) return "Delivered";
+  if (order.status) return String(order.status);
+  return null;
+}
 
 export default function CustomerDetailsPage() {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
+  const [customer, setCustomer] = useState<CustomerDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Active":
-        return "bg-green-100 text-green-700";
-      case "Inactive":
-        return "bg-red-100 text-red-700";
-      case "Suspended":
-        return "bg-orange-100 text-orange-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
+  const getStatusColor = (isActive: boolean) =>
+    isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700";
 
   const getTypeColor = (type: string) => {
-    switch (type) {
-      case "Corporate":
+    switch (type.toUpperCase()) {
+      case "CORPORATE":
         return "bg-purple-100 text-purple-700";
-      case "Individual":
+      case "INDIVIDUAL":
         return "bg-blue-100 text-blue-700";
       default:
         return "bg-gray-100 text-gray-700";
     }
   };
 
-  const handleCustomerSelect = (customerId: string) => {
-    setSelectedCustomers((prev) =>
-      prev.includes(customerId)
-        ? prev.filter((id) => id !== customerId)
-        : [...prev, customerId]
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCustomerDetail = async () => {
+      if (!id) {
+        setFetchError("Missing customer id");
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        setFetchError(null);
+        const res = await api.get<{
+          data?: CustomerDetail | CustomerDetail[];
+          message?: string;
+        }>(`/users/customer/detail/${id}`);
+        if (!cancelled) {
+          setCustomer(extractCustomerPayload(res.data?.data));
+        }
+      } catch (error: any) {
+        const message =
+          error?.response?.data?.message ||
+          "Failed to load customer detail.";
+        if (!cancelled) {
+          setFetchError(message);
+          setCustomer(null);
+        }
+        toast.error(message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void fetchCustomerDetail();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  const recentOrders = useMemo(() => {
+    if (!Array.isArray(customer?.orders)) return [];
+    return customer.orders.slice(0, 8);
+  }, [customer?.orders]);
+
+  const addressLines = useMemo(() => {
+    if (!customer?.addresses?.length) return [];
+    const lines = customer.addresses.map(formatAddressLine).filter(Boolean);
+    return [...new Set(lines)];
+  }, [customer?.addresses]);
+
+  const lastActivityDate = useMemo(() => {
+    if (customer?.updatedAt) {
+      return new Date(customer.updatedAt).toLocaleDateString();
+    }
+    if (!customer?.orders?.length) return "—";
+    const times = customer.orders
+      .map((o) => (o.createdAt ? new Date(o.createdAt).getTime() : 0))
+      .filter(Boolean);
+    if (!times.length) return "—";
+    return new Date(Math.max(...times)).toLocaleDateString();
+  }, [customer?.updatedAt, customer?.orders]);
+
+  const walletBalance = customer?.wallet?.balance;
+  const corporate = customer?.corporateInfo;
+  const notif = customer?.notificationPreference;
+
+  if (loading) {
+    return (
+      <div className="min-h-[40vh] flex items-center justify-center">
+        <div className="flex items-center gap-2 text-gray-600">
+          <Spinner className="h-6 w-6 text-blue-600" />
+          <span>Loading customer details...</span>
+        </div>
+      </div>
     );
+  }
+
+  if (fetchError || !customer) {
+    return (
+      <div className="min-h-screen p-6 max-w-7xl">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/customer")}
+          className="p-2 rounded-full bg-blue-100 hover:bg-blue-200 mb-4"
+        >
+          <ArrowLeft className="h-4 w-4 text-blue-600" />
+        </Button>
+        <p className="text-red-600">{fetchError || "Customer not found."}</p>
+      </div>
+    );
+  }
+
+  const customerType = toText(customer.customerType, "UNKNOWN");
+  const displayStatus = customer.isActive ? "Active" : "Inactive";
+  const primaryAddress = customer.addresses?.[0];
+  const displayAddress =
+    addressLines[0] ||
+    toText(customer.address) ||
+    (primaryAddress ? formatAddressLine(primaryAddress) : "—");
+  const displayCity =
+    toText(
+      primaryAddress?.city ??
+        (typeof customer.address === "object" && customer.address
+          ? customer.address.city
+          : null),
+      "—",
+    );
+  const totalSpent = Number(customer.ordersTotalPrice ?? 0);
+  const registrationDate = customer.createdAt
+    ? new Date(customer.createdAt).toLocaleDateString()
+    : "—";
+
+  const formatServiceType = (value: unknown) => {
+    if (typeof value === "string") return value;
+    if (value && typeof value === "object") {
+      const name = (value as { name?: string }).name;
+      if (name) return name;
+    }
+    return "—";
+  };
+
+  const formatCategory = (value: unknown) => {
+    if (value && typeof value === "object") {
+      const name = (value as { name?: string }).name;
+      if (name) return name;
+    }
+    return "—";
   };
 
   return (
     <div className="min-h-screen p-6 max-w-7xl">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-4">
           <Button
@@ -167,31 +287,17 @@ export default function CustomerDetailsPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Customer Details - #{customerData.customerId}
+              {toText(customer.name)}
             </h1>
             <p className="text-gray-500 text-sm">
               Manage customer information and service preferences
             </p>
           </div>
         </div>
-        <div className="flex items-center space-x-3">
-          <Button
-            variant="outline"
-            className="text-gray-600 bg-white cursor-pointer"
-          >
-            Cancel
-          </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">
-            Save Changes
-          </Button>
-        </div>
       </div>
 
-      {/* Main Content - Two Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column */}
         <div className="space-y-6">
-          {/* Customer Information */}
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
@@ -206,23 +312,25 @@ export default function CustomerDetailsPage() {
                     Customer Name
                   </Label>
                   <p className="text-lg font-semibold text-gray-900">
-                    {customerData.name}
+                    {toText(customer.name)}
                   </p>
-                  <p className="text-sm text-gray-500">
-                    {customerData.customerId}
-                  </p>
-                  <p className="text-sm text-gray-500">{customerData.email}</p>
+                  {customer.customId ? (
+                    <p className="text-sm text-gray-500">
+                      Reference: {customer.customId}
+                    </p>
+                  ) : null}
+                  <p className="text-sm text-gray-500">{toText(customer.email)}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-600">
                     Customer Status
                   </Label>
                   <div className="flex items-center space-x-2 mt-1">
-                    <Badge className={getStatusColor(customerData.status)}>
-                      ● {customerData.status}
+                    <Badge className={getStatusColor(Boolean(customer.isActive))}>
+                      ● {displayStatus}
                     </Badge>
-                    <Badge className={getTypeColor(customerData.type)}>
-                      {customerData.type}
+                    <Badge className={getTypeColor(customerType)}>
+                      {customerType}
                     </Badge>
                   </div>
                 </div>
@@ -233,7 +341,7 @@ export default function CustomerDetailsPage() {
                     Total Orders
                   </Label>
                   <p className="text-lg font-semibold text-gray-900">
-                    {customerData.totalOrders}
+                    {customer.ordersCount ?? 0}
                   </p>
                 </div>
                 <div>
@@ -241,227 +349,186 @@ export default function CustomerDetailsPage() {
                     Total Spent
                   </Label>
                   <p className="text-lg font-semibold text-gray-900">
-                    {customerData.totalSpent.toLocaleString()} ETB
+                    {totalSpent.toLocaleString()} ETB
                   </p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-600">
-                    Loyalty Points
+                    Loyalty points
                   </Label>
-                  <div className="flex items-center space-x-1">
-                    <Star className="h-4 w-4 text-yellow-500" />
-                    <p className="text-lg font-semibold text-gray-900">
-                      {customerData.loyaltyPoints}
-                    </p>
-                  </div>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {typeof customer.loyaltyPoints === "number"
+                      ? customer.loyaltyPoints
+                      : "—"}
+                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Service Configuration */}
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <Settings className="h-5 w-5 mr-2 text-blue-600" />
+                <SlidersHorizontal className="h-5 w-5 mr-2 text-blue-600" />
                 Service Configuration
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-gray-600">
-                    Service Type
+                    Customer type
                   </Label>
-                  <Select defaultValue="standard">
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select service type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="standard">Standard</SelectItem>
-                      <SelectItem value="express">Express</SelectItem>
-                      <SelectItem value="premium">Premium</SelectItem>
-                      <SelectItem value="overnight">Overnight</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <p className="font-medium mt-1">{customerType}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-600">
-                    Communication
+                    Notification channels
                   </Label>
-                  <Select defaultValue="sms">
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select preference" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sms">SMS</SelectItem>
-                      <SelectItem value="email">Email</SelectItem>
-                      <SelectItem value="phone">Phone</SelectItem>
-                      <SelectItem value="app">Mobile App</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {notif ? (
+                      <>
+                        {notif.email ? (
+                          <Badge className="bg-blue-100 text-blue-700">Email</Badge>
+                        ) : null}
+                        {notif.inApp ? (
+                          <Badge className="bg-slate-100 text-slate-700">In-app</Badge>
+                        ) : null}
+                        {notif.push ? (
+                          <Badge className="bg-amber-100 text-amber-800">Push</Badge>
+                        ) : null}
+                        {!notif.email && !notif.inApp && !notif.push ? (
+                          <span className="text-gray-500">None enabled</span>
+                        ) : null}
+                      </>
+                    ) : (
+                      <span className="text-gray-500">Not configured</span>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center space-x-2 pt-2">
-                <Badge className="bg-blue-100 text-blue-700">
-                  {customerData.preferredLanguage}
-                </Badge>
-                <Badge className="bg-gray-100 text-gray-700">
-                  {customerData.communicationPreference}
-                </Badge>
+              <div className="flex items-start gap-2 pt-2 border-t text-gray-600">
+                <Bell className="h-4 w-4 mt-0.5 shrink-0" />
+                <p>
+                  {customer.preferences == null
+                    ? "No additional preferences on file."
+                    : "Additional preferences are saved for this account."}
+                </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Account Management */}
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <CreditCard className="h-5 w-5 mr-2 text-blue-600" />
+                <Wallet className="h-5 w-5 mr-2 text-blue-600" />
                 Account Management
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    Credit Limit
-                  </Label>
-                  <Select defaultValue="50000">
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select limit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="25000">25,000 ETB</SelectItem>
-                      <SelectItem value="50000">50,000 ETB</SelectItem>
-                      <SelectItem value="100000">100,000 ETB</SelectItem>
-                      <SelectItem value="unlimited">Unlimited</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-sm font-medium text-gray-600">Wallet balance</Label>
+                  <p className="font-medium mt-1">
+                    {walletBalance != null && String(walletBalance).trim() !== ""
+                      ? `${Number(walletBalance).toLocaleString()} ETB`
+                      : "—"}
+                  </p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    Payment Terms
-                  </Label>
-                  <Select defaultValue="net30">
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select terms" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="net15">Net 15</SelectItem>
-                      <SelectItem value="net30">Net 30</SelectItem>
-                      <SelectItem value="net45">Net 45</SelectItem>
-                      <SelectItem value="net60">Net 60</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Loyalty & Preferences */}
-          <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center text-lg font-semibold">
-                <Shield className="h-5 w-5 mr-2 text-blue-600" />
-                Loyalty & Preferences
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    Discount Rate
-                  </Label>
-                  <Select defaultValue="5">
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select discount" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">0%</SelectItem>
-                      <SelectItem value="5">5%</SelectItem>
-                      <SelectItem value="10">10%</SelectItem>
-                      <SelectItem value="15">15%</SelectItem>
-                      <SelectItem value="20">20%</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-sm font-medium text-gray-600">Credit limit</Label>
+                  <p className="font-medium mt-1">{toText(customer.creditLimit)}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">
-                    Delivery Time
-                  </Label>
-                  <Select defaultValue="morning">
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select time" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="morning">
-                        Morning (8AM-12PM)
-                      </SelectItem>
-                      <SelectItem value="afternoon">
-                        Afternoon (12PM-5PM)
-                      </SelectItem>
-                      <SelectItem value="evening">Evening (5PM-8PM)</SelectItem>
-                      <SelectItem value="anytime">Anytime</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-sm font-medium text-gray-600">Payment terms</Label>
+                  <p className="font-medium mt-1">{toText(customer.paymentTerms)}</p>
                 </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">Discount rate</Label>
+                  <p className="font-medium mt-1">{toText(customer.discountRate)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">Preferred delivery time</Label>
+                  <p className="font-medium mt-1">{toText(customer.preferredDeliveryTime)}</p>
+                </div>
+                {corporate?.companyName ? (
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Company</Label>
+                    <p className="font-medium mt-1">{corporate.companyName}</p>
+                  </div>
+                ) : null}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Right Column */}
         <div className="space-y-6">
-          {/* Contact Information */}
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <MapPin className="h-5 w-5 mr-2 text-blue-600" />
+                <Contact className="h-5 w-5 mr-2 text-blue-600" />
                 Contact Information
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <Label className="text-sm font-medium text-gray-600">
-                    Phone Number
+                    Phone
                   </Label>
-                  <div className="flex items-center space-x-1">
-                    <Phone className="h-3 w-3 text-gray-400" />
-                    <span className="text-sm text-gray-900">
-                      {customerData.phone}
+                  <div className="flex items-center space-x-1 min-w-0">
+                    <Phone className="h-3 w-3 text-gray-400 shrink-0" />
+                    <span className="text-sm text-gray-900 text-right break-all">
+                      {customer.phone
+                        ? String(customer.phone)
+                        : "Not provided"}
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <Label className="text-sm font-medium text-gray-600">
-                    Email Address
+                    Email
                   </Label>
-                  <div className="flex items-center space-x-1">
-                    <Mail className="h-3 w-3 text-gray-400" />
-                    <span className="text-sm text-gray-900">
-                      {customerData.email}
+                  <div className="flex items-center space-x-1 min-w-0">
+                    <Mail className="h-3 w-3 text-gray-400 shrink-0" />
+                    <span className="text-sm text-gray-900 text-right break-all">
+                      {toText(customer.email)}
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium text-gray-600">
-                    Address
-                  </Label>
-                  <span className="text-sm text-gray-900">
-                    {customerData.address}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium text-gray-600">
+                <div>
+                  <Label className="text-sm font-medium text-gray-600 block mb-1">
                     City
                   </Label>
-                  <span className="text-sm text-gray-900">
-                    {customerData.city}
-                  </span>
+                  <p className="text-sm text-gray-900">{displayCity}</p>
                 </div>
-                {customerData.companyName && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-600 block mb-1">
+                    Primary location
+                  </Label>
+                  <p className="text-sm text-gray-900 leading-relaxed">
+                    {displayAddress}
+                  </p>
+                </div>
+                {addressLines.length > 1 ? (
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600 block mb-2">
+                      All saved addresses
+                    </Label>
+                    <ul className="space-y-2">
+                      {addressLines.map((line, i) => (
+                        <li
+                          key={i}
+                          className="flex gap-2 text-sm text-gray-800 p-2 rounded-md bg-gray-50"
+                        >
+                          <MapPin className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
+                          <span className="leading-relaxed">{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {(corporate?.companyName || customer.companyName) && (
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium text-gray-600">
                       Company
@@ -469,59 +536,29 @@ export default function CustomerDetailsPage() {
                     <div className="flex items-center space-x-1">
                       <Building2 className="h-3 w-3 text-gray-400" />
                       <span className="text-sm text-gray-900">
-                        {customerData.companyName}
+                        {corporate?.companyName || customer.companyName}
                       </span>
                     </div>
+                  </div>
+                )}
+                {(corporate?.contactPerson || customer.contactPerson) && (
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium text-gray-600">
+                      Contact person
+                    </Label>
+                    <span className="text-sm text-gray-900">
+                      {corporate?.contactPerson || customer.contactPerson}
+                    </span>
                   </div>
                 )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Customer Grouping */}
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <Users className="h-5 w-5 mr-2 text-blue-600" />
-                Customer Grouping
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
-                Select customers for bulk operations and group discounts:
-              </p>
-              <div className="space-y-3">
-                {relatedCustomers.map((customer) => (
-                  <div
-                    key={customer.id}
-                    className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50"
-                  >
-                    <Checkbox
-                      checked={selectedCustomers.includes(customer.id)}
-                      onCheckedChange={() => handleCustomerSelect(customer.id)}
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">
-                        {customer.name} ({customer.id})
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {customer.type} - {customer.location}
-                      </div>
-                    </div>
-                    <div className="text-sm font-medium text-gray-900">
-                      {customer.distance}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Customer Summary */}
-          <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center text-lg font-semibold">
-                <FileText className="h-5 w-5 mr-2 text-blue-600" />
+                <Calendar className="h-5 w-5 mr-2 text-blue-600" />
                 Customer Summary
               </CardTitle>
             </CardHeader>
@@ -534,22 +571,18 @@ export default function CustomerDetailsPage() {
                   <div className="flex items-center space-x-1 mt-1">
                     <Calendar className="h-4 w-4 text-gray-400" />
                     <span className="text-sm text-gray-900">
-                      {new Date(
-                        customerData.registrationDate
-                      ).toLocaleDateString()}
+                      {registrationDate}
                     </span>
                   </div>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-600">
-                    Last Order
+                    Last activity
                   </Label>
                   <div className="flex items-center space-x-1">
-                    <Clock className="h-4 w-4 text-gray-400" />
+                    <Calendar className="h-4 w-4 text-gray-400" />
                     <span className="text-sm text-gray-900">
-                      {new Date(
-                        customerData.lastOrderDate
-                      ).toLocaleDateString()}
+                      {lastActivityDate}
                     </span>
                   </div>
                 </div>
@@ -559,13 +592,12 @@ export default function CustomerDetailsPage() {
                   Special Instructions
                 </Label>
                 <p className="text-sm text-gray-900 mt-1">
-                  {customerData.specialInstructions}
+                  {toText(customer.specialInstructions)}
                 </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Order History */}
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
@@ -575,36 +607,52 @@ export default function CustomerDetailsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {orderHistory.map((order) => (
-                  <div
-                    key={order.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900">
-                          {order.type}
-                        </span>
-                        <Badge className="bg-green-100 text-green-700">
-                          {order.status}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {order.description}
-                      </p>
-                      <div className="flex items-center space-x-4 mt-2 text-xs text-gray-400">
-                        <span>{new Date(order.date).toLocaleDateString()}</span>
-                        <span>{order.amount}</span>
-                        {order.rating && (
-                          <div className="flex items-center space-x-1">
-                            <Star className="h-3 w-3 text-yellow-500" />
-                            <span>{order.rating}</span>
+                {recentOrders.length > 0 ? (
+                  recentOrders.map((order) => {
+                    const amount = Number(order.finalPrice ?? order.estimatedPrice ?? 0);
+                    const statusLabel = orderDeliveryLabel(order);
+                    return (
+                      <div
+                        key={`${order.trackingCode ?? "order"}-${order.createdAt ?? ""}`}
+                        className="flex items-center justify-between p-3 border rounded-lg"
+                      >
+                        <div className="flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium text-gray-900">
+                              {toText(order.trackingCode)}
+                            </span>
+                            {statusLabel ? (
+                              <Badge
+                                className={
+                                  statusLabel === "Delivered"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-slate-100 text-slate-700"
+                                }
+                              >
+                                {statusLabel}
+                              </Badge>
+                            ) : null}
                           </div>
-                        )}
+                          <p className="text-sm text-gray-500 mt-1">
+                            {toText(order.shippingScope)} ·{" "}
+                            {formatServiceType(order.serviceType)} ·{" "}
+                            {formatCategory(order.category)}
+                          </p>
+                          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-400">
+                            <span>
+                              {order.createdAt
+                                ? new Date(order.createdAt).toLocaleDateString()
+                                : "—"}
+                            </span>
+                            <span>{amount.toLocaleString()} ETB</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-gray-500">No recent orders found.</p>
+                )}
               </div>
             </CardContent>
           </Card>
