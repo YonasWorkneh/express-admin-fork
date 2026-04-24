@@ -664,12 +664,22 @@ export interface BatchOrder {
   trackingCode: string;
 }
 
+/** Populated on list/detail; may be a string id key or a nested object from API. */
+export type BatchServiceTypeField =
+  | ServiceType
+  | string
+  | { id?: string; name?: string; label?: string };
+
 export interface Batch {
   id: string;
   batchCode: string;
-  scope: "IN_TOWN" | "REGIONAL" | "INTERNATIONAL";
-  serviceType: ServiceType | string;
-  category: string[];
+  scope: "IN_TOWN" | "REGIONAL" | "INTERNATIONAL" | "TOWN";
+  serviceType: BatchServiceTypeField;
+  serviceTypeId?: string;
+  /** Human-readable; prefer over originId/destinationId in UI. */
+  originCity?: string | null;
+  destinationCity?: string | null;
+  category: (string | { name?: string; id?: string })[];
   isFragile: boolean;
   status: DispatchStatus;
   originId: string;

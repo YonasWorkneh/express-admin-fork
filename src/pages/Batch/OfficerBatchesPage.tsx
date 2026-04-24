@@ -37,6 +37,22 @@ interface Metric {
   color: "blue" | "green" | "purple" | "orange";
 }
 
+function getServiceTypeLabel(
+  serviceType: Batch["serviceType"] | null | undefined,
+): string {
+  if (serviceType == null) return "N/A";
+  if (typeof serviceType === "string" || typeof serviceType === "number") {
+    const t = String(serviceType).trim();
+    return t || "N/A";
+  }
+  if (typeof serviceType === "object") {
+    const o = serviceType as { name?: string; label?: string; id?: string };
+    const text = o.name ?? o.label ?? o.id;
+    if (typeof text === "string" && text.trim()) return text.trim();
+  }
+  return "N/A";
+}
+
 function OfficerBatchesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -284,7 +300,7 @@ function OfficerBatchesPage() {
                             {batch.scope}
                           </Badge>
                         </TableCell>
-                        <TableCell>{batch.serviceType}</TableCell>
+                        <TableCell>{getServiceTypeLabel(batch.serviceType)}</TableCell>
                         <TableCell>
                           <Badge className={getStatusColor(batch.status)}>
                             {batch.status}
@@ -375,7 +391,7 @@ function OfficerBatchesPage() {
             </p>
             <p>
               <span className="font-medium">Service Type:</span>{" "}
-              {selectedBatch.serviceType}
+              {getServiceTypeLabel(selectedBatch.serviceType)}
             </p>
           </div>
         )}

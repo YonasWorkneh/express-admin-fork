@@ -13,6 +13,44 @@ import toast from "react-hot-toast";
 import { Skeleton } from "antd";
 import { Spinner } from "@/utils/spinner";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useUser } from "@/hooks/useUser";
+
+/** serviceType from API can be a string, enum, or { name, id, ... }. */
+function getServiceTypeLabel(
+  serviceType: Batch["serviceType"] | null | undefined,
+): string {
+  if (serviceType == null) return "N/A";
+  if (typeof serviceType === "string" || typeof serviceType === "number") {
+    const t = String(serviceType).trim();
+    return t || "N/A";
+  }
+  if (typeof serviceType === "object") {
+    const o = serviceType as { name?: string; label?: string; id?: string };
+    const text = o.name ?? o.label ?? o.id;
+    if (typeof text === "string" && text.trim()) return text.trim();
+  }
+  return "N/A";
+}
+
+function getServiceTypeRouteKey(batch: Batch): string {
+  const st = batch.serviceType;
+  if (typeof st === "string" || typeof st === "number")
+    return String(st).trim();
+  if (st && typeof st === "object") {
+    const name = (st as { name?: string }).name;
+    if (name?.trim()) return name.trim();
+  }
+  if (typeof batch.serviceTypeId === "string" && batch.serviceTypeId.trim())
+    return batch.serviceTypeId;
+  return "";
+}
+
+function getCategoryLabel(cat: string | { name?: string }): string {
+  if (typeof cat === "string") return cat;
+  if (cat && typeof cat === "object" && typeof cat.name === "string")
+    return cat.name;
+  return String(cat);
+}
 
 function BatchDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +65,8 @@ function BatchDetailsPage() {
     useState<CategorizedOrdersResponse | any>(null);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+
+  const officerUserQuery = useUser(batch?.officerId ?? null);
 
   const fetchBatch = async () => {
     // Prefer data passed via navigation state to avoid refetching
@@ -84,11 +124,34 @@ function BatchDetailsPage() {
 
   const getAvailableOrders = (): Order[] => {
     if (!categorizedOrders || !batch) return [];
-    // Handle both "TOWN" and "IN_TOWN" - API returns "TOWN" but batch uses "IN_TOWN"
-    const scopeKey = batch.scope === "IN_TOWN" ? "TOWN" : batch.scope;
+    // Handle both "TOWN" and "IN_TOWN" - API returns "TOWN" but batch may use "IN_TOWN"
+    const scopeKey =
+      batch.scope === "IN_TOWN" || batch.scope === "TOWN" ? "TOWN" : batch.scope;
+    const serviceKey = getServiceTypeRouteKey(batch);
+    if (!serviceKey) return [];
     const scopeData = categorizedOrders.grouped[scopeKey as keyof typeof categorizedOrders.grouped];
-    const orders = scopeData?.[batch.serviceType] || [];
-    return orders.filter((order:any) => !batch.orders.some((bo:any) => bo.id === order.id));
+    if (!scopeData) return [];
+
+    // Flat shape: { [serviceName]: Order[] }
+    const direct = (scopeData as Record<string, unknown>)[serviceKey];
+    if (Array.isArray(direct)) {
+      return (direct as Order[]).filter(
+        (order) => !batch.orders.some((bo) => bo.id === order.id),
+      );
+    }
+
+    // Nested shape: { [routeKey]: { [serviceName]: Order[] } }
+    for (const route of Object.values(scopeData)) {
+      if (route && typeof route === "object" && !Array.isArray(route)) {
+        const inner = (route as Record<string, Order[]>)[serviceKey];
+        if (Array.isArray(inner)) {
+          return inner.filter(
+            (order) => !batch.orders.some((bo) => bo.id === order.id),
+          );
+        }
+      }
+    }
+    return [];
   };
 
   const handleAddOrders = async () => {
@@ -138,6 +201,7 @@ function BatchDetailsPage() {
 
   const getScopeColor = (scope: string) => {
     switch (scope) {
+      case "TOWN":
       case "IN_TOWN":
         return "bg-blue-100 text-blue-700";
       case "REGIONAL":
@@ -218,7 +282,7 @@ function BatchDetailsPage() {
                 </div>
                 <div>
                   <Label className="text-gray-500">Service Type</Label>
-                  <p className="font-medium">{batch.serviceType}</p>
+                  <p className="font-medium">{getServiceTypeLabel(batch.serviceType)}</p>
                 </div>
                 <div>
                   <Label className="text-gray-500">Weight</Label>
@@ -250,9 +314,9 @@ function BatchDetailsPage() {
                 <div>
                   <Label className="text-gray-500">Categories</Label>
                   <div className="flex flex-wrap gap-2 mt-1">
-                    {batch.category.map((cat) => (
-                      <Badge key={cat} variant="secondary">
-                        {cat}
+                    {batch.category.map((cat, i) => (
+                      <Badge key={`${getCategoryLabel(cat)}-${i}`} variant="secondary">
+                        {getCategoryLabel(cat)}
                       </Badge>
                     ))}
                   </div>
@@ -292,7 +356,6 @@ function BatchDetailsPage() {
                     >
                       <div>
                         <p className="font-medium">{order.trackingCode}</p>
-                        <p className="text-sm text-gray-500">ID: {order.id}</p>
                       </div>
                     </div>
                   ))}
@@ -386,12 +449,20 @@ function BatchDetailsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label className="text-gray-500">Origin ID</Label>
-                <p className="font-medium">{batch.originId}</p>
+                <Label className="text-gray-500">Origin</Label>
+                <p className="font-medium">
+                  {batch.originCity?.trim()
+                    ? batch.originCity
+                    : "—"}
+                </p>
               </div>
               <div>
-                <Label className="text-gray-500">Destination ID</Label>
-                <p className="font-medium">{batch.destinationId}</p>
+                <Label className="text-gray-500">Destination</Label>
+                <p className="font-medium">
+                  {batch.destinationCity?.trim()
+                    ? batch.destinationCity
+                    : "—"}
+                </p>
               </div>
               {batch.driverId && (
                 <div>
@@ -407,8 +478,12 @@ function BatchDetailsPage() {
               )}
               {batch.officerId && (
                 <div>
-                  <Label className="text-gray-500">Officer ID</Label>
-                  <p className="font-medium">{batch.officerId}</p>
+                  <Label className="text-gray-500">Cargo officer</Label>
+                  <p className="font-medium">
+                    {officerUserQuery.isPending
+                      ? "Loading…"
+                      : officerUserQuery.data?.name?.trim() || "—"}
+                  </p>
                 </div>
               )}
             </CardContent>
