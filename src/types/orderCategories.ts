@@ -1,6 +1,6 @@
 /**
  * Optional API hint; zonal tariff UI uses user-selected pricing mode per category
- * (`UNIT_PRICE` | `UNIT_PRICE_WITH_BRACKET` | `VOLUME_OVERRIDE` — see
+ * (`UNIT_PRICE` | `UNIT_PRICE_WEIGHT_RANGE` | `VOLUME_OVERRIDE` | `WEIGHT_RANGE` — see
  * `src/config/orderItemCategoryPricingTypes.json`).
  */
 export interface OrderItemCategory {

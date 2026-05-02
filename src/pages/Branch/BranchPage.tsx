@@ -329,7 +329,7 @@ interface BranchDashboardStats {
             <TableHeader>
               <TableRow className="border-gray-200">
                 <TableHead className="w-12">
-                  <Checkbox />
+                  <Checkbox className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 data-[state=checked]:text-white focus-visible:ring-blue-500/40" />
                 </TableHead>
                 <TableHead className="text-gray-600 font-medium">
                   Branch ID
@@ -388,8 +388,8 @@ interface BranchDashboardStats {
                   className="border-gray-100 hover:bg-gray-50 cursor-pointer"
                   onClick={() => navigate(`/branch/${branch.id}`)}
                 >
-                  <TableCell>
-                    <Checkbox />
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 data-[state=checked]:text-white focus-visible:ring-blue-500/40" />
                   </TableCell>
                   <TableCell className="font-medium text-blue-500">
                     {branch?.customId}

@@ -3,12 +3,16 @@
     "label": "Unit price",
     "fields": ["basePrice"]
   },
-  "UNIT_PRICE_WITH_BRACKET": {
-    "label": "Unit price with bracket",
+  "UNIT_PRICE_WEIGHT_RANGE": {
+    "label": "Unit price + weight brackets",
     "fields": ["basePrice", "min", "max", "additional"]
   },
   "VOLUME_OVERRIDE": {
     "label": "Volume override",
     "fields": ["divisor", "ratePerKg"]
+  },
+  "WEIGHT_RANGE": {
+    "label": "Weight range",
+    "fields": ["basePrice", "min", "max", "perKg"]
   }
 }

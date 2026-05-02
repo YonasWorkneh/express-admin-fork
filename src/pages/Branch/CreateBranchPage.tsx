@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Formik, Form, Field } from "formik";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import Button from "../../components/common/Button";
 import MapAddressSelector from "@/components/common/MapAddressSelector";
@@ -30,6 +31,7 @@ const CreateBranchPage = () => {
     phone: "",
     email: "",
     description: "",
+    locatedInCapital: false,
   });
 
   const navigate = useNavigate();
@@ -55,6 +57,7 @@ const CreateBranchPage = () => {
       const data = {
         name: value?.name,
         location: value?.location,
+        locatedInCapital: Boolean(value?.locatedInCapital),
         address: {
           lat: value?.latitude,
           long: value?.longitude,
@@ -150,6 +153,22 @@ const CreateBranchPage = () => {
                       {errors.location}
                     </p>
                   )}
+                </div>
+                <div className="flex items-start gap-3 rounded-md border border-gray-200 bg-white px-3 py-3">
+                  <Checkbox
+                    id="create-branch-page-located-in-capital"
+                    checked={values.locatedInCapital}
+                    onCheckedChange={(checked) =>
+                      setFieldValue("locatedInCapital", checked === true)
+                    }
+                    className="mt-0.5 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 data-[state=checked]:text-white focus-visible:ring-blue-500/40"
+                  />
+                  <Label
+                    htmlFor="create-branch-page-located-in-capital"
+                    className="text-sm font-normal text-gray-700 leading-snug cursor-pointer"
+                  >
+                    Located in capital
+                  </Label>
                 </div>
                 <div>
                   <Label className="mb-1">Phone Number</Label>

@@ -2,8 +2,9 @@ import pricingTypesJson from "./orderItemCategoryPricingTypes.json";
 
 export type CategoryPricingMode =
   | "UNIT_PRICE"
-  | "UNIT_PRICE_WITH_BRACKET"
-  | "VOLUME_OVERRIDE";
+  | "UNIT_PRICE_WEIGHT_RANGE"
+  | "VOLUME_OVERRIDE"
+  | "WEIGHT_RANGE";
 
 export type PricingCategoryFieldKey =
   | "basePrice"
@@ -11,7 +12,8 @@ export type PricingCategoryFieldKey =
   | "max"
   | "additional"
   | "divisor"
-  | "ratePerKg";
+  | "ratePerKg"
+  | "perKg";
 
 export type OrderItemCategoryPricingTypeConfig = {
   label: string;
@@ -28,6 +30,7 @@ export function normalizeCategoryPricingMode(
 ): CategoryPricingMode {
   if (raw == null || String(raw).trim() === "") return "UNIT_PRICE";
   const u = String(raw).trim().toUpperCase().replace(/-/g, "_");
+  if (u === "UNIT_PRICE_WITH_BRACKET") return "UNIT_PRICE_WEIGHT_RANGE";
   if (u in types) return u as CategoryPricingMode;
   return "UNIT_PRICE";
 }

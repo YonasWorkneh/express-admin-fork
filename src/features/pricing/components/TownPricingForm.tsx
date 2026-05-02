@@ -1,6 +1,12 @@
 "use client";
 
-import { Formik, Form, Field, type FormikErrors } from "formik";
+import {
+  Formik,
+  Form,
+  Field,
+  type FormikErrors,
+  type FormikTouched,
+} from "formik";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import PricingFormHeader from "./PricingFormHeader";
@@ -10,18 +16,51 @@ import toast from "react-hot-toast";
 import api from "@/lib/api/api";
 import { Spinner } from "@/utils/spinner";
 import { useServiceTypes } from "@/hooks/useServiceTypes";
+import { useOrderItemCategories } from "@/hooks/useOrderItemCategories";
+import type { OrderItemCategory } from "@/types/orderCategories";
 import type { ServiceType } from "@/types/serviceTypes";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Info } from "lucide-react";
+import { Info, Plus } from "lucide-react";
+import {
+  getPricingCategoryTypeConfig,
+  hasField,
+  normalizeCategoryPricingMode,
+  type CategoryPricingMode,
+} from "@/config/orderItemCategoryPricingTypes";
+import {
+  hydrateTabRemarkDates,
+  PricingRemarkDateFields,
+  remarkRequiresDateRange,
+  ymdToApiEndOfDayIso,
+  ymdToApiIso,
+} from "./PricingRemarkDateFields";
 
 const TARIFF_DISPLAY_NAME = "Town Delivery Tariff";
 
 const LEGACY_SERVICE_TYPE_KEYS = ["STANDARD", "EXPRESS", "OVERNIGHT"] as const;
 
-/** Match zonal: store short name in the form; full API name uses display prefix on submit. */
+/** UI select values → API `remarkType` (ALL_CAPS, multi-word SNAKE_CASE). */
+export function remarkTypeToApi(uiRemark: string): string {
+  const t = uiRemark.trim();
+  if (!t) return "STANDARD";
+  return t
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.toUpperCase())
+    .join("_");
+}
+
+/** API `remarkType` → Title Case for UI selects. */
+export function remarkTypeFromApi(api: string | undefined): string {
+  if (!api?.trim()) return "Standard";
+  const parts = api.trim().toLowerCase().split(/_+/).filter(Boolean);
+  if (!parts.length) return "Standard";
+  return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+}
+
 function hydrateTownTabNameFromTariff(
-  tab: TownServiceConfig,
+  tab: TownServiceTabValues,
   tariffName: unknown,
 ) {
   if (typeof tariffName === "string" && tariffName.trim()) {
@@ -31,36 +70,292 @@ function hydrateTownTabNameFromTariff(
   }
 }
 
-export type TownServiceConfig = {
+export type TownWeightRangeRow = {
+  min: number;
+  max: number;
+  perkg: number;
+};
+
+export type TownBracketRow = {
+  min: number;
+  max: number;
+  additional: number;
+};
+
+export type TownCategoryPricingValues = {
+  pricingType: CategoryPricingMode;
+  basePrice: number;
+  airportFee: number;
+  additionalCost: number;
+  /** Decimal e.g. 0.25 — API `profitMargin` on each category config */
+  profitMargin: number;
+  weightRanges: TownWeightRangeRow[];
+  brackets: TownBracketRow[];
+  divisor: number;
+  ratePerKg: number;
+};
+
+/** @deprecated Use `TownServiceTabValues` — kept for any external imports */
+export type TownServiceConfig = TownServiceTabValues;
+
+export type TownServiceTabValues = {
   name: string;
   remark: string;
-  basePrice: number;
-  profitMargin: number;
+  /** `yyyy-MM-dd` when remark is Holiday / Event */
+  startDate: string;
+  endDate: string;
+  categories: Record<string, TownCategoryPricingValues>;
 };
 
 export type TownFormValues = {
-  serviceConfigs: Record<string, TownServiceConfig>;
+  serviceConfigs: Record<string, TownServiceTabValues>;
 };
+
+function emptyTownCategoryValues(): TownCategoryPricingValues {
+  return {
+    pricingType: "UNIT_PRICE",
+    basePrice: 0,
+    airportFee: 0,
+    additionalCost: 0,
+    profitMargin: 0,
+    weightRanges: [{ min: 0, max: 0, perkg: 0 }],
+    brackets: [{ min: 0, max: 0, additional: 0 }],
+    divisor: 1,
+    ratePerKg: 0,
+  };
+}
 
 function buildEmptyServiceConfigs(
   serviceTypes: ServiceType[],
-): Record<string, TownServiceConfig> {
-  return Object.fromEntries(
-    serviceTypes.map((st) => [
-      st.id,
-      { name: "", remark: "Standard", basePrice: 0, profitMargin: 0 },
-    ]),
-  );
+  categories: OrderItemCategory[],
+): Record<string, TownServiceTabValues> {
+  const out: Record<string, TownServiceTabValues> = {};
+  for (const st of serviceTypes) {
+    const cats: Record<string, TownCategoryPricingValues> = {};
+    for (const cat of categories) {
+      cats[cat.id] = emptyTownCategoryValues();
+    }
+    out[st.id] = {
+      name: "",
+      remark: "Standard",
+      startDate: "",
+      endDate: "",
+      categories: cats,
+    };
+  }
+  return out;
+}
+
+const remarkOptions = [
+  { value: "Standard", label: "Standard" },
+  { value: "Weekend", label: "Weekend" },
+  { value: "Holiday", label: "Holiday" },
+  { value: "Event", label: "Event" },
+] as const;
+
+const townPricingTypeOptions: { value: CategoryPricingMode; label: string }[] =
+  [
+    { value: "UNIT_PRICE", label: "Unit price" },
+    {
+      value: "UNIT_PRICE_WEIGHT_RANGE",
+      label: "Unit price + weight brackets",
+    },
+    { value: "VOLUME_OVERRIDE", label: "Volume override" },
+    { value: "WEIGHT_RANGE", label: "Weight range" },
+  ];
+
+const TOWN_CATEGORY_MODES: CategoryPricingMode[] = [
+  "UNIT_PRICE",
+  "UNIT_PRICE_WEIGHT_RANGE",
+  "VOLUME_OVERRIDE",
+  "WEIGHT_RANGE",
+];
+
+function normalizeTownCategoryMode(
+  raw: string | undefined,
+): CategoryPricingMode {
+  const m = normalizeCategoryPricingMode(raw);
+  return TOWN_CATEGORY_MODES.includes(m) ? m : "UNIT_PRICE";
+}
+
+function hydrateOneTownTab(
+  tab: TownServiceTabValues,
+  t: Record<string, unknown>,
+  tariffDisplayName: string,
+) {
+  if (typeof t.name === "string" && t.name.trim()) {
+    const n = t.name.trim();
+    const prefix = `${tariffDisplayName} - `;
+    tab.name = n.startsWith(prefix) ? n.slice(prefix.length) : n;
+  }
+  const remarkRaw =
+    typeof t.remarkType === "string" && t.remarkType.trim()
+      ? remarkTypeFromApi(t.remarkType as string)
+      : typeof t.remark === "string" && t.remark.trim()
+        ? (t.remark as string)
+        : null;
+  if (remarkRaw) tab.remark = remarkRaw;
+  hydrateTabRemarkDates(tab, t);
+
+  const cp = t.categoryPricing as Array<Record<string, unknown>> | undefined;
+  if (!cp?.length) return;
+
+  for (const item of cp) {
+    const cid = item.categoryId as string | undefined;
+    if (!cid || !tab.categories[cid]) continue;
+    const cv = tab.categories[cid];
+    let type = normalizeTownCategoryMode(item.type as string | undefined);
+    cv.pricingType = type;
+    const config = (item.config || {}) as Record<string, unknown>;
+    if (typeof config.airportFee === "number")
+      cv.airportFee = config.airportFee;
+    if (typeof config.additionalCost === "number")
+      cv.additionalCost = config.additionalCost;
+    if (typeof config.profitMargin === "number")
+      cv.profitMargin = config.profitMargin;
+
+    if (type === "UNIT_PRICE") {
+      cv.basePrice =
+        typeof config.unitPrice === "number" ? config.unitPrice : 0;
+    } else if (type === "VOLUME_OVERRIDE") {
+      cv.divisor = typeof config.divisor === "number" ? config.divisor : 1;
+      cv.ratePerKg =
+        typeof config.ratePerKg === "number" ? config.ratePerKg : 0;
+    } else if (type === "WEIGHT_RANGE") {
+      if (typeof config.unitPrice === "number") {
+        cv.basePrice = config.unitPrice;
+      }
+      const rawRanges =
+        (config.ranges as
+          | Array<{
+              min?: number;
+              max?: number;
+              perKg?: number;
+              perkg?: number;
+            }>
+          | undefined) ??
+        (config.range as
+          | Array<{
+              min?: number;
+              max?: number;
+              perKg?: number;
+              perkg?: number;
+            }>
+          | undefined);
+      if (rawRanges?.length) {
+        cv.weightRanges = rawRanges.map((r) => ({
+          min: r.min ?? 0,
+          max: r.max ?? 0,
+          perkg:
+            typeof r.perKg === "number"
+              ? r.perKg
+              : typeof r.perkg === "number"
+                ? r.perkg
+                : 0,
+        }));
+      }
+    } else if (type === "UNIT_PRICE_WEIGHT_RANGE") {
+      cv.basePrice =
+        typeof config.unitPrice === "number" ? config.unitPrice : 0;
+      const rawBrackets = config.brackets as
+        | Array<{
+            min?: number;
+            max?: number;
+            add?: number;
+            additional?: number;
+          }>
+        | undefined;
+      if (rawBrackets?.length) {
+        cv.brackets = rawBrackets.map((b) => ({
+          min: b.min ?? 0,
+          max: b.max ?? 0,
+          additional: typeof b.add === "number" ? b.add : (b.additional ?? 0),
+        }));
+      }
+    }
+  }
 }
 
 function hydrateFromParsedPrice(
   parsed: Record<string, unknown> | null,
   serviceTypes: ServiceType[],
-): Record<string, TownServiceConfig> {
-  const base = buildEmptyServiceConfigs(serviceTypes);
+  categories: OrderItemCategory[],
+): Record<string, TownServiceTabValues> {
+  const base = buildEmptyServiceConfigs(serviceTypes, categories);
   if (!parsed) return base;
 
-  let hasRowOrTownPricingProfit = false;
+  const globalRemark =
+    typeof parsed.remarkType === "string" && parsed.remarkType.trim()
+      ? remarkTypeFromApi(parsed.remarkType as string)
+      : typeof parsed.remark === "string" && parsed.remark.trim()
+        ? (parsed.remark as string)
+        : "Standard";
+
+  if (Array.isArray(parsed.categoryPricing) && parsed.categoryPricing.length) {
+    const cp = parsed.categoryPricing as Record<string, unknown>[];
+    const sidFromRow =
+      typeof cp[0]?.serviceTypeId === "string"
+        ? (cp[0].serviceTypeId as string)
+        : undefined;
+    const junction = parsed.serviceTypes as
+      | Record<string, unknown>[]
+      | undefined;
+    const sidFromJunction =
+      Array.isArray(junction) &&
+      junction[0] &&
+      typeof junction[0].serviceTypeId === "string"
+        ? (junction[0].serviceTypeId as string)
+        : undefined;
+    const derivedServiceTypeId = sidFromRow ?? sidFromJunction;
+    if (
+      typeof derivedServiceTypeId === "string" &&
+      derivedServiceTypeId.trim()
+    ) {
+      const enriched: Record<string, unknown> = {
+        ...parsed,
+        serviceTypeId: derivedServiceTypeId,
+      };
+      const st = serviceTypes.find((s) => s.id === derivedServiceTypeId);
+      if (st) {
+        for (const s of serviceTypes) {
+          base[s.id].remark = globalRemark;
+        }
+        hydrateOneTownTab(base[st.id], enriched, TARIFF_DISPLAY_NAME);
+      }
+      return base;
+    }
+  }
+
+  if (
+    typeof parsed.serviceTypeId === "string" &&
+    parsed.serviceTypeId.trim() &&
+    Array.isArray(parsed.categoryPricing)
+  ) {
+    const st = serviceTypes.find((s) => s.id === parsed.serviceTypeId);
+    for (const s of serviceTypes) {
+      base[s.id].remark = globalRemark;
+    }
+    if (st) {
+      hydrateOneTownTab(base[st.id], parsed, TARIFF_DISPLAY_NAME);
+    }
+    return base;
+  }
+
+  const townConfig = parsed.townConfig;
+  if (townConfig != null && typeof townConfig === "object") {
+    const tc = townConfig as Record<string, unknown>;
+    const innerRows = tc.serviceTypes as
+      | Array<Record<string, unknown>>
+      | undefined;
+    if (Array.isArray(innerRows) && innerRows.length > 0) {
+      const merged: Record<string, unknown> = {
+        ...parsed,
+        serviceTypes: innerRows,
+        townConfig: null,
+      };
+      return hydrateFromParsedPrice(merged, serviceTypes, categories);
+    }
+  }
 
   const tpRoot = parsed.townPricing;
   const rootServiceTypeId =
@@ -79,46 +374,31 @@ function hydrateFromParsedPrice(
       typeof tp.baseFee === "number" && !Number.isNaN(tp.baseFee)
         ? tp.baseFee
         : undefined;
-    const pct =
-      typeof tp.profitPct === "number" && !Number.isNaN(tp.profitPct)
-        ? tp.profitPct
-        : typeof tp.profitMargin === "number" && !Number.isNaN(tp.profitMargin)
-          ? tp.profitMargin
-          : undefined;
-    if (typeof fee === "number") {
-      base[rootServiceTypeId].basePrice = fee;
-    }
-    if (typeof pct === "number") {
-      base[rootServiceTypeId].profitMargin = pct;
-      hasRowOrTownPricingProfit = true;
-    }
     hydrateTownTabNameFromTariff(base[rootServiceTypeId], parsed.name);
+    base[rootServiceTypeId].remark = globalRemark;
+    hydrateTabRemarkDates(
+      base[rootServiceTypeId],
+      parsed as Record<string, unknown>,
+    );
+    const firstCat = categories[0];
+    if (
+      typeof fee === "number" &&
+      firstCat &&
+      base[rootServiceTypeId].categories[firstCat.id]
+    ) {
+      base[rootServiceTypeId].categories[firstCat.id].basePrice = fee;
+    }
   }
 
-  const townConfig = parsed.townConfig;
-  if (townConfig != null && typeof townConfig === "object") {
-    const tc = townConfig as Record<string, unknown>;
-    const innerRows = tc.serviceTypes as
-      | Array<Record<string, unknown>>
-      | undefined;
-    if (Array.isArray(innerRows) && innerRows.length > 0) {
-      const merged: Record<string, unknown> = {
-        ...parsed,
-        serviceTypes: innerRows,
-        townConfig: null,
-      };
-      if (typeof tc.remark === "string" && tc.remark.trim()) {
-        merged.remark = tc.remark;
-      }
-      return hydrateFromParsedPrice(merged, serviceTypes);
+  for (const st of serviceTypes) {
+    if (!base[st.id].remark?.trim() || base[st.id].remark === "Standard") {
+      base[st.id].remark = globalRemark;
     }
   }
 
   const rows = parsed.serviceTypes as
     | Array<Record<string, unknown>>
     | undefined;
-  let sawPerRowProfit = false;
-
   if (Array.isArray(rows)) {
     for (const row of rows) {
       const id = row.serviceTypeId as string | undefined;
@@ -132,35 +412,12 @@ function hydrateFromParsedPrice(
           ? serviceTypes[idx]
           : null;
       if (!st) continue;
-
-      const fee =
-        typeof row.baseFee === "number"
-          ? row.baseFee
-          : typeof row.basePrice === "number"
-            ? row.basePrice
-            : undefined;
-      if (typeof fee === "number") base[st.id].basePrice = fee;
-
+      hydrateOneTownTab(base[st.id], row, TARIFF_DISPLAY_NAME);
       if (typeof row.name === "string" && row.name.trim()) {
         hydrateTownTabNameFromTariff(base[st.id], row.name);
       }
-
-      const rowProfit =
-        typeof row.profitMargin === "number"
-          ? row.profitMargin
-          : typeof row.profitPerc === "number"
-            ? row.profitPerc
-            : typeof row.profit === "number"
-              ? row.profit
-              : undefined;
-      if (typeof rowProfit === "number") {
-        base[st.id].profitMargin = rowProfit;
-        sawPerRowProfit = true;
-      }
     }
   }
-
-  if (sawPerRowProfit) hasRowOrTownPricingProfit = true;
 
   const sidForName =
     typeof parsed.serviceTypeId === "string" && parsed.serviceTypeId.trim()
@@ -175,82 +432,223 @@ function hydrateFromParsedPrice(
     hydrateTownTabNameFromTariff(base[sidForName], parsed.name);
   }
 
-  const globalProfit =
-    (parsed.profitMargin as { percentage?: number } | undefined)?.percentage ??
-    (typeof parsed.profit === "number" ? parsed.profit : undefined);
-
-  if (!hasRowOrTownPricingProfit && typeof globalProfit === "number") {
-    for (const st of serviceTypes) {
-      base[st.id].profitMargin = globalProfit;
-    }
-  }
-
-  const globalRemark =
-    typeof parsed.remark === "string" && parsed.remark.trim()
-      ? (parsed.remark as string)
-      : "Standard";
-  if (
-    tpRoot &&
-    typeof tpRoot === "object" &&
-    !Array.isArray(tpRoot) &&
-    rootServiceTypeId &&
-    serviceTypes.some((s) => s.id === rootServiceTypeId)
-  ) {
-    base[rootServiceTypeId].remark = globalRemark;
-    for (const st of serviceTypes) {
-      if (st.id !== rootServiceTypeId) {
-        base[st.id].remark = "Standard";
-      }
-    }
-  } else {
-    for (const st of serviceTypes) {
-      base[st.id].remark = globalRemark;
-    }
-  }
-
   return base;
 }
 
 function validateValues(
   values: TownFormValues,
   serviceTypes: ServiceType[],
-  /** When set, only validate this service tab (matches single-tariff submit). */
+  categories: OrderItemCategory[],
   activeServiceTypeId: string | null,
 ): FormikErrors<TownFormValues> {
   const errors: FormikErrors<TownFormValues> = {};
+  const scErrors: FormikErrors<TownFormValues["serviceConfigs"]> = {};
+
   const typesToValidate = activeServiceTypeId
     ? serviceTypes.filter((st) => st.id === activeServiceTypeId)
     : serviceTypes;
 
-  const scErrors: FormikErrors<TownFormValues["serviceConfigs"]> = {};
   for (const st of typesToValidate) {
     const cfg = values.serviceConfigs[st.id];
     if (!cfg) continue;
-    const one: FormikErrors<TownServiceConfig> = {};
+    const one: FormikErrors<TownServiceTabValues> = {};
     if (!cfg.remark?.trim()) one.remark = "Remark type is required";
-    if (cfg.basePrice < 0) one.basePrice = "Must be ≥ 0";
-    if (cfg.profitMargin < 0 || cfg.profitMargin > 100) {
-      one.profitMargin = "Must be between 0 and 100";
+    if (remarkRequiresDateRange(cfg.remark)) {
+      if (!cfg.startDate?.trim()) {
+        one.startDate = "Start date is required for holiday / event pricing";
+      }
+      if (!cfg.endDate?.trim()) {
+        one.endDate = "End date is required for holiday / event pricing";
+      }
+      if (
+        cfg.startDate?.trim() &&
+        cfg.endDate?.trim() &&
+        cfg.startDate > cfg.endDate
+      ) {
+        one.endDate = "Must be on or after start date";
+      }
     }
+
+    const catErrs: FormikErrors<TownServiceTabValues["categories"]> = {};
+    for (const cat of categories) {
+      const cv = cfg.categories[cat.id];
+      if (!cv) continue;
+      const mode = normalizeTownCategoryMode(cv.pricingType);
+      const typeCfg = getPricingCategoryTypeConfig(mode);
+      const ce: FormikErrors<TownCategoryPricingValues> = {};
+
+      if (cv.airportFee < 0) ce.airportFee = "Must be ≥ 0";
+      if (cv.additionalCost < 0) ce.additionalCost = "Must be ≥ 0";
+      if (
+        cv.profitMargin < 0 ||
+        cv.profitMargin > 1 ||
+        Number.isNaN(cv.profitMargin)
+      ) {
+        ce.profitMargin = "Use a decimal between 0 and 1 (e.g. 0.25)";
+      }
+
+      if (
+        mode !== "WEIGHT_RANGE" &&
+        hasField(typeCfg, "basePrice") &&
+        cv.basePrice < 0
+      ) {
+        ce.basePrice = "Must be ≥ 0";
+      }
+      if (mode === "WEIGHT_RANGE") {
+        const rows = cv.weightRanges?.length
+          ? cv.weightRanges
+          : [{ min: 0, max: 0, perkg: 0 }];
+        const rangeFieldErrs: FormikErrors<TownWeightRangeRow>[] = [];
+        rows.forEach((b, idx) => {
+          const be: FormikErrors<TownWeightRangeRow> = {};
+          if (b.min < 0) be.min = "Must be ≥ 0";
+          if (b.max < 0) be.max = "Must be ≥ 0";
+          if (b.perkg < 0) be.perkg = "Must be ≥ 0";
+          if (b.max < b.min && b.max !== 0 && b.min !== 0) {
+            be.max = "Must be ≥ min";
+          }
+          if (Object.keys(be).length) rangeFieldErrs[idx] = be;
+        });
+        if (rangeFieldErrs.some((e) => e && Object.keys(e).length > 0)) {
+          ce.weightRanges = rangeFieldErrs;
+        }
+      }
+      if (mode === "UNIT_PRICE_WEIGHT_RANGE") {
+        const rows = cv.brackets?.length
+          ? cv.brackets
+          : [{ min: 0, max: 0, additional: 0 }];
+        const bracketFieldErrs: FormikErrors<TownBracketRow>[] = [];
+        rows.forEach((b, idx) => {
+          const be: FormikErrors<TownBracketRow> = {};
+          if (b.min < 0) be.min = "Must be ≥ 0";
+          if (b.max < 0) be.max = "Must be ≥ 0";
+          if (b.additional < 0) be.additional = "Must be ≥ 0";
+          if (b.max < b.min && b.max !== 0 && b.min !== 0) {
+            be.max = "Must be ≥ min";
+          }
+          if (Object.keys(be).length) bracketFieldErrs[idx] = be;
+        });
+        if (bracketFieldErrs.some((e) => e && Object.keys(e).length > 0)) {
+          ce.brackets = bracketFieldErrs;
+        }
+      }
+      if (hasField(typeCfg, "divisor")) {
+        if (cv.divisor <= 0) ce.divisor = "Must be greater than 0";
+      }
+      if (hasField(typeCfg, "ratePerKg") && cv.ratePerKg < 0) {
+        ce.ratePerKg = "Must be ≥ 0";
+      }
+
+      if (Object.keys(ce).length) catErrs[cat.id] = ce;
+    }
+    if (Object.keys(catErrs).length) one.categories = catErrs;
     if (Object.keys(one).length) scErrors[st.id] = one;
   }
   if (Object.keys(scErrors).length) errors.serviceConfigs = scErrors;
   return errors;
 }
 
-/** One POST/PATCH body for the active service type tab (backend `townPricing` shape). */
+function buildTownCategoryPricingEntry(
+  cat: OrderItemCategory,
+  cv: TownCategoryPricingValues,
+): {
+  categoryId: string;
+  type: CategoryPricingMode;
+  direction: "NONE";
+  config: Record<string, unknown>;
+} {
+  const mode = normalizeTownCategoryMode(cv.pricingType);
+  const fees = { airportFee: cv.airportFee, additionalCost: cv.additionalCost };
+  const margin = { profitMargin: cv.profitMargin };
+
+  if (mode === "UNIT_PRICE") {
+    return {
+      categoryId: cat.id,
+      type: "UNIT_PRICE",
+      direction: "NONE",
+      config: { unitPrice: cv.basePrice, ...fees, ...margin },
+    };
+  }
+
+  if (mode === "VOLUME_OVERRIDE") {
+    return {
+      categoryId: cat.id,
+      type: "VOLUME_OVERRIDE",
+      direction: "NONE",
+      config: {
+        divisor: cv.divisor,
+        ratePerKg: cv.ratePerKg,
+        ...fees,
+        ...margin,
+      },
+    };
+  }
+
+  if (mode === "WEIGHT_RANGE") {
+    const ranges = (
+      cv.weightRanges?.length ? cv.weightRanges : [{ min: 0, max: 0, perkg: 0 }]
+    ).map((r) => ({
+      min: r.min,
+      max: r.max,
+      perKg: r.perkg,
+    }));
+    const config: Record<string, unknown> = {
+      ranges,
+      ...fees,
+      ...margin,
+    };
+    if (typeof cv.basePrice === "number" && cv.basePrice > 0) {
+      config.unitPrice = cv.basePrice;
+    }
+    return {
+      categoryId: cat.id,
+      type: "WEIGHT_RANGE",
+      direction: "NONE",
+      config,
+    };
+  }
+
+  if (mode === "UNIT_PRICE_WEIGHT_RANGE") {
+    const rows = cv.brackets?.length
+      ? cv.brackets
+      : [{ min: 0, max: 0, additional: 0 }];
+    return {
+      categoryId: cat.id,
+      type: "UNIT_PRICE_WEIGHT_RANGE",
+      direction: "NONE",
+      config: {
+        unitPrice: cv.basePrice,
+        brackets: rows.map((b) => ({
+          min: b.min,
+          max: b.max,
+          add: b.additional,
+        })),
+        ...fees,
+        ...margin,
+      },
+    };
+  }
+
+  return {
+    categoryId: cat.id,
+    type: "UNIT_PRICE",
+    direction: "NONE",
+    config: { unitPrice: cv.basePrice, ...fees, ...margin },
+  };
+}
+
 function buildPayloadForServiceType(
   values: TownFormValues,
   st: ServiceType,
+  categories: OrderItemCategory[],
 ): {
   name: string;
   scope: "TOWN";
-  remark: string;
+  remarkType: string;
   serviceTypeId: string;
-  townPricing: {
-    baseFee: number;
-    profitPct: number;
-  };
+  categoryPricing: ReturnType<typeof buildTownCategoryPricingEntry>[];
+  startDate?: string;
+  endDate?: string;
 } {
   const cfg = values.serviceConfigs[st.id];
   const shortName = cfg?.name?.trim() || st.name;
@@ -258,29 +656,36 @@ function buildPayloadForServiceType(
   const name = shortName.startsWith(prefix)
     ? shortName
     : `${prefix}${shortName}`;
-  return {
+  const categoryPricing = categories.map((cat) =>
+    buildTownCategoryPricingEntry(cat, cfg.categories[cat.id]),
+  );
+
+  const payload: {
+    name: string;
+    scope: "TOWN";
+    remarkType: string;
+    serviceTypeId: string;
+    categoryPricing: ReturnType<typeof buildTownCategoryPricingEntry>[];
+    startDate?: string;
+    endDate?: string;
+  } = {
     name,
     scope: "TOWN",
-    remark: (cfg?.remark ?? "").trim() || "Standard",
+    remarkType: remarkTypeToApi(cfg?.remark ?? ""),
     serviceTypeId: st.id,
-    townPricing: {
-      baseFee: cfg?.basePrice ?? 0,
-      profitPct: cfg?.profitMargin ?? 0,
-    },
+    categoryPricing,
   };
+  if (remarkRequiresDateRange(cfg?.remark ?? "")) {
+    const sd = ymdToApiIso(cfg?.startDate ?? "");
+    const ed = ymdToApiEndOfDayIso(cfg?.endDate ?? "");
+    if (sd) payload.startDate = sd;
+    if (ed) payload.endDate = ed;
+  }
+  return payload;
 }
 
-const remarkOptions = [
-  { value: "Standard", label: "Standard" },
-  { value: "Weekend", label: "Weekend" },
-  { value: "Holiday", label: "Holiday" },
-  { value: "Event", label: "Event" },
-] as const;
-
 export type TownPricingFormProps = {
-  /** When set (e.g. tariff detail page), prefill and PATCH this tariff instead of URL `price`. */
   prefetchedTariff?: Record<string, unknown> | null;
-  /** Log full tariff list to console for debugging (create flow only). */
   enableTariffListProbe?: boolean;
 };
 
@@ -301,6 +706,11 @@ export default function TownPricingForm({
     isLoading: loadingST,
     isError: errST,
   } = useServiceTypes();
+  const {
+    data: categories = [],
+    isLoading: loadingCat,
+    isError: errCat,
+  } = useOrderItemCategories();
 
   useEffect(() => {
     if (prefetchedTariff && Object.keys(prefetchedTariff).length > 0) {
@@ -320,7 +730,6 @@ export default function TownPricingForm({
     }
   }, [prefetchedTariff, searchParams]);
 
-  /** Probe existing tariffs: same path as POST `/pricing/tariff`, GET (for upcoming prefill). */
   useEffect(() => {
     if (!enableTariffListProbe) return;
     let cancelled = false;
@@ -350,6 +759,9 @@ export default function TownPricingForm({
   const isEditing = Boolean(parsedPrice && parsedPrice.id);
 
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [activeCategoryByService, setActiveCategoryByService] = useState<
+    Record<string, string>
+  >({});
 
   useEffect(() => {
     if (serviceTypes.length && !activeTabId) {
@@ -357,7 +769,6 @@ export default function TownPricingForm({
     }
   }, [serviceTypes, activeTabId]);
 
-  /** PATCH submits the active tab’s service type; align tab with API when editing. */
   useEffect(() => {
     if (!isEditing || !parsedPrice || !serviceTypes.length) return;
     const sid = parsedPrice.serviceTypeId;
@@ -366,16 +777,31 @@ export default function TownPricingForm({
     }
   }, [isEditing, parsedPrice, serviceTypes]);
 
+  useEffect(() => {
+    if (!categories.length || !serviceTypes.length) return;
+    setActiveCategoryByService((prev) => {
+      const next = { ...prev };
+      for (const st of serviceTypes) {
+        if (!next[st.id]) next[st.id] = categories[0].id;
+      }
+      return next;
+    });
+  }, [serviceTypes, categories]);
+
   const initialValues: TownFormValues = useMemo(() => {
     if (isEditing && parsedPrice) {
       return {
-        serviceConfigs: hydrateFromParsedPrice(parsedPrice, serviceTypes),
+        serviceConfigs: hydrateFromParsedPrice(
+          parsedPrice,
+          serviceTypes,
+          categories,
+        ),
       };
     }
     return {
-      serviceConfigs: buildEmptyServiceConfigs(serviceTypes),
+      serviceConfigs: buildEmptyServiceConfigs(serviceTypes, categories),
     };
-  }, [isEditing, parsedPrice, serviceTypes]);
+  }, [isEditing, parsedPrice, serviceTypes, categories]);
 
   const handleSubmit = async (values: TownFormValues) => {
     const submitServiceTypeId = activeTabId ?? serviceTypes[0]?.id;
@@ -390,7 +816,7 @@ export default function TownPricingForm({
     }
     try {
       setLoading(true);
-      const payload = buildPayloadForServiceType(values, st);
+      const payload = buildPayloadForServiceType(values, st, categories);
 
       if (isEditing && parsedPrice?.id) {
         await api.patch(`/pricing/tariff/${parsedPrice.id as string}`, payload);
@@ -419,7 +845,8 @@ export default function TownPricingForm({
     }
   };
 
-  const dataReady = !loadingST && !errST && serviceTypes.length > 0;
+  const dataReady =
+    !loadingST && !loadingCat && !errST && !errCat && serviceTypes.length > 0;
 
   return (
     <div className="max-w-4xl p-6 bg-white relative">
@@ -434,23 +861,30 @@ export default function TownPricingForm({
         </div>
       )}
 
-      {loadingST && (
+      {(loadingST || loadingCat) && (
         <div className="flex items-center justify-center py-20 text-gray-600">
           <Spinner className="h-8 w-8 text-blue-600 mr-2" />
-          Loading service types…
+          Loading service types and categories…
         </div>
       )}
 
-      {errST && (
+      {(errST || errCat) && (
         <p className="text-red-600 text-sm py-8">
-          Could not load service types. Please refresh.
+          Could not load service types or item categories. Please refresh.
         </p>
       )}
 
-      {!loadingST && !errST && serviceTypes.length === 0 && (
+      {!loadingST && !loadingCat && serviceTypes.length === 0 && (
         <p className="text-amber-700 text-sm py-8">
           No service types found. Add service types under Service Type
           Management first.
+        </p>
+      )}
+
+      {categories.length === 0 && !loadingCat && !errCat && (
+        <p className="text-amber-700 text-sm py-4">
+          No order item categories found. Add categories under Orders → Item
+          categories.
         </p>
       )}
 
@@ -462,6 +896,7 @@ export default function TownPricingForm({
             validateValues(
               v,
               serviceTypes,
+              categories,
               activeTabId ?? serviceTypes[0]?.id ?? null,
             )
           }
@@ -509,9 +944,8 @@ export default function TownPricingForm({
                     aria-hidden
                   />
                   <p className="leading-snug">
-                    One save sends one request for the selected service type
-                    only—same pattern as regional/international pricing. Add
-                    another town tariff by switching tabs and saving again.
+                    Add another town tariff by switching service types and
+                    saving again.
                   </p>
                 </div>
               </div>
@@ -522,6 +956,10 @@ export default function TownPricingForm({
                 if (!cfg) return null;
                 const scErr = errors.serviceConfigs?.[st.id];
                 const scTouch = touched.serviceConfigs?.[st.id];
+                const activeCatId =
+                  activeCategoryByService[st.id] ?? categories[0]?.id;
+                const activeCat = categories.find((c) => c.id === activeCatId);
+
                 return (
                   <div
                     key={st.id}
@@ -536,7 +974,9 @@ export default function TownPricingForm({
                         className="py-2 max-w-md"
                       />
                       {scErr?.name && scTouch?.name && (
-                        <p className="text-red-500 text-sm mt-1">{scErr.name}</p>
+                        <p className="text-red-500 text-sm mt-1">
+                          {scErr.name}
+                        </p>
                       )}
                     </div>
 
@@ -549,61 +989,496 @@ export default function TownPricingForm({
                         label="Select remark type"
                         placeholder="Select remark type"
                         value={cfg.remark}
-                        onValueChange={(v) =>
-                          setFieldValue(`serviceConfigs.${st.id}.remark`, v)
-                        }
+                        onValueChange={(v) => {
+                          setFieldValue(`serviceConfigs.${st.id}.remark`, v);
+                          if (!remarkRequiresDateRange(v)) {
+                            setFieldValue(
+                              `serviceConfigs.${st.id}.startDate`,
+                              "",
+                            );
+                            setFieldValue(
+                              `serviceConfigs.${st.id}.endDate`,
+                              "",
+                            );
+                          }
+                        }}
                         onClose={() =>
-                          setFieldTouched(`serviceConfigs.${st.id}.remark`, true)
+                          setFieldTouched(
+                            `serviceConfigs.${st.id}.remark`,
+                            true,
+                          )
                         }
                         options={[...remarkOptions]}
                         error={scErr?.remark}
                         touched={scTouch?.remark}
                       />
+                      {remarkRequiresDateRange(cfg.remark) && (
+                        <div className="mt-4">
+                          <PricingRemarkDateFields
+                            startField={`serviceConfigs.${st.id}.startDate`}
+                            endField={`serviceConfigs.${st.id}.endDate`}
+                            startValue={cfg.startDate}
+                            endValue={cfg.endDate}
+                            startError={scErr?.startDate}
+                            endError={scErr?.endDate}
+                            startTouched={scTouch?.startDate}
+                            endTouched={scTouch?.endDate}
+                            setFieldValue={setFieldValue}
+                            setFieldTouched={setFieldTouched}
+                          />
+                        </div>
+                      )}
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <Label className="mb-1">Base price (ETB)</Label>
-                        <Field
-                          as={Input}
-                          type="number"
-                          step="0.01"
-                          min={0}
-                          name={`serviceConfigs.${st.id}.basePrice`}
-                          className="py-2"
-                        />
-                        {scErr?.basePrice && scTouch?.basePrice && (
-                          <p className="text-red-500 text-sm mt-1">
-                            {scErr.basePrice}
-                          </p>
+                    {categories.length > 0 && (
+                      <>
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-700 mb-2">
+                            Item categories
+                          </h3>
+                          <div
+                            className="mb-3 flex gap-2.5 rounded-lg border border-blue-200/80 bg-blue-50/90 px-3 py-2.5 text-sm text-blue-900"
+                            role="status"
+                          >
+                            <Info
+                              className="mt-0.5 h-5 w-5 shrink-0 text-blue-600"
+                              aria-hidden
+                            />
+                            <p className="leading-snug">
+                              Specify pricing type, unit or volume fields, and
+                              airport fee and additional cost for each category.
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {categories.map((cat) => {
+                              const active = activeCatId === cat.id;
+                              return (
+                                <button
+                                  key={cat.id}
+                                  type="button"
+                                  className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors cursor-pointer ${
+                                    active
+                                      ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                                      : "bg-white text-gray-700 border-gray-200 hover:border-blue-300 hover:bg-blue-50/60"
+                                  }`}
+                                  onClick={() =>
+                                    setActiveCategoryByService((prev) => ({
+                                      ...prev,
+                                      [st.id]: cat.id,
+                                    }))
+                                  }
+                                >
+                                  {cat.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {activeCat && (
+                          <TownCategoryPricingPanel
+                            cat={activeCat}
+                            prefix={`serviceConfigs.${st.id}.categories.${activeCat.id}`}
+                            values={cfg.categories[activeCat.id]}
+                            catErr={scErr?.categories?.[activeCat.id]}
+                            catTouch={
+                              touched.serviceConfigs?.[st.id]?.categories?.[
+                                activeCat.id
+                              ]
+                            }
+                            setFieldValue={setFieldValue}
+                            setFieldTouched={setFieldTouched}
+                          />
                         )}
-                      </div>
-                      <div>
-                        <Label className="mb-1">Profit margin (%)</Label>
-                        <Field
-                          as={Input}
-                          type="number"
-                          step="0.01"
-                          min={0}
-                          max={100}
-                          name={`serviceConfigs.${st.id}.profitMargin`}
-                          className="py-2"
-                        />
-                        {scErr?.profitMargin && scTouch?.profitMargin && (
-                          <p className="text-red-500 text-sm mt-1">
-                            {scErr.profitMargin}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                      </>
+                    )}
+
+                    <ActionButtons isEditing={isEditing} loading={loading} />
                   </div>
                 );
               })}
-
-              <ActionButtons isEditing={isEditing} loading={loading} />
             </Form>
           )}
         </Formik>
+      )}
+    </div>
+  );
+}
+
+type TownCategoryPricingPanelProps = {
+  cat: OrderItemCategory;
+  prefix: string;
+  values: TownCategoryPricingValues;
+  catErr?: FormikErrors<TownCategoryPricingValues>;
+  catTouch?: FormikTouched<TownCategoryPricingValues>;
+  setFieldValue: (field: string, value: unknown) => void;
+  setFieldTouched: (field: string, touched?: boolean) => void;
+};
+
+function TownCategoryPricingPanel({
+  prefix,
+  values,
+  catErr,
+  catTouch,
+  setFieldValue,
+  setFieldTouched,
+  cat,
+}: TownCategoryPricingPanelProps) {
+  const mode = normalizeTownCategoryMode(values?.pricingType);
+  const typeCfg = getPricingCategoryTypeConfig(mode);
+  const rangeFieldErrors = catErr?.weightRanges as
+    | FormikErrors<TownWeightRangeRow>[]
+    | undefined;
+  const rangeFieldTouched = catTouch?.weightRanges as
+    | FormikTouched<TownWeightRangeRow>[]
+    | undefined;
+  const bracketFieldErrors = catErr?.brackets as
+    | FormikErrors<TownBracketRow>[]
+    | undefined;
+  const bracketFieldTouched = catTouch?.brackets as
+    | FormikTouched<TownBracketRow>[]
+    | undefined;
+
+  const showUnitPrice =
+    mode !== "WEIGHT_RANGE" && hasField(typeCfg, "basePrice");
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
+        <h4 className="text-base font-semibold text-gray-900">{cat.name}</h4>
+        <span className="text-xs text-gray-500">{typeCfg.label}</span>
+      </div>
+
+      <div>
+        <Label className="mb-1">Pricing type</Label>
+        <PricingShadcnSelect
+          id={`town-pricing-type-${cat.id}`}
+          label=""
+          placeholder="Select pricing type"
+          value={values.pricingType}
+          onValueChange={(v) => {
+            setFieldValue(`${prefix}.pricingType`, v);
+            if (v === "WEIGHT_RANGE") {
+              const cur = values.weightRanges;
+              if (!cur?.length) {
+                setFieldValue(`${prefix}.weightRanges`, [
+                  { min: 0, max: 0, perkg: 0 },
+                ]);
+              }
+            }
+            if (v === "UNIT_PRICE_WEIGHT_RANGE") {
+              const cur = values.brackets;
+              if (!cur?.length) {
+                setFieldValue(`${prefix}.brackets`, [
+                  { min: 0, max: 0, additional: 0 },
+                ]);
+              }
+            }
+            setFieldTouched(`${prefix}.pricingType`, true);
+          }}
+          onClose={() => setFieldTouched(`${prefix}.pricingType`, true)}
+          options={townPricingTypeOptions.map((o) => ({
+            value: o.value,
+            label: o.label,
+          }))}
+          error={catErr?.pricingType as string | undefined}
+          touched={Boolean(catTouch?.pricingType)}
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label className="mb-1">Airport fee (ETB)</Label>
+          <Field
+            as={Input}
+            type="number"
+            step="0.01"
+            min={0}
+            name={`${prefix}.airportFee`}
+            className="py-2"
+          />
+          {catErr?.airportFee && catTouch?.airportFee && (
+            <p className="text-red-500 text-sm mt-1">{catErr.airportFee}</p>
+          )}
+        </div>
+        <div>
+          <Label className="mb-1">Additional cost (ETB)</Label>
+          <Field
+            as={Input}
+            type="number"
+            step="0.01"
+            min={0}
+            name={`${prefix}.additionalCost`}
+            className="py-2"
+          />
+          {catErr?.additionalCost && catTouch?.additionalCost && (
+            <p className="text-red-500 text-sm mt-1">{catErr.additionalCost}</p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <Label className="mb-1">Profit margin</Label>
+        <Field
+          as={Input}
+          type="number"
+          step="0.01"
+          min={0}
+          max={1}
+          name={`${prefix}.profitMargin`}
+          placeholder="Enter profit margin percentage"
+          className="py-2 max-w-xs"
+        />
+
+        {catErr?.profitMargin && catTouch?.profitMargin && (
+          <p className="text-red-500 text-sm mt-1">{catErr.profitMargin}</p>
+        )}
+      </div>
+
+      {showUnitPrice && (
+        <div>
+          <Label className="mb-1">Unit price (ETB)</Label>
+          <Field
+            as={Input}
+            type="number"
+            step="0.01"
+            name={`${prefix}.basePrice`}
+            className="py-2 max-w-xs"
+          />
+          {catErr?.basePrice && catTouch?.basePrice && (
+            <p className="text-red-500 text-sm mt-1">{catErr.basePrice}</p>
+          )}
+        </div>
+      )}
+
+      {mode === "WEIGHT_RANGE" && (
+        <div className="space-y-3">
+          <Label className="text-sm font-medium text-gray-800">
+            Weight ranges (per kg)
+          </Label>
+          {(values.weightRanges ?? []).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-lg border border-gray-200 bg-gray-50/80 p-3 space-y-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-gray-500">
+                  Range {i + 1}
+                </span>
+                {(values.weightRanges ?? []).length > 1 && (
+                  <button
+                    type="button"
+                    className="text-xs text-red-600 hover:text-red-800 hover:underline cursor-pointer"
+                    onClick={() => {
+                      const next = [...(values.weightRanges ?? [])];
+                      next.splice(i, 1);
+                      setFieldValue(`${prefix}.weightRanges`, next);
+                    }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <Label className="mb-1">Min (kg)</Label>
+                  <Field
+                    as={Input}
+                    type="number"
+                    step="0.01"
+                    name={`${prefix}.weightRanges.${i}.min`}
+                    className="py-2 w-full"
+                  />
+                  {rangeFieldErrors?.[i]?.min &&
+                    rangeFieldTouched?.[i]?.min && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {rangeFieldErrors[i]?.min}
+                      </p>
+                    )}
+                </div>
+                <div>
+                  <Label className="mb-1">Max (kg)</Label>
+                  <Field
+                    as={Input}
+                    type="number"
+                    step="0.01"
+                    name={`${prefix}.weightRanges.${i}.max`}
+                    className="py-2 w-full"
+                  />
+                  {rangeFieldErrors?.[i]?.max &&
+                    rangeFieldTouched?.[i]?.max && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {rangeFieldErrors[i]?.max}
+                      </p>
+                    )}
+                </div>
+                <div>
+                  <Label className="mb-1">Per kg (ETB)</Label>
+                  <Field
+                    as={Input}
+                    type="number"
+                    step="0.01"
+                    name={`${prefix}.weightRanges.${i}.perkg`}
+                    className="py-2 w-full"
+                  />
+                  {rangeFieldErrors?.[i]?.perkg &&
+                    rangeFieldTouched?.[i]?.perkg && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {rangeFieldErrors[i]?.perkg}
+                      </p>
+                    )}
+                </div>
+              </div>
+            </div>
+          ))}
+          <div className="pt-1">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-dashed border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 cursor-pointer w-full sm:w-auto"
+              onClick={() => {
+                setFieldValue(`${prefix}.weightRanges`, [
+                  ...(values.weightRanges ?? []),
+                  { min: 0, max: 0, perkg: 0 },
+                ]);
+              }}
+            >
+              <Plus className="h-4 w-4 shrink-0" aria-hidden />
+              Add range
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mode === "UNIT_PRICE_WEIGHT_RANGE" && (
+        <div className="space-y-3">
+          <Label className="text-sm font-medium text-gray-800">
+            Weight brackets (add-on amount)
+          </Label>
+          {(values.brackets ?? []).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-lg border border-gray-200 bg-gray-50/80 p-3 space-y-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-gray-500">
+                  Bracket {i + 1}
+                </span>
+                {(values.brackets ?? []).length > 1 && (
+                  <button
+                    type="button"
+                    className="text-xs text-red-600 hover:text-red-800 hover:underline cursor-pointer"
+                    onClick={() => {
+                      const next = [...(values.brackets ?? [])];
+                      next.splice(i, 1);
+                      setFieldValue(`${prefix}.brackets`, next);
+                    }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <Label className="mb-1">Min (kg)</Label>
+                  <Field
+                    as={Input}
+                    type="number"
+                    step="0.01"
+                    name={`${prefix}.brackets.${i}.min`}
+                    className="py-2 w-full"
+                  />
+                  {bracketFieldErrors?.[i]?.min &&
+                    bracketFieldTouched?.[i]?.min && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {bracketFieldErrors[i]?.min}
+                      </p>
+                    )}
+                </div>
+                <div>
+                  <Label className="mb-1">Max (kg)</Label>
+                  <Field
+                    as={Input}
+                    type="number"
+                    step="0.01"
+                    name={`${prefix}.brackets.${i}.max`}
+                    className="py-2 w-full"
+                  />
+                  {bracketFieldErrors?.[i]?.max &&
+                    bracketFieldTouched?.[i]?.max && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {bracketFieldErrors[i]?.max}
+                      </p>
+                    )}
+                </div>
+                <div>
+                  <Label className="mb-1">Add (ETB)</Label>
+                  <Field
+                    as={Input}
+                    type="number"
+                    step="0.01"
+                    name={`${prefix}.brackets.${i}.additional`}
+                    className="py-2 w-full"
+                  />
+                  {bracketFieldErrors?.[i]?.additional &&
+                    bracketFieldTouched?.[i]?.additional && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {bracketFieldErrors[i]?.additional}
+                      </p>
+                    )}
+                </div>
+              </div>
+            </div>
+          ))}
+          <div className="pt-1">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-dashed border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 cursor-pointer w-full sm:w-auto"
+              onClick={() => {
+                setFieldValue(`${prefix}.brackets`, [
+                  ...(values.brackets ?? []),
+                  { min: 0, max: 0, additional: 0 },
+                ]);
+              }}
+            >
+              <Plus className="h-4 w-4 shrink-0" aria-hidden />
+              Add bracket
+            </button>
+          </div>
+        </div>
+      )}
+
+      {hasField(typeCfg, "divisor") && (
+        <div>
+          <Label className="mb-1">Divisor</Label>
+          <Field
+            as={Input}
+            type="number"
+            step="0.01"
+            name={`${prefix}.divisor`}
+            className="py-2 max-w-xs"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Volume divisor (must be greater than zero).
+          </p>
+          {catErr?.divisor && catTouch?.divisor && (
+            <p className="text-red-500 text-sm mt-1">{catErr.divisor}</p>
+          )}
+        </div>
+      )}
+
+      {hasField(typeCfg, "ratePerKg") && (
+        <div>
+          <Label className="mb-1">Rate per kg (ETB)</Label>
+          <Field
+            as={Input}
+            type="number"
+            step="0.01"
+            name={`${prefix}.ratePerKg`}
+            className="py-2 max-w-xs"
+          />
+          {catErr?.ratePerKg && catTouch?.ratePerKg && (
+            <p className="text-red-500 text-sm mt-1">{catErr.ratePerKg}</p>
+          )}
+        </div>
       )}
     </div>
   );
