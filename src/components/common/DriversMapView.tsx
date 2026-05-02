@@ -18,11 +18,22 @@ import {
   IoEllipsisHorizontal,
   IoCheckmarkCircle,
   IoAlertCircle,
+  IoDocumentText,
 } from "react-icons/io5";
 
 import "leaflet/dist/leaflet.css";
 import api from "@/lib/api/api";
 import toast from "react-hot-toast";
+import { StaffDetailDialog } from "@/features/staff/components/StaffDetailDialog";
+
+function staffIdForDriver(driver: Driver): string | null {
+  const sid =
+    driver.staffId?.trim() ||
+    driver.userId?.trim() ||
+    driver.user?.id?.trim() ||
+    null;
+  return sid;
+}
 
 // --- Confirmation Modal Component ---
 function ConfirmationModal({ open, onClose, onConfirm, title, description, confirming }:any) {
@@ -84,6 +95,7 @@ const createDriverIcon = (type: string) => {
 interface Driver {
   id: string;
   userId: string;
+  staffId?: string;
   vehicleId: string;
   status: string;
   availablityStatus: string;
@@ -168,6 +180,24 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
   const [approveModalOpen, setApproveModalOpen] = useState<boolean>(false);
   const [approveDriver, setApproveDriver] = useState<Driver | null>(null);
   const [isApproving, setIsApproving] = useState<boolean>(false);
+  const [staffProfileDialogId, setStaffProfileDialogId] = useState<
+    string | null
+  >(null);
+  const [staffProfileLicenseFallback, setStaffProfileLicenseFallback] =
+    useState<{
+      frontImageUrl?: string | null;
+      backImageUrl?: string | null;
+    } | null>(null);
+
+  const openDriverStaffProfile = (driver: Driver) => {
+    const sid = staffIdForDriver(driver);
+    if (!sid) return;
+    setStaffProfileLicenseFallback({
+      frontImageUrl: driver.frontImageUrl,
+      backImageUrl: driver.backImageUrl,
+    });
+    setStaffProfileDialogId(sid);
+  };
 
   // Fetch drivers with pagination, using the format in your real response
   const fetchDrivers = async () => {
@@ -388,6 +418,22 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
                   </div>
                   <div className="flex flex-col gap-2 items-end">
                     <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        title={
+                          staffIdForDriver(driver)
+                            ? "View full staff profile"
+                            : "No staff account linked"
+                        }
+                        disabled={!staffIdForDriver(driver)}
+                        onClick={e => {
+                          e.stopPropagation();
+                          openDriverStaffProfile(driver);
+                        }}
+                      >
+                        <IoDocumentText className="h-4 w-4" />
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -688,14 +734,31 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
                       {selectedDriver?.type || "N/A"} • {selectedDriver?.user?.phone || "N/A"}
                     </p>
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1">
-                      <IoCall className="h-4 w-4 mr-2" />
-                      CALL DRIVER
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1">
-                      <IoLocation className="h-4 w-4 mr-2" />
-                      LOCATION
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="flex-1">
+                        <IoCall className="h-4 w-4 mr-2" />
+                        CALL DRIVER
+                      </Button>
+                      <Button size="sm" variant="outline" className="flex-1">
+                        <IoLocation className="h-4 w-4 mr-2" />
+                        LOCATION
+                      </Button>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="w-full"
+                      title={
+                        staffIdForDriver(selectedDriver)
+                          ? "Same details as Staff page"
+                          : "No staff account linked"
+                      }
+                      disabled={!staffIdForDriver(selectedDriver)}
+                      onClick={() => openDriverStaffProfile(selectedDriver)}
+                    >
+                      <IoDocumentText className="h-4 w-4 mr-2" />
+                      View full staff profile
                     </Button>
                   </div>
                   <div>
@@ -781,6 +844,18 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
           </div>
         )}
       </div>
+
+      <StaffDetailDialog
+        staffId={staffProfileDialogId}
+        licenseUrlFallback={staffProfileLicenseFallback ?? undefined}
+        open={Boolean(staffProfileDialogId)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setStaffProfileDialogId(null);
+            setStaffProfileLicenseFallback(null);
+          }
+        }}
+      />
 
       {/* Approval Confirmation Modal */}
       <ConfirmationModal
