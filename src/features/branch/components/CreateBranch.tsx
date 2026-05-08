@@ -6,7 +6,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import Button from "../../../components/common/Button";
 import MapAddressSelector from "@/components/common/MapAddressSelector";
-// import api from "../../../lib/api/api";
+import api from "@/lib/api/api";
+import toast from "react-hot-toast";
 import { CreateBranchSchema } from "../schemas/CreateBranchSchema";
 import { IoArrowBack } from "react-icons/io5";
 import { BsBuildingFillAdd } from "react-icons/bs";
@@ -17,7 +18,7 @@ const CreateBranch = () => {
     "idle"
   );
   const [message] = useState<string | null>(null);
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [initialValues] = useState({
     name: "",
     location: "",
@@ -68,7 +69,45 @@ const CreateBranch = () => {
   //   fetchBranchData();
   // }, [id, isEditMode]);
 
-  // const handleSubmit = async (
+  const handleSubmit = async (
+    value: typeof initialValues,
+    { resetForm }: { resetForm: () => void },
+  ) => {
+    if (isEditMode) return;
+    try {
+      setLoading(true);
+      const data = {
+        name: value.name,
+        location: value.location,
+        isCapital: value.locatedInCapital === true,
+        address: {
+          lat: value.latitude,
+          long: value.longitude,
+        },
+      };
+
+      const res = await api.post("/branch", data);
+      toast.success(res.data?.message ?? "Branch created.");
+      resetForm();
+      navigate("/branch");
+    } catch (error: unknown) {
+      const message =
+        error &&
+        typeof error === "object" &&
+        "response" in error &&
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message;
+      toast.error(
+        typeof message === "string" && message.trim()
+          ? message
+          : "Something went wrong.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // const handleSubmitLegacy = async (
   //   values: typeof initialValues,
   //   { resetForm }: { resetForm: () => void }
   // ) => {
@@ -137,7 +176,7 @@ const CreateBranch = () => {
       <Formik
         initialValues={initialValues}
         validationSchema={CreateBranchSchema}
-        onSubmit={() => {}}
+        onSubmit={handleSubmit}
         enableReinitialize={true}
       >
         {({ values, setFieldValue, errors, touched }) => (
@@ -312,14 +351,14 @@ const CreateBranch = () => {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={status === "submitting"}
+                  disabled={loading || status === "submitting"}
                   className={`flex-1 cursor-pointer hover:bg-blue-700 ${
-                    status === "submitting"
+                    loading || status === "submitting"
                       ? "disabled:opacity-70 disabled:cursor-not-allowed"
                       : ""
                   }`}
                 >
-                  {status === "submitting" ? (
+                  {loading || status === "submitting" ? (
                     <span className="flex items-center gap-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       <span>

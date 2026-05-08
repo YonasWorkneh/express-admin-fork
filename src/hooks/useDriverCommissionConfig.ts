@@ -6,6 +6,7 @@ import {
 import {
   fetchFleetVehicleTypes,
   fetchFleetPublicVehicleTypes,
+  fetchFleetVehicleTypesConfiguredForServiceType,
 } from "@/lib/api/fleet";
 import type {
   DriverCommissionRow,
@@ -25,6 +26,17 @@ export function usePublicFleetVehicleTypesQuery() {
   return useQuery({
     queryKey: ["fleetPublicVehicleTypes"],
     queryFn: fetchFleetPublicVehicleTypes,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Vehicle types allowed for the selected service type (GET /fleet/type/configured/:serviceTypeId). */
+export function useFleetVehicleTypesForServiceTypeQuery(serviceTypeId: string) {
+  const id = serviceTypeId.trim();
+  return useQuery({
+    queryKey: ["fleetVehicleTypesConfigured", id] as const,
+    queryFn: () => fetchFleetVehicleTypesConfiguredForServiceType(id),
+    enabled: Boolean(id),
     staleTime: 5 * 60 * 1000,
   });
 }

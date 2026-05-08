@@ -214,6 +214,38 @@ function mapVehicleTypeList(rawList: unknown[]): FleetVehicleTypeListItem[] {
     .filter((x): x is FleetVehicleTypeListItem => x != null);
 }
 
+/**
+ * GET /fleet/type/configured/:serviceTypeId — `data.result[]` with
+ * `{ vehicleTypeId, vehicleType: { id, name, ... } }`.
+ */
+function extractConfiguredServiceTypeVehicleRows(
+  responseData: unknown,
+): unknown[] {
+  if (responseData == null || typeof responseData !== "object") return [];
+  const root = responseData as Record<string, unknown>;
+  const data = root.data;
+  if (!data || typeof data !== "object") return [];
+  const d = data as Record<string, unknown>;
+  if (Array.isArray(d.result)) return d.result;
+  return [];
+}
+
+function vehicleTypeFromConfiguredRow(row: unknown): unknown {
+  if (!row || typeof row !== "object") return null;
+  const nested = (row as Record<string, unknown>).vehicleType;
+  if (nested && typeof nested === "object") return nested;
+  return null;
+}
+
+function mapConfiguredVehicleTypesList(
+  rawRows: unknown[],
+): FleetVehicleTypeListItem[] {
+  return rawRows
+    .map(vehicleTypeFromConfiguredRow)
+    .map(normalizeFleetVehicleTypeItem)
+    .filter((x): x is FleetVehicleTypeListItem => x != null);
+}
+
 /** Paginated fleet types list (pricing, commission, authenticated). */
 export async function fetchFleetVehicleTypes(): Promise<
   FleetVehicleTypeListItem[]
@@ -236,4 +268,21 @@ export async function fetchFleetPublicVehicleTypes(): Promise<
   );
   const list = extractVehicleTypesFromEnvelope(response.data);
   return mapVehicleTypeList(list);
+}
+
+/**
+ * Vehicle types configured for a service type. GET /fleet/type/configured/:serviceTypeId
+ */
+export async function fetchFleetVehicleTypesConfiguredForServiceType(
+  serviceTypeId: string,
+): Promise<FleetVehicleTypeListItem[]> {
+  const clean = serviceTypeId.trim();
+  if (!clean) {
+    return [];
+  }
+  const response = await api.get<FleetVehicleTypesListResponse>(
+    `/fleet/type/configured/${encodeURIComponent(clean)}`,
+  );
+  const rows = extractConfiguredServiceTypeVehicleRows(response.data);
+  return mapConfiguredVehicleTypesList(rows);
 }

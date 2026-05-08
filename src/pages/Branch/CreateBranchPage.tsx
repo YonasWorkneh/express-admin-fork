@@ -57,7 +57,7 @@ const CreateBranchPage = () => {
       const data = {
         name: value?.name,
         location: value?.location,
-        locatedInCapital: Boolean(value?.locatedInCapital),
+        isCapital: value?.locatedInCapital === true,
         address: {
           lat: value?.latitude,
           long: value?.longitude,

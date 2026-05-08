@@ -31,7 +31,7 @@ import { Spinner } from "@/utils/spinner";
 import { Select as Style2 } from "antd";
 import { useServiceTypes } from "@/hooks/useServiceTypes";
 import { useOrderItemCategories } from "@/hooks/useOrderItemCategories";
-import { usePublicFleetVehicleTypesQuery } from "@/hooks/useDriverCommissionConfig";
+import { useFleetVehicleTypesForServiceTypeQuery } from "@/hooks/useDriverCommissionConfig";
 import type { FleetVehicleTypeListItem } from "@/lib/api/fleet";
 import { VehicleTypeThumbnail } from "@/lib/vehicleTypeVisual";
 import { cn } from "@/lib/utils";
@@ -99,9 +99,7 @@ function mapOrderDetailToFormValues(o: OrderDetailApi) {
   const base = createEmptyFormValues();
   const st = o.serviceType;
   const serviceTypeId =
-    typeof st === "object" && st && "id" in st
-      ? (st as { id: string }).id
-      : "";
+    typeof st === "object" && st && "id" in st ? (st as { id: string }).id : "";
   const lat = Number.parseFloat(String(o.deliveryAddress?.lat ?? 0)) || 0;
   const lng = Number.parseFloat(String(o.deliveryAddress?.long ?? 0)) || 0;
   const addrParts = [
@@ -297,7 +295,10 @@ function applySenderToShipmentPayload(
   converted.phone = String(values.phone ?? "").trim();
 }
 
-function formatOrderMoney(amount: number | undefined, currency?: string): string {
+function formatOrderMoney(
+  amount: number | undefined,
+  currency?: string,
+): string {
   if (amount === undefined || Number.isNaN(amount)) return "—";
   const c = currency?.trim();
   if (c && c.length === 3) {
@@ -346,6 +347,119 @@ function VehicleTypeTile({
         {vt.name}
       </span>
     </button>
+  );
+}
+
+function OrderVehicleTypesSection({
+  serviceTypeId,
+  vehicleTypeIds,
+  isDropoffAcceptEdit,
+  setFieldValue,
+  setFieldTouched,
+  vehicleTypeIdsError,
+  vehicleTypeIdsTouched,
+}: {
+  serviceTypeId: string;
+  vehicleTypeIds: string[];
+  isDropoffAcceptEdit: boolean;
+  setFieldValue: (field: string, value: unknown) => void;
+  setFieldTouched: (field: string, touched?: boolean) => void;
+  vehicleTypeIdsError: unknown;
+  vehicleTypeIdsTouched: boolean;
+}) {
+  const {
+    data: fleetVehicleTypes = [],
+    isLoading: loadingVehicleTypes,
+    isError: vehicleTypesError,
+  } = useFleetVehicleTypesForServiceTypeQuery(serviceTypeId);
+
+  const trimmedServiceTypeId = serviceTypeId.trim();
+
+  return (
+    <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 shadow-sm mt-6 space-y-4">
+      <div>
+        <h2 className="text-lg font-medium text-gray-900">Vehicle types</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          {isDropoffAcceptEdit
+            ? "Select exactly one vehicle type."
+            : "Choose suitable vehicle categories for this shipment (based on service type)."}
+        </p>
+      </div>
+
+      <div>
+        <Label className="mb-2">Selection *</Label>
+        {!trimmedServiceTypeId && (
+          <p className="text-sm text-amber-800 py-2">
+            Select a service type above to load available vehicle categories.
+          </p>
+        )}
+        {trimmedServiceTypeId && loadingVehicleTypes && (
+          <div className="flex items-center gap-2 py-4 text-gray-600">
+            <Spinner className="h-6 w-6 text-blue-600" />
+            Loading vehicle types…
+          </div>
+        )}
+        {trimmedServiceTypeId && vehicleTypesError && (
+          <p className="text-red-600 text-sm py-2">
+            Could not load vehicle types for this service.
+          </p>
+        )}
+        {trimmedServiceTypeId &&
+          !loadingVehicleTypes &&
+          !vehicleTypesError &&
+          fleetVehicleTypes.length === 0 && (
+            <p className="text-amber-700 text-sm py-2">
+              No vehicle types configured for this service type.
+            </p>
+          )}
+        {trimmedServiceTypeId &&
+          !loadingVehicleTypes &&
+          fleetVehicleTypes.length > 0 && (
+            <div
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"
+              role="group"
+              aria-label="Vehicle types"
+            >
+              {fleetVehicleTypes.map((vt) => {
+                const selected = vehicleTypeIds.includes(vt.id);
+                return (
+                  <VehicleTypeTile
+                    key={vt.id}
+                    vt={vt}
+                    selected={selected}
+                    onToggle={() => {
+                      if (isDropoffAcceptEdit) {
+                        const next = selected ? [] : [vt.id];
+                        setFieldValue("vehicleTypeIds", next);
+                        setFieldValue("selectedVehicleTypeId", next[0] ?? "");
+                        setFieldValue("sessionId", "");
+                        setFieldTouched("vehicleTypeIds", true);
+                        return;
+                      }
+                      const next = selected
+                        ? vehicleTypeIds.filter((id) => id !== vt.id)
+                        : [...vehicleTypeIds, vt.id];
+                      setFieldValue("vehicleTypeIds", next);
+                      setFieldValue("selectedVehicleTypeId", next[0] ?? "");
+                      setFieldValue("sessionId", "");
+                      setFieldTouched("vehicleTypeIds", true);
+                    }}
+                  />
+                );
+              })}
+            </div>
+          )}
+        {vehicleTypeIdsTouched &&
+          vehicleTypeIdsError != null &&
+          vehicleTypeIdsError !== "" && (
+            <p className="text-red-500 text-sm mt-2">
+              {typeof vehicleTypeIdsError === "string"
+                ? vehicleTypeIdsError
+                : "Select at least one vehicle type"}
+            </p>
+          )}
+      </div>
+    </div>
   );
 }
 
@@ -398,11 +512,6 @@ export default function OrderForm() {
   const [loadingBranch, setLoadingBranch] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const { data: serviceTypes } = useServiceTypes();
-  const {
-    data: fleetVehicleTypes = [],
-    isLoading: loadingVehicleTypes,
-    isError: vehicleTypesError,
-  } = usePublicFleetVehicleTypesQuery();
   const {
     data: orderItemCategories = [],
     isLoading: loadingOrderItemCategories,
@@ -656,7 +765,9 @@ export default function OrderForm() {
       return;
     }
     if (!_values.selectedVehicleTypeId?.trim()) {
-      toast.error("Generate an estimate and select a vehicle before submitting.");
+      toast.error(
+        "Generate an estimate and select a vehicle before submitting.",
+      );
       return;
     }
     if (!_values.sessionId?.trim()) {
@@ -838,7 +949,9 @@ export default function OrderForm() {
     setShowBranchDropdown(false);
   };
 
-  const handleDropoffValidateUpdate = async (values: Record<string, unknown>) => {
+  const handleDropoffValidateUpdate = async (
+    values: Record<string, unknown>,
+  ) => {
     const vid = Array.isArray(values.vehicleTypeIds)
       ? String(values.vehicleTypeIds[0] ?? "").trim()
       : "";
@@ -893,9 +1006,7 @@ export default function OrderForm() {
         (error as { response?: { data?: { message?: string } } }).response?.data
           ?.message;
       toast.error(
-        typeof msg === "string" && msg.trim()
-          ? msg
-          : "Could not update price.",
+        typeof msg === "string" && msg.trim() ? msg : "Could not update price.",
       );
     } finally {
       setUpdatingFinalPrice(false);
@@ -1168,7 +1279,10 @@ export default function OrderForm() {
                       onAddressSelect={(addressData) => {
                         setFieldValue("receiverAddress", addressData.address);
                         setFieldValue("receiverLatitude", addressData.latitude);
-                        setFieldValue("receiverLongitude", addressData.longitude);
+                        setFieldValue(
+                          "receiverLongitude",
+                          addressData.longitude,
+                        );
                       }}
                       initialAddress={values.receiverAddress}
                       initialLat={values.receiverLatitude}
@@ -1193,7 +1307,13 @@ export default function OrderForm() {
                 <Label className="mb-1">Service Type</Label>
                 <Select
                   value={values.serviceTypeId || undefined}
-                  onValueChange={(val) => setFieldValue("serviceTypeId", val)}
+                  onValueChange={(val) => {
+                    setFieldValue("serviceTypeId", val);
+                    setFieldValue("vehicleTypeIds", []);
+                    setFieldValue("selectedVehicleTypeId", "");
+                    setFieldValue("sessionId", "");
+                    setOrderSummary(null);
+                  }}
                 >
                   <SelectTrigger
                     className={`py-7 !w-full bg-none border ${
@@ -1295,78 +1415,77 @@ export default function OrderForm() {
               </div>
 
               {/* Branch Selection (only for DROPOFF) */}
-              {values.fulfillmentType === "DROPOFF" && (
-                <div className="relative space-y-3">
-                  <Label className="mb-2">Branch *</Label>
-                  <p className="text-sm text-gray-600">
-                    Search and select the branch for this drop-off order.
-                  </p>
-                  <div className="relative">
-                    <Input
-                      placeholder="Search branch"
-                      value={branchSearch}
-                      onChange={(e) => {
-                        setBranchSearch(e.target.value);
-                        setShowBranchDropdown(true);
-                        if (!e.target.value) {
-                          clearBranch(setFieldValue);
-                        }
-                      }}
-                      onFocus={() => setShowBranchDropdown(true)}
-                      onBlur={() =>
-                        setTimeout(() => setShowBranchDropdown(false), 200)
-                      }
-                      className="py-7"
-                    />
-                    {values.branchId && (
-                      <button
-                        type="button"
-                        onClick={() => clearBranch(setFieldValue)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
 
-                  {showBranchDropdown && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                      {loadingBranch && (
-                        <div className="flex justify-center items-center py-8">
-                          <Spinner className="h-6 w-6 text-blue-600 mr-2" />
-                        </div>
-                      )}
-                      {branches.length > 0 ? (
-                        branches.map((branch) => (
-                          <div
-                            key={branch.id}
-                            onClick={() => selectBranch(branch, setFieldValue)}
-                            className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                          >
-                            <div className="font-medium text-gray-900">
-                              {branch.name}
-                            </div>
-                            {branch.location && (
-                              <div className="text-sm text-gray-500">
-                                {branch.location}
-                              </div>
-                            )}
-                          </div>
-                        ))
-                      ) : !loadingBranch ? (
-                        <div className="px-4 py-3 text-gray-500 text-center">
-                          No branches found
-                        </div>
-                      ) : null}
-                    </div>
-                  )}
-                  {!values.branchId && values.fulfillmentType === "DROPOFF" && (
-                    <p className="text-red-500 text-sm mt-1">
-                      Branch is required for DROPOFF orders
-                    </p>
+              <div className="relative space-y-3">
+                <Label className="mb-2">Branch *</Label>
+                <p className="text-sm text-gray-600">
+                  Search and select the branch for the order.
+                </p>
+                <div className="relative">
+                  <Input
+                    placeholder="Search branch"
+                    value={branchSearch}
+                    onChange={(e) => {
+                      setBranchSearch(e.target.value);
+                      setShowBranchDropdown(true);
+                      if (!e.target.value) {
+                        clearBranch(setFieldValue);
+                      }
+                    }}
+                    onFocus={() => setShowBranchDropdown(true)}
+                    onBlur={() =>
+                      setTimeout(() => setShowBranchDropdown(false), 200)
+                    }
+                    className="py-7"
+                  />
+                  {values.branchId && (
+                    <button
+                      type="button"
+                      onClick={() => clearBranch(setFieldValue)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      ✕
+                    </button>
                   )}
                 </div>
-              )}
+
+                {showBranchDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {loadingBranch && (
+                      <div className="flex justify-center items-center py-8">
+                        <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                      </div>
+                    )}
+                    {branches.length > 0 ? (
+                      branches.map((branch) => (
+                        <div
+                          key={branch.id}
+                          onClick={() => selectBranch(branch, setFieldValue)}
+                          className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="font-medium text-gray-900">
+                            {branch.name}
+                          </div>
+                          {branch.location && (
+                            <div className="text-sm text-gray-500">
+                              {branch.location}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : !loadingBranch ? (
+                      <div className="px-4 py-3 text-gray-500 text-center">
+                        No branches found
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+                {!values.branchId && (
+                  <p className="text-red-500 text-sm mt-1">
+                    Branch is required for the order
+                  </p>
+                )}
+              </div>
 
               <div
                 className={`grid grid-cols-1 gap-4 ${values.fulfillmentType === "PICKUP" ? "md:grid-cols-2" : ""}`}
@@ -1382,9 +1501,7 @@ export default function OrderForm() {
                       onChange={(v) => setFieldValue("pickupDate", v)}
                       onBlur={() => setFieldTouched("pickupDate", true)}
                       placeholder="Pick date and time"
-                      error={Boolean(
-                        errors.pickupDate && touched.pickupDate,
-                      )}
+                      error={Boolean(errors.pickupDate && touched.pickupDate)}
                     />
                     {errors.pickupDate && touched.pickupDate && (
                       <p className="text-red-500 text-sm mt-1">
@@ -1403,9 +1520,7 @@ export default function OrderForm() {
                     onChange={(v) => setFieldValue("deliveryDate", v)}
                     onBlur={() => setFieldTouched("deliveryDate", true)}
                     placeholder="Pick date and time"
-                    error={Boolean(
-                      errors.deliveryDate && touched.deliveryDate,
-                    )}
+                    error={Boolean(errors.deliveryDate && touched.deliveryDate)}
                   />
                   {errors.deliveryDate && touched.deliveryDate && (
                     <p className="text-red-500 text-sm mt-1">
@@ -1431,91 +1546,15 @@ export default function OrderForm() {
               </div> */}
             </div>
 
-            {/* Vehicle types — separate card (not part of service type config) */}
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 shadow-sm mt-6 space-y-4">
-              <div>
-                <h2 className="text-lg font-medium text-gray-900">
-                  Vehicle types
-                </h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  {isDropoffAcceptEdit
-                    ? "Select exactly one vehicle type."
-                    : "Choose suitable vehicle categories for this shipment."}
-                </p>
-              </div>
-
-              <div>
-                <Label className="mb-2">Selection *</Label>
-                {loadingVehicleTypes && (
-                  <div className="flex items-center gap-2 py-4 text-gray-600">
-                    <Spinner className="h-6 w-6 text-blue-600" />
-                    Loading vehicle types…
-                  </div>
-                )}
-                {vehicleTypesError && (
-                  <p className="text-red-600 text-sm py-2">
-                    Could not load vehicle types.
-                  </p>
-                )}
-                {!loadingVehicleTypes &&
-                  !vehicleTypesError &&
-                  fleetVehicleTypes.length === 0 && (
-                    <p className="text-amber-700 text-sm py-2">
-                      No vehicle types available from the public catalog.
-                    </p>
-                  )}
-                {!loadingVehicleTypes && fleetVehicleTypes.length > 0 && (
-                  <div
-                    className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"
-                    role="group"
-                    aria-label="Vehicle types"
-                  >
-                    {fleetVehicleTypes.map((vt) => {
-                      const selected = values.vehicleTypeIds.includes(vt.id);
-                      return (
-                        <VehicleTypeTile
-                          key={vt.id}
-                          vt={vt}
-                          selected={selected}
-                          onToggle={() => {
-                            if (isDropoffAcceptEdit) {
-                              const next = selected ? [] : [vt.id];
-                              setFieldValue("vehicleTypeIds", next);
-                              setFieldValue(
-                                "selectedVehicleTypeId",
-                                next[0] ?? "",
-                              );
-                              setFieldValue("sessionId", "");
-                              setFieldTouched("vehicleTypeIds", true);
-                              return;
-                            }
-                            const next = selected
-                              ? values.vehicleTypeIds.filter(
-                                  (id) => id !== vt.id,
-                                )
-                              : [...values.vehicleTypeIds, vt.id];
-                            setFieldValue("vehicleTypeIds", next);
-                            setFieldValue(
-                              "selectedVehicleTypeId",
-                              next[0] ?? "",
-                            );
-                            setFieldValue("sessionId", "");
-                            setFieldTouched("vehicleTypeIds", true);
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
-                {errors.vehicleTypeIds && touched.vehicleTypeIds && (
-                  <p className="text-red-500 text-sm mt-2">
-                    {typeof errors.vehicleTypeIds === "string"
-                      ? errors.vehicleTypeIds
-                      : "Select at least one vehicle type"}
-                  </p>
-                )}
-              </div>
-            </div>
+            <OrderVehicleTypesSection
+              serviceTypeId={values.serviceTypeId}
+              vehicleTypeIds={values.vehicleTypeIds}
+              isDropoffAcceptEdit={isDropoffAcceptEdit}
+              setFieldValue={setFieldValue}
+              setFieldTouched={setFieldTouched}
+              vehicleTypeIdsError={errors.vehicleTypeIds}
+              vehicleTypeIdsTouched={Boolean(touched.vehicleTypeIds)}
+            />
 
             {/* Shipment Info */}
             <div className="bg-gray-50 p-6 rounded-lg mt-6 space-y-4">
@@ -2014,10 +2053,7 @@ export default function OrderForm() {
                                   "sessionId",
                                   v.sessionId?.trim() ?? "",
                                 );
-                                setFieldValue(
-                                  "finalPrice",
-                                  v.totalPrice ?? 0,
-                                );
+                                setFieldValue("finalPrice", v.totalPrice ?? 0);
                                 setFieldTouched("selectedVehicleTypeId", true);
                               }}
                               className={cn(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -78,7 +78,6 @@ function DispatchModal({
   const [dispatchNotes, setDispatchNotes] = useState("");
   const [activeTab, setActiveTab] = useState("internal");
   const [loading, setLoading] = useState(false);
-  const [driverSearch, setDriverSearch] = useState("");
   // const [showDriverDropdown, setShowDriverDropdown] = useState(false);
   const [loadingDriver, setLoadingDriver] = useState(false);
   const [driver, setDriver] = useState<any[]>( [
@@ -250,7 +249,6 @@ function DispatchModal({
         // Reset form
         setSelectedExternalDrivers([]);
         setDispatchNotes("");
-        setDriverSearch("");
         onClose();
       } else {
         // For internal drivers: assign pickup with single driverId
@@ -271,7 +269,6 @@ function DispatchModal({
         // Reset form
         setSelectedDriver(null);
         setDispatchNotes("");
-        setDriverSearch("");
         onClose();
       }
     } catch (error: any) {
@@ -301,40 +298,39 @@ function DispatchModal({
   //   }, 2000);
   // };
 
-   
-  const fetchInternalDriver = async () => {
+  const fetchInternalDriver = useCallback(async () => {
+    if (!order?.id) {
+      console.warn("[DispatchModal] fetchInternalDriver skipped: missing order id");
+      return;
+    }
     try {
       setLoadingDriver(true);
-
-      const res = await api.post<any>(
-        `/maps/nearby-drivers`,{
-          "orderIds": [order?.id],
-          "radius": 2000000
+      const res = await api.post<any>(`/maps/nearby-drivers`, {
+        orderIds: [order.id],
+        radius: 2000000,
+      });
+      if (res.data?.data) {
+        setDriver(res.data.data);
       }
-      );
-      
-     if(res.data.data){
-      setDriver(res.data.data);
-     }
-      setLoadingDriver(false);
-    } catch (error: any) {
-      setLoadingDriver(false);
-
+    } catch (error: unknown) {
       const message =
-        error?.response?.data?.message ||
-        "Something went wrong. Please try again.";
-      toast.error(message);
+        error &&
+        typeof error === "object" &&
+        "response" in error &&
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message;
+      toast.error(
+        typeof message === "string" && message.trim()
+          ? message
+          : "Something went wrong. Please try again.",
+      );
       console.error(error);
+    } finally {
+      setLoadingDriver(false);
     }
-  };
+  }, [order?.id]);
 
-  useEffect(() => {
-   if(order){
-    fetchInternalDriver();
-   }
-  }, [driverSearch,order]);
-  
-  const fetchExternalDriver = async () => {
+  const fetchExternalDriver = useCallback(async () => {
     if (!order?.id) {
       console.warn("[DispatchModal] fetchExternalDriver skipped: missing order id");
       return;
@@ -342,42 +338,64 @@ function DispatchModal({
     const pickupLat = Number(order?.pickupAddress?.lat);
     const pickupLon = Number(order?.pickupAddress?.long);
     if (!Number.isFinite(pickupLat) || !Number.isFinite(pickupLon)) {
-      console.warn("[DispatchModal] fetchExternalDriver skipped: invalid pickup coordinates", {
-        orderId: order?.id,
-        pickupLatRaw: order?.pickupAddress?.lat,
-        pickupLonRaw: order?.pickupAddress?.long,
-      });
+      console.warn(
+        "[DispatchModal] fetchExternalDriver skipped: invalid pickup coordinates",
+        {
+          orderId: order?.id,
+          pickupLatRaw: order?.pickupAddress?.lat,
+          pickupLonRaw: order?.pickupAddress?.long,
+        },
+      );
       setExternalDriver([]);
       return;
     }
     try {
       setLoadingExternalDriver(true);
-
       const res = await api.get<any>(
-        `maps/external/nearby-drivers?orderId=${encodeURIComponent(
+        `/maps/external/nearby-drivers?orderId=${encodeURIComponent(
           order.id,
         )}&lat=${encodeURIComponent(String(pickupLat))}&lon=${encodeURIComponent(
           String(pickupLon),
-        )}&radius=10000`
+        )}&radius=10000`,
       );
-      setExternalDriver(res.data.data);
-      setLoadingExternalDriver(false);
-    } catch (error: any) {
-      setLoadingExternalDriver(false);
-
+      setExternalDriver(res.data?.data ?? []);
+    } catch (error: unknown) {
       const message =
-        error?.response?.data?.message ||
-        "Something went wrong. Please try again.";
-      toast.error(message);
+        error &&
+        typeof error === "object" &&
+        "response" in error &&
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message;
+      toast.error(
+        typeof message === "string" && message.trim()
+          ? message
+          : "Something went wrong. Please try again.",
+      );
       console.error(error);
+    } finally {
+      setLoadingExternalDriver(false);
     }
-  };
+  }, [
+    order?.id,
+    order?.pickupAddress?.lat,
+    order?.pickupAddress?.long,
+  ]);
+
+  /** Refetch whenever the modal is open and the active tab expects a different driver list */
+  useEffect(() => {
+    if (!isOpen || !order?.id) return;
+    if (activeTab === "internal") {
+      void fetchInternalDriver();
+    }
+  }, [isOpen, activeTab, order?.id, fetchInternalDriver]);
 
   useEffect(() => {
+    if (!isOpen || !order?.id) return;
     if (activeTab === "external") {
-      fetchExternalDriver();
+      void fetchExternalDriver();
     }
-  }, [driverSearch, activeTab, order?.id]);
+  }, [isOpen, activeTab, order?.id, fetchExternalDriver]);
+
   
 
   if (!isOpen) return null;
@@ -477,7 +495,7 @@ function DispatchModal({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {driver.map((driver) => (
                     <Card
-                      key={driver.id}
+                      key={driver.driverId ?? driver.userId ?? driver?.user?.id}
                       className={`cursor-pointer transition-all ${
                         selectedDriver?.driverId === driver.driverId
                           ? "ring-2 ring-blue-500 bg-blue-50"
