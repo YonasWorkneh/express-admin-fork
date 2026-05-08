@@ -20,8 +20,7 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
 }
 
-export const API_BASE_URL =
-  "https://courier-app-production.up.railway.app";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const api: AxiosInstance = axios.create({
   // baseURL: "https://localhost:10000/",
@@ -41,7 +40,7 @@ let failedQueue: Array<{
 
 const processQueue = (
   error: AxiosError | null,
-  token: string | null = null
+  token: string | null = null,
 ) => {
   failedQueue.forEach((prom) => {
     if (error) {
@@ -67,7 +66,7 @@ const setup = (store: { dispatch: (action: unknown) => void }) => {
       }
       return config;
     },
-    (error: AxiosError) => Promise.reject(error)
+    (error: AxiosError) => Promise.reject(error),
   );
 
   // Response interceptor
@@ -143,7 +142,7 @@ const setup = (store: { dispatch: (action: unknown) => void }) => {
                     user,
                     accessToken,
                     refreshToken: newRefreshToken,
-                  })
+                  }),
                 );
               } catch {
                 // If user parsing fails, continue anyway
@@ -173,7 +172,7 @@ const setup = (store: { dispatch: (action: unknown) => void }) => {
       }
 
       return Promise.reject(error);
-    }
+    },
   );
 };
 

@@ -3,12 +3,12 @@ import type { LoginResponse, RegisterResponse } from "@/types/auth";
 // const BASE_URL = import.meta.env.VITE_BASE_URL;
 // const BASE_URL = "https://test-courier.servehalflife.com";
 // const BASE_URL = "http://localhost:10000";
-const BASE_URL = "https://courier-app-production.up.railway.app";
+const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 export const register = async (
   name: string,
   email: string,
-  password: string
+  password: string,
 ): Promise<RegisterResponse> => {
   const response = await fetch(`${BASE_URL}/auth/register`, {
     method: "POST",
@@ -32,7 +32,7 @@ export const register = async (
 
 export const login = async (
   email: string,
-  password: string
+  password: string,
 ): Promise<LoginResponse> => {
   const response = await fetch(`${BASE_URL}/auth/login`, {
     method: "POST",
@@ -51,7 +51,7 @@ export const login = async (
   if (!data.success) {
     // Use API message, e.g., "Invalid credentials"
     throw new Error(
-      data?.message || "Login unsuccessful. Please check your credentials."
+      data?.message || "Login unsuccessful. Please check your credentials.",
     );
   }
 
