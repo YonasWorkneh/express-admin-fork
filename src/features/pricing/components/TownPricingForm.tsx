@@ -85,7 +85,6 @@ export type TownBracketRow = {
 export type TownCategoryPricingValues = {
   pricingType: CategoryPricingMode;
   basePrice: number;
-  airportFee: number;
   additionalCost: number;
   /** Decimal e.g. 0.25 — API `profitMargin` on each category config */
   profitMargin: number;
@@ -115,7 +114,6 @@ function emptyTownCategoryValues(): TownCategoryPricingValues {
   return {
     pricingType: "UNIT_PRICE",
     basePrice: 0,
-    airportFee: 0,
     additionalCost: 0,
     profitMargin: 0,
     weightRanges: [{ min: 0, max: 0, perkg: 0 }],
@@ -207,8 +205,6 @@ function hydrateOneTownTab(
     let type = normalizeTownCategoryMode(item.type as string | undefined);
     cv.pricingType = type;
     const config = (item.config || {}) as Record<string, unknown>;
-    if (typeof config.airportFee === "number")
-      cv.airportFee = config.airportFee;
     if (typeof config.additionalCost === "number")
       cv.additionalCost = config.additionalCost;
     if (typeof config.profitMargin === "number")
@@ -477,7 +473,6 @@ function validateValues(
       const typeCfg = getPricingCategoryTypeConfig(mode);
       const ce: FormikErrors<TownCategoryPricingValues> = {};
 
-      if (cv.airportFee < 0) ce.airportFee = "Must be ≥ 0";
       if (cv.additionalCost < 0) ce.additionalCost = "Must be ≥ 0";
       if (
         cv.profitMargin < 0 ||
@@ -558,7 +553,7 @@ function buildTownCategoryPricingEntry(
   config: Record<string, unknown>;
 } {
   const mode = normalizeTownCategoryMode(cv.pricingType);
-  const fees = { airportFee: cv.airportFee, additionalCost: cv.additionalCost };
+  const fees = { additionalCost: cv.additionalCost };
   const margin = { profitMargin: cv.profitMargin };
 
   if (mode === "UNIT_PRICE") {
@@ -1046,7 +1041,7 @@ export default function TownPricingForm({
                             />
                             <p className="leading-snug">
                               Specify pricing type, unit or volume fields, and
-                              airport fee and additional cost for each category.
+                              additional cost for each category.
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -1185,35 +1180,19 @@ function TownCategoryPricingPanel({
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label className="mb-1">Airport fee (ETB)</Label>
-          <Field
-            as={Input}
-            type="number"
-            step="0.01"
-            min={0}
-            name={`${prefix}.airportFee`}
-            className="py-2"
-          />
-          {catErr?.airportFee && catTouch?.airportFee && (
-            <p className="text-red-500 text-sm mt-1">{catErr.airportFee}</p>
-          )}
-        </div>
-        <div>
-          <Label className="mb-1">Additional cost (ETB)</Label>
-          <Field
-            as={Input}
-            type="number"
-            step="0.01"
-            min={0}
-            name={`${prefix}.additionalCost`}
-            className="py-2"
-          />
-          {catErr?.additionalCost && catTouch?.additionalCost && (
-            <p className="text-red-500 text-sm mt-1">{catErr.additionalCost}</p>
-          )}
-        </div>
+      <div>
+        <Label className="mb-1">Additional cost (ETB)</Label>
+        <Field
+          as={Input}
+          type="number"
+          step="0.01"
+          min={0}
+          name={`${prefix}.additionalCost`}
+          className="py-2 max-w-xs"
+        />
+        {catErr?.additionalCost && catTouch?.additionalCost && (
+          <p className="text-red-500 text-sm mt-1">{catErr.additionalCost}</p>
+        )}
       </div>
 
       <div>
