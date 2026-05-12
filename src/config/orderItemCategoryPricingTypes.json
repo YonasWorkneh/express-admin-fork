@@ -13,6 +13,6 @@
   },
   "WEIGHT_RANGE": {
     "label": "Weight range",
-    "fields": ["basePrice", "min", "max", "perKg"]
+    "fields": ["min", "max", "perKg"]
   }
 }

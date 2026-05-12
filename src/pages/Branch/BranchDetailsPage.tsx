@@ -12,7 +12,6 @@ import {
   Calendar,
   Package,
   Users,
-  Clock,
   Mail,
   Phone,
   ExternalLink,
@@ -71,8 +70,8 @@ export default function BranchDetailsPage() {
         error &&
         typeof error === "object" &&
         "response" in error &&
-        (error as { response?: { data?: { message?: string } } }).response
-          ?.data?.message;
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message;
       toast.error(
         typeof message === "string" && message.trim()
           ? message
@@ -105,8 +104,8 @@ export default function BranchDetailsPage() {
         error &&
         typeof error === "object" &&
         "response" in error &&
-        (error as { response?: { data?: { message?: string } } }).response
-          ?.data?.message;
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message;
       toast.error(
         typeof message === "string" && message.trim()
           ? message
@@ -136,8 +135,7 @@ export default function BranchDetailsPage() {
           Back to branches
         </Button>
         <p className="mt-6 text-red-600">
-          {branchDetailQuery.error?.message ??
-            "Could not load branch details."}
+          {branchDetailQuery.error?.message ?? "Could not load branch details."}
         </p>
         <Button
           className="mt-4"
@@ -167,9 +165,7 @@ export default function BranchDetailsPage() {
             <ArrowLeft className="h-4 w-4 text-blue-600" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {branch.name}
-            </h1>
+            <h1 className="text-2xl font-bold text-gray-900">{branch.name}</h1>
             <p className="text-gray-500 text-sm">
               {branch.branchId} · {branch.location}
             </p>
@@ -200,12 +196,12 @@ export default function BranchDetailsPage() {
                   {branch.branchId}
                 </p>
               </div>
-              <div>
+              {/* <div>
                 <Label className="text-gray-600">Internal ID</Label>
                 <p className="font-mono text-xs text-gray-600 mt-0.5">
                   {branch.id}
                 </p>
-              </div>
+              </div> */}
               <div>
                 <Label className="text-gray-600">Location</Label>
                 <p className="text-gray-900 mt-0.5">{branch.location}</p>
@@ -248,6 +244,7 @@ export default function BranchDetailsPage() {
                 </Label>
                 <div className="relative mt-2">
                   <Input
+                    disabled
                     type="text"
                     placeholder="Search staff by name, ID, or email..."
                     value={managerSearch}
@@ -262,7 +259,7 @@ export default function BranchDetailsPage() {
                     onBlur={() =>
                       setTimeout(() => setShowManagerDropdown(false), 200)
                     }
-                    className="py-7"
+                    className="py-7 cursor-not-allowed"
                   />
                   {managerId ? (
                     <button
@@ -319,7 +316,9 @@ export default function BranchDetailsPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               {staffList.length === 0 ? (
-                <p className="text-sm text-gray-500">No staff on this branch.</p>
+                <p className="text-sm text-gray-500">
+                  No staff on this branch.
+                </p>
               ) : (
                 <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200">
                   {staffList.map((s) => (
@@ -426,7 +425,7 @@ export default function BranchDetailsPage() {
                     {formatDate(branch.createdAt)}
                   </div>
                 </div>
-                <div>
+                {/* <div>
                   <Label className="text-gray-600">Created by</Label>
                   <div className="flex items-center gap-1 mt-1 text-gray-900">
                     <Clock className="h-4 w-4 text-gray-400" />
@@ -434,15 +433,19 @@ export default function BranchDetailsPage() {
                       {branch.createdBy}
                     </span>
                   </div>
-                </div>
+                </div> */}
                 <div className="sm:col-span-2 flex flex-wrap gap-4 pt-2 border-t">
                   <span className="text-gray-600">
                     Staff:{" "}
-                    <strong className="text-gray-900">{staffList.length}</strong>
+                    <strong className="text-gray-900">
+                      {staffList.length}
+                    </strong>
                   </span>
                   <span className="text-gray-600">
                     Orders:{" "}
-                    <strong className="text-gray-900">{orderList.length}</strong>
+                    <strong className="text-gray-900">
+                      {orderList.length}
+                    </strong>
                   </span>
                 </div>
               </div>

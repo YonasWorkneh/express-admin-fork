@@ -7,6 +7,7 @@ import type {
 /** API shape for one commission line (matches tariff payloads). */
 export interface ApiDriverCommissionLine {
   vehicleTypeId: string;
+  baseFee?: number;
   fixed?: number;
   perKm?: number;
   percentage?: number;
@@ -25,6 +26,7 @@ export interface DriverCommissionConfigResult {
  */
 export interface ServiceTypeVehicleCommissionVehicle {
   vehicleTypeId: string;
+  baseFee: number;
   fixed: number;
   perKm: number;
   percentage: number;
@@ -49,7 +51,7 @@ export interface ServiceTypeVehicleCommissionGroup {
  *     {
  *       "serviceTypeId": "service_type_001",
  *       "vehicles": [
- *         { "vehicleTypeId": "vehicle_type_001", "fixed": 0, "perKm": 0, "percentage": 0 }
+ *         { "vehicleTypeId": "vehicle_type_001", "baseFee": 0, "fixed": 0, "perKm": 0, "percentage": 0 }
  *       ]
  *     }
  *   ]
@@ -60,7 +62,7 @@ export interface ServiceTypeVehicleCommissionGroup {
  * ```json
  * {
  *   "vehicles": [
- *     { "vehicleTypeId": "vehicle_type_001", "fixed": 0, "perKm": 0, "percentage": 0 }
+ *     { "vehicleTypeId": "vehicle_type_001", "baseFee": 0, "fixed": 0, "perKm": 0, "percentage": 0 }
  *   ]
  * }
  * ```
@@ -88,9 +90,14 @@ function normalizeCommissionRow(raw: unknown): ApiDriverCommissionLine | null {
   if (typeof vehicleTypeId !== "string" || !vehicleTypeId.trim()) return null;
 
   const line: ApiDriverCommissionLine = { vehicleTypeId };
+  const baseFee =
+    optionalNumber(r.baseFee) ??
+    optionalNumber(r.base_fee) ??
+    optionalNumber(r.basePrice);
   const fixed = optionalNumber(r.fixed);
-  const perKm = optionalNumber(r.perKm);
+  const perKm = optionalNumber(r.perKm ?? r.per_km);
   const percentage = optionalNumber(r.percentage);
+  if (baseFee !== undefined) line.baseFee = baseFee;
   if (fixed !== undefined) line.fixed = fixed;
   if (perKm !== undefined) line.perKm = perKm;
   if (percentage !== undefined) line.percentage = percentage;
@@ -251,6 +258,10 @@ export async function fetchDriverCommissionConfig(
 function rowToExclusiveVehicleCommission(
   c: DriverCommissionRow,
 ): ServiceTypeVehicleCommissionVehicle {
+  const rawBp =
+    c.baseFee !== undefined && c.baseFee !== null ? Number(c.baseFee) : 0;
+  const baseFee = Number.isFinite(rawBp) ? rawBp : 0;
+
   const rawPerKm =
     c.driverCost !== undefined && c.driverCost !== null
       ? Number(c.driverCost)
@@ -271,6 +282,7 @@ function rowToExclusiveVehicleCommission(
   if (n <= 1) {
     return {
       vehicleTypeId: c.category,
+      baseFee,
       fixed,
       perKm,
       percentage,
@@ -279,6 +291,7 @@ function rowToExclusiveVehicleCommission(
   if (perKm !== 0) {
     return {
       vehicleTypeId: c.category,
+      baseFee,
       fixed: 0,
       perKm,
       percentage: 0,
@@ -287,6 +300,7 @@ function rowToExclusiveVehicleCommission(
   if (fixed !== 0) {
     return {
       vehicleTypeId: c.category,
+      baseFee,
       fixed,
       perKm: 0,
       percentage: 0,
@@ -294,6 +308,7 @@ function rowToExclusiveVehicleCommission(
   }
   return {
     vehicleTypeId: c.category,
+    baseFee,
     fixed: 0,
     perKm: 0,
     percentage,
@@ -356,13 +371,14 @@ export async function saveDriverCommissionConfig(
   }
 }
 
-/** True if any row has a non-zero cost per km, fixed, or percentage (same rule as the configure UI). */
+/** True if any row has a non-zero base fee, cost per km, fixed, or percentage. */
 export function driverCommissionRowsHaveConfiguredRates(
   rows: DriverCommissionRow[],
 ): boolean {
   if (!rows.length) return false;
   return rows.some(
     (r) =>
+      Boolean(r.baseFee) ||
       Boolean(r.fixedCost) ||
       Boolean(r.driverCost) ||
       Boolean(r.percentage),
@@ -378,6 +394,7 @@ export function mergeVehicleTypesWithCommissionConfig(
     return {
       category: v.id,
       name: v.name,
+      baseFee: matched?.baseFee,
       fixedCost: matched?.fixed,
       driverCost: matched?.perKm,
       percentage: matched?.percentage,

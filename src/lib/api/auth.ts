@@ -30,13 +30,16 @@ export const register = async (
   return data;
 };
 
+export type MobileLoginCredentials =
+  | { email: string; password: string }
+  | { phone: string; password: string };
+
 export const login = async (
-  email: string,
-  password: string,
+  credentials: MobileLoginCredentials,
 ): Promise<LoginResponse> => {
-  const response = await fetch(`${BASE_URL}/auth/login`, {
+  const response = await fetch(`${BASE_URL}/auth/login/mobile`, {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify(credentials),
     headers: {
       "Content-Type": "application/json",
     },
@@ -57,3 +60,64 @@ export const login = async (
 
   return data;
 };
+
+/** Alternate enum value some APIs return — treated like `PASSWORD_CHANGE_REQUIRED`. */
+export const PASSWORD_CHANGE_REQUIRED_ALIASES = new Set([
+  "PASSWORD_CHANGE_REQUIRED",
+  "PASSWORD_REQUIRE_CHANGE",
+]);
+
+export function loginRequiresPasswordChange(res: LoginResponse): boolean {
+  const t = String(res.data?.type ?? "").trim();
+  return PASSWORD_CHANGE_REQUIRED_ALIASES.has(t);
+}
+
+export function loginHasAuthenticatedTokens(res: LoginResponse): boolean {
+  const access = String(res.data?.tokens?.accessToken ?? "").trim();
+  const refresh = String(res.data?.tokens?.refreshToken ?? "").trim();
+  return access.length > 0 && refresh.length > 0;
+}
+
+/**
+ * After email OTP + new password (forced change flow).
+ * Adjust path if your API differs — response should match LoginResponse / AUTH_SUCCESS.
+ */
+export async function confirmMobileLoginPasswordChange(args: {
+  code: string;
+  newPassword: string;
+  email?: string;
+  phone?: string;
+}): Promise<LoginResponse> {
+  const body: Record<string, string> = {
+    code: args.code,
+    newPassword: args.newPassword,
+  };
+  const em = args.email?.trim();
+  const ph = args.phone?.trim();
+  if (em) body.email = em;
+  if (ph) body.phone = ph;
+
+  const response = await fetch(
+    `${BASE_URL}/auth/login/mobile/confirm-password-change`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.message || "Failed to confirm password change");
+  }
+  if (!data.success) {
+    throw new Error(
+      data?.message || "Verification failed. Check the code and try again.",
+    );
+  }
+
+  return data as LoginResponse;
+}

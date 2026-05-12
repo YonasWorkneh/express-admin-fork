@@ -133,12 +133,12 @@ export default function VehicleDetailsPage() {
                   {v.maxLoad} kg
                 </p>
               </div>
-              <div>
+              {/* <div>
                 <Label className="text-gray-600">Internal ID</Label>
                 <p className="font-mono text-xs text-gray-600 mt-0.5 break-all">
                   {v.id}
                 </p>
-              </div>
+              </div> */}
               <div>
                 <Label className="text-gray-600">Vehicle type ID</Label>
                 <p className="font-mono text-xs text-gray-600 mt-0.5 break-all">
@@ -344,12 +344,12 @@ export default function VehicleDetailsPage() {
                     {formatDate(v.updatedAt)}
                   </div>
                 </div>
-                <div className="sm:col-span-2">
+                {/* <div className="sm:col-span-2">
                   <Label className="text-gray-600">Created by</Label>
                   <p className="font-mono text-xs text-gray-900 mt-1 break-all">
                     {v.createdBy ?? "—"}
                   </p>
-                </div>
+                </div> */}
               </div>
             </CardContent>
           </Card>

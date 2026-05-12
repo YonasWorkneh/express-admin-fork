@@ -77,9 +77,11 @@ const setup = (store: { dispatch: (action: unknown) => void }) => {
     async (error: AxiosError) => {
       const originalConfig = error.config as CustomAxiosRequestConfig;
 
-      // Skip refresh logic for login endpoint
+      // Skip refresh logic for login endpoints
       if (
         originalConfig.url === "/auth/login" ||
+        originalConfig.url === "/auth/login/mobile" ||
+        originalConfig.url === "/auth/login/mobile/confirm-password-change" ||
         originalConfig.url === "/auth/refresh"
       ) {
         return Promise.reject(error);

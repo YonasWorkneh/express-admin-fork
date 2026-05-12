@@ -95,7 +95,7 @@ export default function DriverCommissionConfigurePage() {
       <PricingFormHeader title="Driver Commission Configure" />
 
       <p className="text-center text-sm text-gray-500 mb-8 max-w-2xl mx-auto">
-        Pick a service type, then set cost per km, fixed cost, and percentage by
+        Pick a service type, then set base fee, cost per km, fixed cost, and percentage by
         vehicle category. This is stored separately from town, regional, and
         international tariffs.
       </p>
@@ -156,15 +156,15 @@ export default function DriverCommissionConfigurePage() {
         initialValues={initialValues}
         onSubmit={async (values) => {
           try {
-            const patchId =
-              (commissionResourceId?.trim() || serviceType.trim()) || null;
+            /** PATCH only with a real commission record id from GET — never use service type id as :id. */
+            const patchResourceId = commissionResourceId?.trim() || null;
             await saveMutation.mutateAsync({
               serviceType,
               rows: values.driverCommission,
-              resourceId: persistedCommissionLooksExisting ? patchId : null,
+              resourceId: patchResourceId,
             });
             toast.success(
-              persistedCommissionLooksExisting
+              patchResourceId
                 ? "Driver commission updated"
                 : "Driver commission saved",
             );

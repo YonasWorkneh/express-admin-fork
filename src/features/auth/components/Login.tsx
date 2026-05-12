@@ -1,25 +1,69 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { LoginSchema } from "../schemas/LoginSchema";
+import {
+  LoginPhoneSchema,
+  type LoginPhoneFormValues,
+} from "../schemas/LoginPhoneSchema";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import {
   IoShieldCheckmark,
   IoCar,
   IoPerson,
   IoLockClosed,
+  IoCallOutline,
 } from "react-icons/io5";
 import { motion } from "framer-motion";
 import Loading from "../../../components/common/Loading";
 import { useNavigate } from "react-router-dom";
-import { useLogin } from "@/hooks/useAuth";
+import {
+  useLogin,
+  useConfirmMobileLoginPasswordChange,
+  type LoginMutationVariables,
+} from "@/hooks/useAuth";
 import type { LoginResponse } from "@/types/auth";
 import { toast } from "react-hot-toast";
 import { useAppDispatch } from "@/store/hooks";
 import { setCredentials } from "@/features/auth/authSlice";
+import {
+  loginRequiresPasswordChange,
+  loginHasAuthenticatedTokens,
+} from "@/lib/api/auth";
+import {
+  PasswordChangeConfirmSchema,
+  type PasswordChangeConfirmValues,
+} from "../schemas/PasswordChangeConfirmSchema";
+
+type PendingPasswordIdentity =
+  | { type: "email"; value: string }
+  | { type: "phone"; value: string };
+
+const ETHIO_COUNTRY_DISPLAY = "+251";
+
+/** Only digits; first digit must be 7 or 9; max 9 digits total. */
+function normalizeEthioMobileLocalInput(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  let out = "";
+  for (let i = 0; i < digits.length && out.length < 9; i++) {
+    const ch = digits[i]!;
+    if (out.length === 0) {
+      if (ch === "7" || ch === "9") out += ch;
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
 
 const Login = () => {
-  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [signInTab, setSignInTab] = useState<"email" | "phone">("email");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [authStep, setAuthStep] = useState<"signIn" | "confirmEmail">("signIn");
+  const [pendingPasswordIdentity, setPendingPasswordIdentity] =
+    useState<PendingPasswordIdentity | null>(null);
   const [status, setStatus] = useState<
     "idle" | "submitting" | "success" | "error"
   >("idle");
@@ -60,46 +104,112 @@ const Login = () => {
     visible: { opacity: 1, x: 0 },
   };
 
-  const onSuccess = (data: LoginResponse) => {
+  const completeSignIn = (data: LoginResponse) => {
+    if (!loginHasAuthenticatedTokens(data)) {
+      setStatus("error");
+      toast.error(
+        data.message || "Sign-in incomplete. Missing session tokens.",
+      );
+      return;
+    }
     setStatus("success");
     setMessage(data.message);
 
-    // Store in localStorage
     localStorage.setItem("accessToken", data.data.tokens.accessToken);
     localStorage.setItem("refreshToken", data.data.tokens.refreshToken);
     localStorage.setItem("user", JSON.stringify(data.data.user));
 
-    // Store role object in localStorage if it exists
     if (data.data.user.role) {
       localStorage.setItem("role", JSON.stringify(data.data.user.role));
     }
 
-    // Store in Redux
     dispatch(
       setCredentials({
         user: data.data.user,
         accessToken: data.data.tokens.accessToken,
         refreshToken: data.data.tokens.refreshToken,
-      })
+      }),
     );
 
-    setTimeout(() => {
-      navigate("/dashboard");
-    }, 1500);
+    setTimeout(() => navigate("/dashboard"), 1500);
     toast.success(data.message);
   };
+
+  const onLoginSuccess = (
+    data: LoginResponse,
+    variables: LoginMutationVariables,
+  ) => {
+    if (loginRequiresPasswordChange(data)) {
+      setAuthStep("confirmEmail");
+      const identity: PendingPasswordIdentity =
+        "email" in variables
+          ? { type: "email", value: variables.email.trim() }
+          : { type: "phone", value: variables.phone.trim() };
+      setPendingPasswordIdentity(identity);
+      setStatus("idle");
+      setMessage(
+        data.message ||
+          (identity.type === "phone"
+            ? "We sent a 6-digit code to your phone. Enter it below with your new password."
+            : "We sent a 6-digit code to your email. Enter it below with your new password."),
+      );
+      toast.success(
+        data.message ||
+          (identity.type === "phone"
+            ? "Check your phone for the verification code."
+            : "Check your email for the verification code."),
+      );
+      return;
+    }
+
+    const okType = data.data.type === "AUTH_SUCCESS" || data.data.type == null;
+
+    if (okType && loginHasAuthenticatedTokens(data)) {
+      completeSignIn(data);
+      return;
+    }
+
+    setStatus("error");
+    setMessage(
+      data.message || "Unexpected sign-in response. Please try again.",
+    );
+    toast.error(data.message || "Unexpected sign-in response.");
+  };
+
+  const onConfirmSuccess = (data: LoginResponse) => {
+    if (loginRequiresPasswordChange(data)) {
+      toast.error(
+        data.message ||
+          "Password change is still required. Check the code and try again.",
+      );
+      return;
+    }
+    if (loginHasAuthenticatedTokens(data)) {
+      setAuthStep("signIn");
+      setPendingPasswordIdentity(null);
+      completeSignIn(data);
+      return;
+    }
+    toast.error(data.message || "Could not finish sign-in.");
+    setStatus("error");
+    setMessage(data.message ?? null);
+  };
+
   const onError = (error: Error) => {
     setStatus("error");
     setMessage(error.message);
     toast.error(error.message);
   };
 
-  const { mutate: login, isPending } = useLogin(onSuccess, onError);
+  const { mutate: loginMutate, isPending } = useLogin(onLoginSuccess, onError);
+
+  const { mutate: confirmPasswordChangeMutate, isPending: confirmPending } =
+    useConfirmMobileLoginPasswordChange(onConfirmSuccess, onError);
 
   const {
-    register,
-    handleSubmit,
-    formState: { errors, touchedFields },
+    register: registerCredentials,
+    handleSubmit: handleSubmitCredentials,
+    formState: { errors: credentialErrors, touchedFields: credentialTouched },
   } = useForm({
     resolver: yupResolver(LoginSchema),
     defaultValues: {
@@ -108,15 +218,80 @@ const Login = () => {
     },
   });
 
-  const onSubmit = async (values: { email: string; password: string }) => {
+  const {
+    register: registerConfirm,
+    handleSubmit: handleSubmitConfirm,
+    formState: { errors: confirmErrors, touchedFields: confirmTouched },
+    reset: resetConfirmForm,
+  } = useForm<PasswordChangeConfirmValues>({
+    resolver: yupResolver(PasswordChangeConfirmSchema),
+    defaultValues: {
+      code: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+  });
+
+  const {
+    register: registerPhonePassword,
+    handleSubmit: handleSubmitPhone,
+    control: phoneControl,
+    formState: { errors: phoneErrors, touchedFields: phoneTouched },
+    reset: resetPhoneForm,
+  } = useForm<LoginPhoneFormValues>({
+    resolver: yupResolver(LoginPhoneSchema),
+    defaultValues: {
+      phoneLocal: "",
+      password: "",
+    },
+  });
+
+  const onSubmitCredentials = (values: { email: string; password: string }) => {
     setStatus("submitting");
     setMessage(null);
 
-    login({
+    loginMutate({
       email: values.email,
       password: values.password,
     });
   };
+
+  const onSubmitPhoneCredentials = (values: LoginPhoneFormValues) => {
+    setStatus("submitting");
+    setMessage(null);
+    const phone = `${ETHIO_COUNTRY_DISPLAY}${values.phoneLocal}`;
+    loginMutate({ phone, password: values.password });
+  };
+
+  const onSubmitConfirm = (values: PasswordChangeConfirmValues) => {
+    if (!pendingPasswordIdentity) {
+      toast.error("Missing sign-in context. Go back and sign in again.");
+      return;
+    }
+    setStatus("submitting");
+    setMessage(null);
+    confirmPasswordChangeMutate({
+      code: values.code,
+      newPassword: values.newPassword,
+      ...(pendingPasswordIdentity.type === "email"
+        ? { email: pendingPasswordIdentity.value }
+        : { phone: pendingPasswordIdentity.value }),
+    });
+  };
+
+  const goBackToSignIn = () => {
+    setAuthStep("signIn");
+    setPendingPasswordIdentity(null);
+    setMessage(null);
+    setStatus("idle");
+    resetConfirmForm();
+    resetPhoneForm();
+  };
+
+  const busySigningIn =
+    authStep === "signIn" && (status === "submitting" || isPending);
+  const busyConfirming =
+    authStep === "confirmEmail" && (status === "submitting" || confirmPending);
 
   return (
     <div className="min-h-screen flex">
@@ -243,7 +418,11 @@ const Login = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
             >
-              Welcome Back
+              {authStep === "confirmEmail"
+                ? pendingPasswordIdentity?.type === "phone"
+                  ? "Verify your phone"
+                  : "Confirm your email"
+                : "Welcome Back"}
             </motion.h1>
             <motion.p
               className="text-gray-600"
@@ -251,17 +430,23 @@ const Login = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: "easeOut", delay: 0.3 }}
             >
-              Sign in to your account to continue
+              {authStep === "confirmEmail" && pendingPasswordIdentity
+                ? `Enter the 6-digit code sent to ${pendingPasswordIdentity.value} and choose your new password.`
+                : "Sign in to your account to continue"}
             </motion.p>
           </motion.div>
 
           {/* Message box */}
           {message && (
             <motion.div
-              className={`mb-6 px-4 py-3 rounded-lg text-sm font-medium ${
+              className={`mb-6 px-4 py-3 rounded-lg text-sm font-medium border ${
                 status === "success"
-                  ? "bg-green-50 text-green-700 border border-green-200"
-                  : "bg-red-50 text-red-700 border border-red-200"
+                  ? "bg-green-50 text-green-700 border-green-200"
+                  : status === "error"
+                    ? "bg-red-50 text-red-700 border-red-200"
+                    : authStep === "confirmEmail"
+                      ? "bg-blue-50 text-blue-900 border-blue-200"
+                      : "bg-gray-50 text-gray-800 border-gray-200"
               }`}
               initial={{ opacity: 0, y: -10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -272,136 +457,601 @@ const Login = () => {
             </motion.div>
           )}
 
-          {/* Login Form */}
-          <motion.form
-            onSubmit={handleSubmit(onSubmit)}
-            className="space-y-6"
-            autoComplete="off"
-            variants={formVariants}
-            initial="hidden"
-            animate="visible"
-            transition={{ duration: 0.6, ease: "easeOut", delay: 0.4 }}
-          >
-            {/* Email Input */}
-            <motion.div
-              variants={inputVariants}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-            >
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-2"
+          {authStep === "signIn" ? (
+            <>
+              <div
+                className="flex rounded-lg border border-gray-200 bg-white p-1 mb-6 shadow-sm"
+                role="tablist"
+                aria-label="Sign in method"
               >
-                Email Address
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <IoPerson className="h-5 w-5 text-gray-400" />
-                </div>
-                <motion.input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  {...register("email")}
-                  className={`w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
-                    errors.email && touchedFields.email
-                      ? "border-red-500 focus:ring-red-500"
-                      : "border-gray-300"
-                  }`}
-                  whileFocus={{ scale: 1.02 }}
-                  transition={{ duration: 0.2 }}
-                />
-              </div>
-              {errors.email && touchedFields.email && (
-                <motion.p
-                  className="mt-1 text-sm text-red-600"
-                  initial={{ opacity: 0, y: -5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {errors.email.message}
-                </motion.p>
-              )}
-            </motion.div>
-
-            {/* Password Input */}
-            <motion.div
-              variants={inputVariants}
-              transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
-            >
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <IoLockClosed className="h-5 w-5 text-gray-400" />
-                </div>
-                <motion.input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  {...register("password")}
-                  className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
-                    errors.password && touchedFields.password
-                      ? "border-red-500 focus:ring-red-500"
-                      : "border-gray-300"
-                  }`}
-                  whileFocus={{ scale: 1.02 }}
-                  transition={{ duration: 0.2 }}
-                />
-                <motion.button
+                <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                  onClick={() => setShowPassword(!showPassword)}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  transition={{ duration: 0.2 }}
+                  role="tab"
+                  aria-selected={signInTab === "email"}
+                  className={`flex-1 rounded-md py-2.5 px-3 text-sm font-medium transition-colors cursor-pointer ${
+                    signInTab === "email"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                  onClick={() => {
+                    setSignInTab("email");
+                    setMessage(null);
+                    setStatus("idle");
+                  }}
                 >
-                  {showPassword ? (
-                    <FaEyeSlash className="h-5 w-5" />
-                  ) : (
-                    <FaEye className="h-5 w-5" />
-                  )}
-                </motion.button>
+                  Email
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={signInTab === "phone"}
+                  className={`flex-1 rounded-md py-2.5 px-3 text-sm font-medium transition-colors cursor-pointer ${
+                    signInTab === "phone"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                  onClick={() => {
+                    setSignInTab("phone");
+                    setMessage(null);
+                    setStatus("idle");
+                  }}
+                >
+                  Phone
+                </button>
               </div>
-              {errors.password && touchedFields.password && (
-                <motion.p
-                  className="mt-1 text-sm text-red-600"
-                  initial={{ opacity: 0, y: -5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {errors.password.message}
-                </motion.p>
-              )}
-            </motion.div>
 
-            {/* Remember me + Forgot password */}
-            <motion.div
-              className="flex items-center justify-between"
-              variants={inputVariants}
-              transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
-            >
-              <div className="flex items-center">
-                <motion.input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  transition={{ duration: 0.2 }}
-                />
-                <label
-                  htmlFor="remember-me"
-                  className="ml-2 block text-sm text-gray-700"
+              {signInTab === "email" ? (
+                <motion.form
+                  key="login-email"
+                  onSubmit={handleSubmitCredentials(onSubmitCredentials)}
+                  className="space-y-6"
+                  autoComplete="off"
+                  variants={formVariants}
+                  initial="hidden"
+                  animate="visible"
+                  transition={{ duration: 0.6, ease: "easeOut", delay: 0.4 }}
                 >
-                  Remember me
+                  {/* Email Input */}
+                  <motion.div
+                    variants={inputVariants}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                  >
+                    <label
+                      htmlFor="email"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <IoPerson className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <motion.input
+                        id="email"
+                        type="email"
+                        placeholder="Enter your email"
+                        {...registerCredentials("email")}
+                        className={`w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
+                          credentialErrors.email && credentialTouched.email
+                            ? "border-red-500 focus:ring-red-500"
+                            : "border-gray-300"
+                        }`}
+                        whileFocus={{ scale: 1.02 }}
+                        transition={{ duration: 0.2 }}
+                      />
+                    </div>
+                    {credentialErrors.email && credentialTouched.email && (
+                      <motion.p
+                        className="mt-1 text-sm text-red-600"
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {credentialErrors.email.message}
+                      </motion.p>
+                    )}
+                  </motion.div>
+
+                  {/* Password Input */}
+                  <motion.div
+                    variants={inputVariants}
+                    transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
+                  >
+                    <label
+                      htmlFor="password"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
+                      Password
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <IoLockClosed className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <motion.input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Enter your password"
+                        {...registerCredentials("password")}
+                        className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
+                          credentialErrors.password &&
+                          credentialTouched.password
+                            ? "border-red-500 focus:ring-red-500"
+                            : "border-gray-300"
+                        }`}
+                        whileFocus={{ scale: 1.02 }}
+                        transition={{ duration: 0.2 }}
+                      />
+                      <motion.button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                        onClick={() => setShowPassword(!showPassword)}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {showPassword ? (
+                          <FaEyeSlash className="h-5 w-5" />
+                        ) : (
+                          <FaEye className="h-5 w-5" />
+                        )}
+                      </motion.button>
+                    </div>
+                    {credentialErrors.password &&
+                      credentialTouched.password && (
+                        <motion.p
+                          className="mt-1 text-sm text-red-600"
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          {credentialErrors.password.message}
+                        </motion.p>
+                      )}
+                  </motion.div>
+
+                  {/* Remember me + Forgot password */}
+                  <motion.div
+                    className="flex items-center justify-between"
+                    variants={inputVariants}
+                    transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+                  >
+                    <div className="flex items-center">
+                      <motion.input
+                        id="remember-me"
+                        name="remember-me"
+                        type="checkbox"
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        transition={{ duration: 0.2 }}
+                      />
+                      <label
+                        htmlFor="remember-me"
+                        className="ml-2 block text-sm text-gray-700"
+                      >
+                        Remember me
+                      </label>
+                    </div>
+                    <div className="text-sm">
+                      <motion.a
+                        href="#"
+                        className="font-medium text-blue-600 hover:text-blue-500"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        Forgot password?
+                      </motion.a>
+                    </div>
+                  </motion.div>
+
+                  {/* Submit Button */}
+                  <motion.button
+                    type="submit"
+                    disabled={busySigningIn}
+                    className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${
+                      busySigningIn
+                        ? "bg-blue-400 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    }`}
+                    variants={inputVariants}
+                    transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
+                    whileHover={!busySigningIn ? { scale: 1.02 } : {}}
+                    whileTap={!busySigningIn ? { scale: 0.98 } : {}}
+                  >
+                    {busySigningIn ? (
+                      <span className="flex items-center gap-2">
+                        <Loading />
+                        <span>Signing in...</span>
+                      </span>
+                    ) : (
+                      "Sign In"
+                    )}
+                  </motion.button>
+                </motion.form>
+              ) : (
+                <motion.form
+                  key="login-phone"
+                  onSubmit={handleSubmitPhone(onSubmitPhoneCredentials)}
+                  className="space-y-6"
+                  autoComplete="off"
+                  variants={formVariants}
+                  initial="hidden"
+                  animate="visible"
+                  transition={{ duration: 0.6, ease: "easeOut", delay: 0.4 }}
+                >
+                  <motion.div
+                    variants={inputVariants}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                  >
+                    <label
+                      htmlFor="phone-local"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
+                      Mobile number
+                    </label>
+                    <p className="text-xs text-gray-500 mb-2"></p>
+                    <div
+                      className={`flex rounded-lg border overflow-hidden bg-white focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-transparent ${
+                        phoneErrors.phoneLocal && phoneTouched.phoneLocal
+                          ? "border-red-500 ring-1 ring-red-500"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      <span className="flex shrink-0 items-center px-3 py-3 text-sm font-semibold text-gray-800 bg-gray-100 border-r border-gray-200 tabular-nums">
+                        {ETHIO_COUNTRY_DISPLAY}
+                      </span>
+                      <div className="relative flex-1 flex items-center min-w-0">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <IoCallOutline className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <Controller
+                          name="phoneLocal"
+                          control={phoneControl}
+                          render={({ field }) => (
+                            <motion.input
+                              {...field}
+                              id="phone-local"
+                              ref={field.ref}
+                              type="text"
+                              inputMode="numeric"
+                              autoComplete="tel-national"
+                              maxLength={9}
+                              placeholder="912345678"
+                              value={field.value}
+                              onChange={(e) =>
+                                field.onChange(
+                                  normalizeEthioMobileLocalInput(
+                                    e.target.value,
+                                  ),
+                                )
+                              }
+                              className="w-full pl-10 pr-3 py-3 border-0 outline-none text-base tracking-[0.06em]"
+                              whileFocus={{ scale: 1.01 }}
+                              transition={{ duration: 0.2 }}
+                            />
+                          )}
+                        />
+                      </div>
+                    </div>
+                    {phoneErrors.phoneLocal && phoneTouched.phoneLocal && (
+                      <motion.p
+                        className="mt-1 text-sm text-red-600"
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {phoneErrors.phoneLocal.message}
+                      </motion.p>
+                    )}
+                  </motion.div>
+
+                  <motion.div
+                    variants={inputVariants}
+                    transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
+                  >
+                    <label
+                      htmlFor="phone-login-password"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
+                      Password
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <IoLockClosed className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <motion.input
+                        id="phone-login-password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Enter your password"
+                        {...registerPhonePassword("password")}
+                        className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
+                          phoneErrors.password && phoneTouched.password
+                            ? "border-red-500 focus:ring-red-500"
+                            : "border-gray-300"
+                        }`}
+                        whileFocus={{ scale: 1.02 }}
+                        transition={{ duration: 0.2 }}
+                      />
+                      <motion.button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                        onClick={() => setShowPassword(!showPassword)}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {showPassword ? (
+                          <FaEyeSlash className="h-5 w-5" />
+                        ) : (
+                          <FaEye className="h-5 w-5" />
+                        )}
+                      </motion.button>
+                    </div>
+                    {phoneErrors.password && phoneTouched.password && (
+                      <motion.p
+                        className="mt-1 text-sm text-red-600"
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {phoneErrors.password.message}
+                      </motion.p>
+                    )}
+                  </motion.div>
+
+                  <motion.div
+                    className="flex items-center justify-between"
+                    variants={inputVariants}
+                    transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+                  >
+                    <div className="flex items-center">
+                      <motion.input
+                        id="remember-me-phone"
+                        name="remember-me-phone"
+                        type="checkbox"
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        transition={{ duration: 0.2 }}
+                      />
+                      <label
+                        htmlFor="remember-me-phone"
+                        className="ml-2 block text-sm text-gray-700"
+                      >
+                        Remember me
+                      </label>
+                    </div>
+                    <div className="text-sm">
+                      <motion.a
+                        href="#"
+                        className="font-medium text-blue-600 hover:text-blue-500"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        Forgot password?
+                      </motion.a>
+                    </div>
+                  </motion.div>
+
+                  <motion.button
+                    type="submit"
+                    disabled={busySigningIn}
+                    className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${
+                      busySigningIn
+                        ? "bg-blue-400 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    }`}
+                    variants={inputVariants}
+                    transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
+                    whileHover={!busySigningIn ? { scale: 1.02 } : {}}
+                    whileTap={!busySigningIn ? { scale: 0.98 } : {}}
+                  >
+                    {busySigningIn ? (
+                      <span className="flex items-center gap-2">
+                        <Loading />
+                        <span>Signing in...</span>
+                      </span>
+                    ) : (
+                      "Sign In"
+                    )}
+                  </motion.button>
+                </motion.form>
+              )}
+            </>
+          ) : (
+            <motion.form
+              onSubmit={handleSubmitConfirm(onSubmitConfirm)}
+              className="space-y-6"
+              autoComplete="off"
+              variants={formVariants}
+              initial="hidden"
+              animate="visible"
+              transition={{ duration: 0.6, ease: "easeOut", delay: 0.4 }}
+            >
+              <motion.button
+                type="button"
+                onClick={goBackToSignIn}
+                className="text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer"
+              >
+                ← Back to sign in
+              </motion.button>
+
+              <motion.div
+                variants={inputVariants}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+              >
+                <label
+                  htmlFor="verification-code"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  {pendingPasswordIdentity?.type === "phone"
+                    ? "SMS verification code"
+                    : "Email verification code"}
                 </label>
-              </div>
-              <div className="text-sm">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <IoShieldCheckmark className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <motion.input
+                    id="verification-code"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    placeholder="000000"
+                    {...registerConfirm("code")}
+                    className={`w-full pl-10 pr-3 py-3 border rounded-lg tracking-[0.35em] font-mono text-center text-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
+                      confirmErrors.code && confirmTouched.code
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300"
+                    }`}
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ duration: 0.2 }}
+                  />
+                </div>
+                {confirmErrors.code && confirmTouched.code && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {confirmErrors.code.message}
+                  </p>
+                )}
+              </motion.div>
+
+              <motion.div
+                variants={inputVariants}
+                transition={{ duration: 0.5, ease: "easeOut", delay: 0.05 }}
+              >
+                <label
+                  htmlFor="new-password"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  New password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <IoLockClosed className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <motion.input
+                    id="new-password"
+                    type={showNewPassword ? "text" : "password"}
+                    placeholder="At least 8 characters"
+                    {...registerConfirm("newPassword")}
+                    className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
+                      confirmErrors.newPassword && confirmTouched.newPassword
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300"
+                    }`}
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ duration: 0.2 }}
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    onClick={() => setShowNewPassword((v) => !v)}
+                  >
+                    {showNewPassword ? (
+                      <FaEyeSlash className="h-5 w-5" />
+                    ) : (
+                      <FaEye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+                {confirmErrors.newPassword && confirmTouched.newPassword && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {confirmErrors.newPassword.message}
+                  </p>
+                )}
+              </motion.div>
+
+              <motion.div
+                variants={inputVariants}
+                transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
+              >
+                <label
+                  htmlFor="confirm-password"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Confirm new password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <IoLockClosed className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <motion.input
+                    id="confirm-password"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Re-enter password"
+                    {...registerConfirm("confirmPassword")}
+                    className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
+                      confirmErrors.confirmPassword &&
+                      confirmTouched.confirmPassword
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-gray-300"
+                    }`}
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ duration: 0.2 }}
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                  >
+                    {showConfirmPassword ? (
+                      <FaEyeSlash className="h-5 w-5" />
+                    ) : (
+                      <FaEye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+                {confirmErrors.confirmPassword &&
+                  confirmTouched.confirmPassword && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {confirmErrors.confirmPassword.message}
+                    </p>
+                  )}
+              </motion.div>
+
+              <motion.button
+                type="submit"
+                disabled={busyConfirming}
+                className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${
+                  busyConfirming
+                    ? "bg-blue-400 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                }`}
+                variants={inputVariants}
+                transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+                whileHover={!busyConfirming ? { scale: 1.02 } : {}}
+                whileTap={!busyConfirming ? { scale: 0.98 } : {}}
+              >
+                {busyConfirming ? (
+                  <span className="flex items-center gap-2">
+                    <Loading />
+                    <span>Saving...</span>
+                  </span>
+                ) : (
+                  "Update password & sign in"
+                )}
+              </motion.button>
+            </motion.form>
+          )}
+
+          {authStep === "signIn" ? (
+            <motion.div
+              className="mt-8 text-center"
+              variants={formVariants}
+              initial="hidden"
+              animate="visible"
+              transition={{ duration: 0.6, ease: "easeOut", delay: 0.6 }}
+            >
+              <motion.p
+                className="text-sm text-gray-600"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease: "easeOut", delay: 0.7 }}
+              >
+                Don't have an account?{" "}
                 <motion.a
                   href="#"
                   className="font-medium text-blue-600 hover:text-blue-500"
@@ -409,66 +1059,11 @@ const Login = () => {
                   whileTap={{ scale: 0.95 }}
                   transition={{ duration: 0.2 }}
                 >
-                  Forgot password?
+                  Contact administrator
                 </motion.a>
-              </div>
+              </motion.p>
             </motion.div>
-
-            {/* Submit Button */}
-            <motion.button
-              type="submit"
-              disabled={status === "submitting" || isPending}
-              className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${
-                status === "submitting" || isPending
-                  ? "bg-blue-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              }`}
-              variants={inputVariants}
-              transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
-              whileHover={
-                status !== "submitting" && !isPending ? { scale: 1.02 } : {}
-              }
-              whileTap={
-                status !== "submitting" && !isPending ? { scale: 0.98 } : {}
-              }
-            >
-              {status === "submitting" || isPending ? (
-                <span className="flex items-center gap-2">
-                  <Loading />
-                  <span>Signing in...</span>
-                </span>
-              ) : (
-                "Sign In"
-              )}
-            </motion.button>
-          </motion.form>
-
-          {/* Footer */}
-          <motion.div
-            className="mt-8 text-center"
-            variants={formVariants}
-            initial="hidden"
-            animate="visible"
-            transition={{ duration: 0.6, ease: "easeOut", delay: 0.6 }}
-          >
-            <motion.p
-              className="text-sm text-gray-600"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: "easeOut", delay: 0.7 }}
-            >
-              Don't have an account?{" "}
-              <motion.a
-                href="#"
-                className="font-medium text-blue-600 hover:text-blue-500"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-              >
-                Contact administrator
-              </motion.a>
-            </motion.p>
-          </motion.div>
+          ) : null}
         </div>
       </div>
     </div>

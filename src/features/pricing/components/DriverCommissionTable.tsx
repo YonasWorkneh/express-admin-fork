@@ -96,8 +96,9 @@ export default function DriverCommissionTable({
         Driver commission
       </h2>
       <p className="text-sm text-gray-500 mb-4">
-        Only one of cost per km, fixed cost, or percentage can be set per vehicle;
-        choosing a value clears the other two.
+        Base fee can be set together with commission. Only one of cost per km,
+        fixed cost, or percentage can be non-zero per vehicle; choosing a value
+        clears the other two.
       </p>
       <div className="border rounded-lg overflow-hidden">
         <Table className="border-separate border-spacing-0">
@@ -105,6 +106,9 @@ export default function DriverCommissionTable({
             <TableRow className="bg-gray-50">
               <TableHead className="text-gray-600 font-medium border border-gray-200 py-2 px-2">
                 Vehicle Category
+              </TableHead>
+              <TableHead className="text-gray-600 font-medium border border-gray-200 py-2 px-2">
+                Base fee
               </TableHead>
               <TableHead className="text-gray-600 font-medium border border-gray-200 py-2 px-2">
                 Cost per km
@@ -124,6 +128,28 @@ export default function DriverCommissionTable({
               <TableRow key={index} className="!h-8"> {/* Reduce row height */}
                 <TableCell className="font-medium capitalize border border-gray-200 py-1 px-2">
                   {commission.name}
+                </TableCell>
+                <TableCell className="border border-gray-200 py-1 px-2">
+                  <Field name={`${base}.baseFee`}>
+                    {({ field, form }: FieldProps) => (
+                      <Input
+                        type="number"
+                        step="0.01"
+                        name={field.name}
+                        placeholder="Base fee"
+                        value={field.value ?? ""}
+                        onBlur={field.onBlur}
+                        onChange={(e) => {
+                          const num = parseCommissionInput(e.target.value);
+                          form.setFieldValue(
+                            field.name,
+                            num === undefined ? undefined : num,
+                          );
+                        }}
+                        className="py-1 border-0 shadow-none focus-visible:outline-none focus-visible:ring-0 focus:outline-none focus:ring-0 h-7"
+                      />
+                    )}
+                  </Field>
                 </TableCell>
                 <TableCell className="border border-gray-200 py-1 px-2">
                   <Field name={`${base}.driverCost`}>

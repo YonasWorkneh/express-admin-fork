@@ -65,11 +65,11 @@ export type WeightBracketRow = {
   additional: number;
 };
 
-/** Band row for WEIGHT_RANGE (API: range[].perkg) */
+/** Band row for WEIGHT_RANGE (API: config.ranges[].perKg) */
 export type WeightPerKgBandRow = {
   min: number;
   max: number;
-  perkg: number;
+  perKg: number;
 };
 
 export type CategoryPricingValues = {
@@ -126,7 +126,7 @@ function emptyCategoryValues(): CategoryPricingValues {
     airportFee: 0,
     additionalCost: 0,
     brackets: [{ min: 0, max: 0, additional: 0 }],
-    weightBands: [{ min: 0, max: 0, perkg: 0 }],
+    weightBands: [{ min: 0, max: 0, perKg: 0 }],
     divisor: 1,
     ratePerKg: 0,
   };
@@ -233,16 +233,26 @@ function hydrateCategoryValuesFromRow(
     cv.ratePerKg =
       typeof config.ratePerKg === "number" ? config.ratePerKg : 0;
   } else if (type === "WEIGHT_RANGE") {
-    cv.basePrice =
-      typeof config.unitPrice === "number" ? config.unitPrice : 0;
-    const rawRange = config.range as
-      | Array<{ min?: number; max?: number; perkg?: number }>
+    const rawBands =
+      (config.ranges ?? config.range) as
+      | Array<{
+          min?: number;
+          max?: number;
+          perKg?: number;
+          /** legacy payloads */
+          perkg?: number;
+        }>
       | undefined;
-    if (rawRange?.length) {
-      cv.weightBands = rawRange.map((r) => ({
+    if (rawBands?.length) {
+      cv.weightBands = rawBands.map((r) => ({
         min: r.min ?? 0,
         max: r.max ?? 0,
-        perkg: typeof r.perkg === "number" ? r.perkg : 0,
+        perKg:
+          typeof r.perKg === "number"
+            ? r.perKg
+            : typeof r.perkg === "number"
+              ? r.perkg
+              : 0,
       }));
     }
   }
@@ -519,13 +529,13 @@ function validateCategoryValues(
   if (mode === "WEIGHT_RANGE") {
     const rows = cv.weightBands?.length
       ? cv.weightBands
-      : [{ min: 0, max: 0, perkg: 0 }];
+      : [{ min: 0, max: 0, perKg: 0 }];
     const bandErrs: FormikErrors<WeightPerKgBandRow>[] = [];
     rows.forEach((b, idx) => {
       const be: FormikErrors<WeightPerKgBandRow> = {};
       if (b.min < 0) be.min = "Must be ≥ 0";
       if (b.max < 0) be.max = "Must be ≥ 0";
-      if (b.perkg < 0) be.perkg = "Must be ≥ 0";
+      if (b.perKg < 0) be.perKg = "Must be ≥ 0";
       if (b.max < b.min && b.max !== 0 && b.min !== 0) {
         be.max = "Must be ≥ min";
       }
@@ -602,19 +612,57 @@ const FEES = (cv: CategoryPricingValues) => ({
   additionalCost: cv.additionalCost,
 });
 
-function buildCategoryPricingEntry(
-  cat: OrderItemCategory,
-  cv: CategoryPricingValues,
-  direction: CapitalFlowDirection,
-): {
+function numSafe(v: unknown): number {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const parsed = Number(v);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+/** Gross tariff amount minus airport fee and additional cost (per user rules). */
+function zonalProfitAfterFees(
+  gross: unknown,
+  airportFee: unknown,
+  additionalCost: unknown,
+): number {
+  return numSafe(gross) - numSafe(airportFee) - numSafe(additionalCost);
+}
+
+function formatEtbAmount(value: number): string {
+  if (!Number.isFinite(value)) return "—";
+  return new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+/** Omit UNIT_PRICE rows when unit price and both fee fields are all zero. */
+function hasSpecifiedZonalUnitPricing(cv: CategoryPricingValues): boolean {
+  return (
+    cv.basePrice !== 0 ||
+    cv.additionalCost !== 0 ||
+    cv.airportFee !== 0
+  );
+}
+
+type BuiltZonalCategoryPricingEntry = {
   categoryId: string;
   type: CategoryPricingMode;
   direction: CapitalFlowDirection;
   config: Record<string, unknown>;
-} {
+};
+
+function buildCategoryPricingEntry(
+  cat: OrderItemCategory,
+  cv: CategoryPricingValues,
+  direction: CapitalFlowDirection,
+): BuiltZonalCategoryPricingEntry | null {
   const mode = normalizeCategoryPricingMode(cv.pricingType);
 
   if (mode === "UNIT_PRICE") {
+    if (!hasSpecifiedZonalUnitPricing(cv)) return null;
     return {
       categoryId: cat.id,
       type: "UNIT_PRICE",
@@ -644,22 +692,21 @@ function buildCategoryPricingEntry(
   }
 
   if (mode === "WEIGHT_RANGE") {
-    const range = (cv.weightBands?.length
+    const ranges = (cv.weightBands?.length
       ? cv.weightBands
-      : [{ min: 0, max: 0, perkg: 0 }]
+      : [{ min: 0, max: 0, perKg: 0 }]
     ).map((b) => ({
       min: b.min,
       max: b.max,
-      perkg: b.perkg,
+      perKg: b.perKg,
     }));
     return {
       categoryId: cat.id,
       type: "WEIGHT_RANGE",
       direction,
       config: {
-        unitPrice: cv.basePrice,
         ...FEES(cv),
-        range,
+        ranges,
       },
     };
   }
@@ -687,19 +734,18 @@ function buildTariffPayloadForServiceType(
   serviceTypeId: string;
   name: string;
   remarkType: string;
-  categoryPricing: ReturnType<typeof buildCategoryPricingEntry>[];
+  categoryPricing: BuiltZonalCategoryPricingEntry[];
   startDate?: string;
   endDate?: string;
 } {
   const flows: CapitalFlowDirection[] = ["TO_CAPITAL", "FROM_CAPITAL"];
-  const categoryPricing: ReturnType<typeof buildCategoryPricingEntry>[] = [];
+  const categoryPricing: BuiltZonalCategoryPricingEntry[] = [];
   for (const cat of categories) {
     const byFlow = cfg.categories[cat.id];
     if (!byFlow) continue;
     for (const direction of flows) {
-      categoryPricing.push(
-        buildCategoryPricingEntry(cat, byFlow[direction], direction),
-      );
+      const row = buildCategoryPricingEntry(cat, byFlow[direction], direction);
+      if (row) categoryPricing.push(row);
     }
   }
 
@@ -714,7 +760,7 @@ function buildTariffPayloadForServiceType(
     serviceTypeId: string;
     name: string;
     remarkType: string;
-    categoryPricing: ReturnType<typeof buildCategoryPricingEntry>[];
+    categoryPricing: BuiltZonalCategoryPricingEntry[];
     startDate?: string;
     endDate?: string;
   } = {
@@ -1313,7 +1359,7 @@ function CategoryPricingPanel({
               const cur = values.weightBands;
               if (!cur?.length) {
                 setFieldValue(`${prefix}.weightBands`, [
-                  { min: 0, max: 0, perkg: 0 },
+                  { min: 0, max: 0, perKg: 0 },
                 ]);
               }
             }
@@ -1375,6 +1421,27 @@ function CategoryPricingPanel({
           {catErr?.basePrice && catTouch?.basePrice && (
             <p className="text-red-500 text-sm mt-1">{catErr.basePrice}</p>
           )}
+        </div>
+      )}
+
+      {mode === "UNIT_PRICE" && hasField(typeCfg, "basePrice") && (
+        <div className="rounded-md border border-emerald-100 bg-emerald-50/70 px-3 py-2.5">
+          <p className="text-xs font-medium text-emerald-900/90 uppercase tracking-wide mb-1">
+            Profit after fees
+          </p>
+          <p className="text-lg font-semibold tabular-nums text-emerald-950">
+            {formatEtbAmount(
+              zonalProfitAfterFees(
+                values.basePrice,
+                values.airportFee,
+                values.additionalCost,
+              ),
+            )}{" "}
+            <span className="text-sm font-normal text-emerald-800">ETB</span>
+          </p>
+          <p className="text-xs text-emerald-800/75 mt-0.5">
+            Unit price − airport fee − additional cost
+          </p>
         </div>
       )}
 
@@ -1455,6 +1522,24 @@ function CategoryPricingPanel({
                       </p>
                     )}
                 </div>
+              </div>
+              <div className="mt-2 rounded-md border border-emerald-100 bg-white/90 px-2.5 py-2 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-medium text-gray-600">
+                  Profit after fees{" "}
+                  <span className="text-[10px] font-normal text-gray-500 whitespace-nowrap">
+                    (add − airport − additional)
+                  </span>
+                </span>
+                <span className="text-sm font-semibold tabular-nums text-emerald-900">
+                  {formatEtbAmount(
+                    zonalProfitAfterFees(
+                      (values.brackets ?? [])[i]?.additional,
+                      values.airportFee,
+                      values.additionalCost,
+                    ),
+                  )}{" "}
+                  ETB
+                </span>
               </div>
             </div>
           ))}
@@ -1543,16 +1628,34 @@ function CategoryPricingPanel({
                     as={Input}
                     type="number"
                     step="0.01"
-                    name={`${prefix}.weightBands.${i}.perkg`}
+                    name={`${prefix}.weightBands.${i}.perKg`}
                     className="py-2 w-full"
                   />
-                  {bandFieldErrors?.[i]?.perkg &&
-                    bandFieldTouched?.[i]?.perkg && (
+                  {bandFieldErrors?.[i]?.perKg &&
+                    bandFieldTouched?.[i]?.perKg && (
                       <p className="text-red-500 text-sm mt-1">
-                        {bandFieldErrors[i]?.perkg}
+                        {bandFieldErrors[i]?.perKg}
                       </p>
                     )}
                 </div>
+              </div>
+              <div className="mt-2 rounded-md border border-emerald-100 bg-white/90 px-2.5 py-2 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-medium text-gray-600">
+                  Profit / kg after fees{" "}
+                  <span className="text-[10px] font-normal text-gray-500 whitespace-nowrap">
+                    (per kg − airport − additional)
+                  </span>
+                </span>
+                <span className="text-sm font-semibold tabular-nums text-emerald-900">
+                  {formatEtbAmount(
+                    zonalProfitAfterFees(
+                      (values.weightBands ?? [])[i]?.perKg,
+                      values.airportFee,
+                      values.additionalCost,
+                    ),
+                  )}{" "}
+                  ETB/kg
+                </span>
               </div>
             </div>
           ))}
@@ -1563,7 +1666,7 @@ function CategoryPricingPanel({
               onClick={() => {
                 setFieldValue(`${prefix}.weightBands`, [
                   ...(values.weightBands ?? []),
-                  { min: 0, max: 0, perkg: 0 },
+                  { min: 0, max: 0, perKg: 0 },
                 ]);
               }}
             >
@@ -1605,6 +1708,28 @@ function CategoryPricingPanel({
           />
           {catErr?.ratePerKg && catTouch?.ratePerKg && (
             <p className="text-red-500 text-sm mt-1">{catErr.ratePerKg}</p>
+          )}
+          {mode === "VOLUME_OVERRIDE" && (
+            <div className="mt-2 rounded-md border border-emerald-100 bg-emerald-50/70 px-3 py-2.5 max-w-md">
+              <p className="text-xs font-medium text-emerald-900/90 uppercase tracking-wide mb-1">
+                Profit / kg after fees
+              </p>
+              <p className="text-base font-semibold tabular-nums text-emerald-950">
+                {formatEtbAmount(
+                  zonalProfitAfterFees(
+                    values.ratePerKg,
+                    values.airportFee,
+                    values.additionalCost,
+                  ),
+                )}{" "}
+                <span className="text-sm font-normal text-emerald-800">
+                  ETB/kg
+                </span>
+              </p>
+              <p className="text-xs text-emerald-800/75 mt-0.5">
+                Rate per kg − airport fee − additional cost
+              </p>
+            </div>
           )}
         </div>
       )}

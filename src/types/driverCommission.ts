@@ -8,6 +8,7 @@ export type PricingServiceType = string;
 export interface DriverCommissionRow {
   category: string;
   name: string;
+  baseFee?: number;
   fixedCost?: number;
   driverCost?: number;
   percentage?: number;

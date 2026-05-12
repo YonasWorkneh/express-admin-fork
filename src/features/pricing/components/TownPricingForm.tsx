@@ -176,6 +176,15 @@ function normalizeTownCategoryMode(
   return TOWN_CATEGORY_MODES.includes(m) ? m : "UNIT_PRICE";
 }
 
+/** Omit UNIT_PRICE API rows when unit price, add-on fee, and margin are all left at zero. */
+function hasSpecifiedTownUnitPricing(cv: TownCategoryPricingValues): boolean {
+  return (
+    cv.basePrice !== 0 ||
+    cv.additionalCost !== 0 ||
+    cv.profitMargin !== 0
+  );
+}
+
 function hydrateOneTownTab(
   tab: TownServiceTabValues,
   t: Record<string, unknown>,
@@ -546,17 +555,20 @@ function validateValues(
 function buildTownCategoryPricingEntry(
   cat: OrderItemCategory,
   cv: TownCategoryPricingValues,
-): {
-  categoryId: string;
-  type: CategoryPricingMode;
-  direction: "NONE";
-  config: Record<string, unknown>;
-} {
+):
+  | {
+      categoryId: string;
+      type: CategoryPricingMode;
+      direction: "NONE";
+      config: Record<string, unknown>;
+    }
+  | null {
   const mode = normalizeTownCategoryMode(cv.pricingType);
   const fees = { additionalCost: cv.additionalCost };
   const margin = { profitMargin: cv.profitMargin };
 
   if (mode === "UNIT_PRICE") {
+    if (!hasSpecifiedTownUnitPricing(cv)) return null;
     return {
       categoryId: cat.id,
       type: "UNIT_PRICE",
@@ -624,6 +636,7 @@ function buildTownCategoryPricingEntry(
     };
   }
 
+  if (!hasSpecifiedTownUnitPricing(cv)) return null;
   return {
     categoryId: cat.id,
     type: "UNIT_PRICE",
@@ -641,26 +654,28 @@ function buildPayloadForServiceType(
   scope: "TOWN";
   remarkType: string;
   serviceTypeId: string;
-  categoryPricing: ReturnType<typeof buildTownCategoryPricingEntry>[];
+  categoryPricing: NonNullable<ReturnType<typeof buildTownCategoryPricingEntry>>[];
   startDate?: string;
   endDate?: string;
 } {
+  type TownPricingRow = NonNullable<ReturnType<typeof buildTownCategoryPricingEntry>>;
   const cfg = values.serviceConfigs[st.id];
   const shortName = cfg?.name?.trim() || st.name;
   const prefix = `${TARIFF_DISPLAY_NAME} - `;
   const name = shortName.startsWith(prefix)
     ? shortName
     : `${prefix}${shortName}`;
-  const categoryPricing = categories.map((cat) =>
-    buildTownCategoryPricingEntry(cat, cfg.categories[cat.id]),
-  );
+  const categoryPricing: TownPricingRow[] = categories.flatMap((cat) => {
+    const row = buildTownCategoryPricingEntry(cat, cfg.categories[cat.id]);
+    return row ? [row] : [];
+  });
 
   const payload: {
     name: string;
     scope: "TOWN";
     remarkType: string;
     serviceTypeId: string;
-    categoryPricing: ReturnType<typeof buildTownCategoryPricingEntry>[];
+    categoryPricing: TownPricingRow[];
     startDate?: string;
     endDate?: string;
   } = {

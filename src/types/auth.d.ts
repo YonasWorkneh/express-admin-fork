@@ -26,6 +26,8 @@ export interface Tokens {
   refreshToken: string;
 }
 
+export type LoginResultType = "AUTH_SUCCESS" | "PASSWORD_CHANGE_REQUIRED";
+
 export interface RegisterResponse {
   success: boolean;
   message: string;
@@ -36,7 +38,11 @@ export interface LoginResponse {
   success: boolean;
   message: string;
   data: {
+    type?: LoginResultType;
     user: User;
-    tokens: Tokens;
+    tokens: {
+      accessToken: string;
+      refreshToken: string;
+    };
   };
 }
