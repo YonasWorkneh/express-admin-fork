@@ -34,9 +34,9 @@ function statusBadgeClass(status: string) {
 }
 
 function ownershipLabel(type: string) {
-  const t = type.toUpperCase();
+  const t = type.toUpperCase().replace(/[\s-]+/g, "_");
   if (t === "EXTERNAL") return "External";
-  if (t === "INTERNAL" || t === "INHOUSE") return "In-house";
+  if (t === "INTERNAL" || t === "INHOUSE" || t === "IN_HOUSE") return "Internal";
   return type;
 }
 

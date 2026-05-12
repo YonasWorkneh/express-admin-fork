@@ -2,6 +2,8 @@ import {
   login,
   register,
   confirmMobileLoginPasswordChange,
+  staffVerifyEmail,
+  staffResendVerification,
 } from "@/lib/api/auth";
 import type { LoginResponse, RegisterResponse } from "@/types/auth";
 import { useMutation } from "@tanstack/react-query";
@@ -50,6 +52,27 @@ export const useConfirmMobileLoginPasswordChange = (
         code,
         newPassword,
       }),
+    onSuccess: (data) => onSuccess?.(data),
+    onError: (err) => onError?.(err),
+  });
+
+export const useStaffVerifyEmail = (
+  onSuccess?: (data: LoginResponse) => void,
+  onError?: (error: Error) => void,
+) =>
+  useMutation<LoginResponse, Error, { token: string; password: string }>({
+    mutationFn: ({ token, password }) =>
+      staffVerifyEmail({ token, password }),
+    onSuccess: (data) => onSuccess?.(data),
+    onError: (err) => onError?.(err),
+  });
+
+export const useStaffResendVerification = (
+  onSuccess?: (data: { message: string }) => void,
+  onError?: (error: Error) => void,
+) =>
+  useMutation<{ message: string }, Error, string>({
+    mutationFn: (email) => staffResendVerification(email),
     onSuccess: (data) => onSuccess?.(data),
     onError: (err) => onError?.(err),
   });

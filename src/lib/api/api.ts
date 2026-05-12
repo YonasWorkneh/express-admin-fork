@@ -82,6 +82,8 @@ const setup = (store: { dispatch: (action: unknown) => void }) => {
         originalConfig.url === "/auth/login" ||
         originalConfig.url === "/auth/login/mobile" ||
         originalConfig.url === "/auth/login/mobile/confirm-password-change" ||
+        originalConfig.url === "/staff/verify-email" ||
+        originalConfig.url === "/staff/resend-verification" ||
         originalConfig.url === "/auth/refresh"
       ) {
         return Promise.reject(error);

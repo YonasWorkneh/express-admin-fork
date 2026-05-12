@@ -20,6 +20,8 @@ import { useNavigate } from "react-router-dom";
 import {
   useLogin,
   useConfirmMobileLoginPasswordChange,
+  useStaffVerifyEmail,
+  useStaffResendVerification,
   type LoginMutationVariables,
 } from "@/hooks/useAuth";
 import type { LoginResponse } from "@/types/auth";
@@ -29,6 +31,7 @@ import { setCredentials } from "@/features/auth/authSlice";
 import {
   loginRequiresPasswordChange,
   loginHasAuthenticatedTokens,
+  normalizeLoginResponse,
 } from "@/lib/api/auth";
 import {
   PasswordChangeConfirmSchema,
@@ -54,6 +57,11 @@ function normalizeEthioMobileLocalInput(raw: string): string {
     }
   }
   return out;
+}
+
+/** Limits input to six characters — any characters allowed (paste-friendly). */
+function takeFirstSixChars(raw: string): string {
+  return raw.slice(0, 6);
 }
 
 const Login = () => {
@@ -150,8 +158,8 @@ const Login = () => {
       setMessage(
         data.message ||
           (identity.type === "phone"
-            ? "We sent a 6-digit code to your phone. Enter it below with your new password."
-            : "We sent a 6-digit code to your email. Enter it below with your new password."),
+            ? "We sent a verification code to your phone. Enter the 6 characters below with your new password."
+            : "We sent a verification code to your email. Enter the 6 characters below with your new password."),
       );
       toast.success(
         data.message ||
@@ -177,22 +185,29 @@ const Login = () => {
   };
 
   const onConfirmSuccess = (data: LoginResponse) => {
-    if (loginRequiresPasswordChange(data)) {
-      toast.error(
-        data.message ||
-          "Password change is still required. Check the code and try again.",
-      );
-      return;
-    }
-    if (loginHasAuthenticatedTokens(data)) {
+    const normalized = normalizeLoginResponse(data);
+
+    // Prefer completing sign-in when tokens exist (`/staff/verify-email` may use flat token fields).
+    if (loginHasAuthenticatedTokens(normalized)) {
       setAuthStep("signIn");
       setPendingPasswordIdentity(null);
-      completeSignIn(data);
+      completeSignIn(normalized);
       return;
     }
-    toast.error(data.message || "Could not finish sign-in.");
+
+    if (loginRequiresPasswordChange(normalized)) {
+      toast.error(
+        normalized.message ||
+          "Password change is still required. Check the code and try again.",
+      );
+      setStatus("error");
+      setMessage(normalized.message ?? null);
+      return;
+    }
+
+    toast.error(normalized.message || "Could not finish sign-in.");
     setStatus("error");
-    setMessage(data.message ?? null);
+    setMessage(normalized.message ?? null);
   };
 
   const onError = (error: Error) => {
@@ -205,6 +220,19 @@ const Login = () => {
 
   const { mutate: confirmPasswordChangeMutate, isPending: confirmPending } =
     useConfirmMobileLoginPasswordChange(onConfirmSuccess, onError);
+
+  const { mutate: verifyStaffEmailMutate, isPending: verifyStaffEmailPending } =
+    useStaffVerifyEmail(onConfirmSuccess, onError);
+
+  const { mutate: resendVerificationMutate, isPending: resendVerificationPending } =
+    useStaffResendVerification(
+      (res) => {
+        toast.success(res.message);
+      },
+      (err) => {
+        toast.error(err.message);
+      },
+    );
 
   const {
     register: registerCredentials,
@@ -221,6 +249,7 @@ const Login = () => {
   const {
     register: registerConfirm,
     handleSubmit: handleSubmitConfirm,
+    setValue: setConfirmFieldValue,
     formState: { errors: confirmErrors, touchedFields: confirmTouched },
     reset: resetConfirmForm,
   } = useForm<PasswordChangeConfirmValues>({
@@ -270,12 +299,17 @@ const Login = () => {
     }
     setStatus("submitting");
     setMessage(null);
+    if (pendingPasswordIdentity.type === "email") {
+      verifyStaffEmailMutate({
+        token: values.code.trim(),
+        password: values.newPassword,
+      });
+      return;
+    }
     confirmPasswordChangeMutate({
       code: values.code,
       newPassword: values.newPassword,
-      ...(pendingPasswordIdentity.type === "email"
-        ? { email: pendingPasswordIdentity.value }
-        : { phone: pendingPasswordIdentity.value }),
+      phone: pendingPasswordIdentity.value,
     });
   };
 
@@ -291,7 +325,20 @@ const Login = () => {
   const busySigningIn =
     authStep === "signIn" && (status === "submitting" || isPending);
   const busyConfirming =
-    authStep === "confirmEmail" && (status === "submitting" || confirmPending);
+    authStep === "confirmEmail" &&
+    (status === "submitting" || confirmPending || verifyStaffEmailPending);
+
+  const handleResendVerificationCode = () => {
+    if (pendingPasswordIdentity?.type !== "email") return;
+    const email = pendingPasswordIdentity.value.trim();
+    if (!email) {
+      toast.error("Missing email. Go back and sign in again.");
+      return;
+    }
+    resendVerificationMutate(email);
+  };
+
+  const verificationCodeRegister = registerConfirm("code");
 
   return (
     <div className="min-h-screen flex">
@@ -431,7 +478,7 @@ const Login = () => {
               transition={{ duration: 0.6, ease: "easeOut", delay: 0.3 }}
             >
               {authStep === "confirmEmail" && pendingPasswordIdentity
-                ? `Enter the 6-digit code sent to ${pendingPasswordIdentity.value} and choose your new password.`
+                ? `Enter the 6-character code sent to ${pendingPasswordIdentity.value} and choose your new password.`
                 : "Sign in to your account to continue"}
             </motion.p>
           </motion.div>
@@ -886,9 +933,7 @@ const Login = () => {
                   htmlFor="verification-code"
                   className="block text-sm font-medium text-gray-700 mb-2"
                 >
-                  {pendingPasswordIdentity?.type === "phone"
-                    ? "SMS verification code"
-                    : "Email verification code"}
+                  Verification code (6 characters)
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -897,11 +942,27 @@ const Login = () => {
                   <motion.input
                     id="verification-code"
                     type="text"
-                    inputMode="numeric"
                     autoComplete="one-time-code"
                     maxLength={6}
+                    aria-describedby="verification-code-hint"
                     placeholder="000000"
-                    {...registerConfirm("code")}
+                    {...verificationCodeRegister}
+                    onChange={(e) => {
+                      const next = takeFirstSixChars(e.target.value);
+                      e.target.value = next;
+                      verificationCodeRegister.onChange(e);
+                    }}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const text =
+                        e.clipboardData.getData("text/plain") || "";
+                      const next = takeFirstSixChars(text);
+                      setConfirmFieldValue("code", next, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                        shouldTouch: true,
+                      });
+                    }}
                     className={`w-full pl-10 pr-3 py-3 border rounded-lg tracking-[0.35em] font-mono text-center text-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
                       confirmErrors.code && confirmTouched.code
                         ? "border-red-500 focus:ring-red-500"
@@ -910,6 +971,27 @@ const Login = () => {
                     whileFocus={{ scale: 1.02 }}
                     transition={{ duration: 0.2 }}
                   />
+                </div>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p
+                    id="verification-code-hint"
+                    className="text-xs text-gray-500"
+                  >
+                    You can paste the code.
+                  </p>
+                  {pendingPasswordIdentity?.type === "email" && (
+                    <button
+                      type="button"
+                      onClick={handleResendVerificationCode}
+                      disabled={
+                        busyConfirming ||
+                        resendVerificationPending
+                      }
+                      className="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-left sm:text-right shrink-0"
+                    >
+                      {resendVerificationPending ? "Sending…" : "Resend code"}
+                    </button>
+                  )}
                 </div>
                 {confirmErrors.code && confirmTouched.code && (
                   <p className="mt-1 text-sm text-red-600">

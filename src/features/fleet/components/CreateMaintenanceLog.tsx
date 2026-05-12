@@ -57,7 +57,7 @@ const CreateMaintenanceLog = () => {
     try {
       setLoadingStaff(true);
 
-      const staffs = await api.get<FleetListResponse>(`/fleet?search=type:${"inhouse"}`);
+      const staffs = await api.get<FleetListResponse>(`/fleet?search=type:INTERNAL`);
       setSetFleet(staffs.data.data);
       setPagination(staffs.data.pagination);
       // toast.success(staffs.data.message);

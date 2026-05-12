@@ -58,7 +58,7 @@ export const login = async (
     );
   }
 
-  return data;
+  return normalizeLoginResponse(data as LoginResponse);
 };
 
 /** Alternate enum value some APIs return — treated like `PASSWORD_CHANGE_REQUIRED`. */
@@ -72,10 +72,48 @@ export function loginRequiresPasswordChange(res: LoginResponse): boolean {
   return PASSWORD_CHANGE_REQUIRED_ALIASES.has(t);
 }
 
+/** Tokens may appear on `data.tokens` or flat on `data` (camelCase / snake_case). */
+export function peekAuthTokens(res: LoginResponse): {
+  accessToken: string;
+  refreshToken: string;
+} | null {
+  const d = res?.data as Record<string, unknown> | undefined;
+  if (!d) return null;
+  const nested = d.tokens as Record<string, unknown> | undefined;
+  const access = String(
+    (typeof nested?.accessToken === "string" ? nested.accessToken : null) ??
+      (typeof d.accessToken === "string" ? d.accessToken : null) ??
+      (typeof d.access_token === "string" ? d.access_token : null) ??
+      "",
+  ).trim();
+  const refresh = String(
+    (typeof nested?.refreshToken === "string" ? nested.refreshToken : null) ??
+      (typeof d.refreshToken === "string" ? d.refreshToken : null) ??
+      (typeof d.refresh_token === "string" ? d.refresh_token : null) ??
+      "",
+  ).trim();
+  if (!access || !refresh) return null;
+  return { accessToken: access, refreshToken: refresh };
+}
+
 export function loginHasAuthenticatedTokens(res: LoginResponse): boolean {
-  const access = String(res.data?.tokens?.accessToken ?? "").trim();
-  const refresh = String(res.data?.tokens?.refreshToken ?? "").trim();
-  return access.length > 0 && refresh.length > 0;
+  return peekAuthTokens(res) !== null;
+}
+
+/** Ensure `data.tokens` is populated so callers can safely read `login` / verify responses. */
+export function normalizeLoginResponse(data: LoginResponse): LoginResponse {
+  const tokens = peekAuthTokens(data);
+  if (!tokens) return data;
+  return {
+    ...data,
+    data: {
+      ...data.data,
+      tokens: {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      },
+    },
+  };
 }
 
 /**
@@ -119,5 +157,66 @@ export async function confirmMobileLoginPasswordChange(args: {
     );
   }
 
-  return data as LoginResponse;
+  return normalizeLoginResponse(data as LoginResponse);
+}
+
+/** Resend email verification code for staff signup / password-change flow. */
+export async function staffResendVerification(
+  email: string,
+): Promise<{ message: string }> {
+  const response = await fetch(`${BASE_URL}/staff/resend-verification`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email: email.trim(),
+    }),
+  });
+
+  const data = (await response.json()) as {
+    success?: boolean;
+    message?: string;
+  };
+
+  if (!response.ok) {
+    throw new Error(data?.message || "Failed to resend verification email");
+  }
+  if (!data.success) {
+    throw new Error(
+      data?.message || "Could not resend verification. Try again later.",
+    );
+  }
+
+  return {
+    message: data.message?.trim() || "Verification code sent.",
+  };
+}
+
+/** Confirm staff email / set password via token from email (non–digit-safe token). */
+export async function staffVerifyEmail(args: {
+  token: string;
+  password: string;
+}): Promise<LoginResponse> {
+  const response = await fetch(`${BASE_URL}/staff/verify-email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      token: args.token.trim(),
+      password: args.password,
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.message || "Failed to verify email");
+  }
+  if (!data.success) {
+    throw new Error(data?.message || "Verification failed. Check the token and try again.");
+  }
+
+  return normalizeLoginResponse(data as LoginResponse);
 }

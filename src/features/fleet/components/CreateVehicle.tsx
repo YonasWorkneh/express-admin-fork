@@ -17,12 +17,37 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import api from "@/lib/api/api";
 
+/** Ownership sent to API as INTERNAL | EXTERNAL; accepts legacy casing from GET. */
+function normalizeFleetOwnershipType(
+  raw: unknown,
+): "" | "INTERNAL" | "EXTERNAL" {
+  const s = String(raw ?? "").trim();
+  if (!s) return "";
+  const upper = s.toUpperCase().replace(/[\s-]+/g, "_");
+  if (upper === "INTERNAL" || upper === "IN_HOUSE" || upper === "INHOUSE") {
+    return "INTERNAL";
+  }
+  if (upper === "EXTERNAL") {
+    return "EXTERNAL";
+  }
+  const lower = s.toLowerCase();
+  if (lower === "internal" || lower === "inhouse" || lower === "in-house") {
+    return "INTERNAL";
+  }
+  if (lower === "external") {
+    return "EXTERNAL";
+  }
+  return "";
+}
+
 // Updated validation schema to match backing field names and add ownership
 const VehicleValidationSchema = Yup.object().shape({
   plateNumber: Yup.string().required("Plate number is required"),
   vehicleTypeId: Yup.string().required("Vehicle type is required"),
   model: Yup.string().required("Model is required"),
-  type: Yup.string().required("Type is required"),
+  type: Yup.string()
+    .oneOf(["INTERNAL", "EXTERNAL"], "Select Internal or External")
+    .required("Type is required"),
   // brand: Yup.string().required("Brand is required"),
   // year: Yup.number()
   //   .min(1990, "Year must be 1990 or later")
@@ -112,9 +137,13 @@ const CreateVehicle = () => {
       setFleet(fleetDetail);
       setInitialValues({
         plateNumber: fleetDetail.plateNumber || "",
-        vehicleTypeId: fleetDetail.type || "", // Assumes type is the type name
+        vehicleTypeId: String(
+          fleetDetail.vehicleTypeId ??
+            fleetDetail.vehicleType?.id ??
+            "",
+        ),
         model: fleetDetail.model || "",
-        type: fleetDetail.type || "",
+        type: normalizeFleetOwnershipType(fleetDetail.type),
       });
     };
 
@@ -127,13 +156,10 @@ const CreateVehicle = () => {
       setStatus("submitting");
       setLoading(true);
 
-      // Compose the submitted values
+      const ownershipType = normalizeFleetOwnershipType(values.type);
       const payload = {
         ...values,
-        // If your backend needs type and vehicleTypeId to mean the same, you may adjust here.
-        // vehicleTypeId: values.vehicleTypeId, // field already in values
-        // Optionally, you may add an extra 'type' property if API expects it
-        // type: values.vehicleTypeId,
+        type: ownershipType,
       };
 
       let res;
@@ -285,8 +311,8 @@ const CreateVehicle = () => {
                       <SelectValue placeholder="Select Type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="In-house">In-house</SelectItem>
-                      <SelectItem value="External">External</SelectItem>
+                      <SelectItem value="INTERNAL">Internal</SelectItem>
+                      <SelectItem value="EXTERNAL">External</SelectItem>
                     </SelectContent>
                   </Select>
                   {errors.type && touched.type && (

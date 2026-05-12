@@ -275,6 +275,41 @@ interface OrderSummaryData {
   currency?: string;
 }
 
+/** Response shape from `POST /pricing/order/summary` (accept drop-off verify). */
+export interface PricingVehicleLine {
+  commission?: number;
+  imageUrl: string | null;
+  iconUrl?: string | null;
+  profit?: number;
+  sessionId: string;
+  totalPrice: number;
+  type?: string;
+  vat?: number;
+  vehicleName: string;
+  vehicleTypeId: string;
+}
+
+export interface PricingData {
+  baseFee: number;
+  distanceKm: number;
+  sessionId: string;
+  vehicles: PricingVehicleLine[];
+}
+
+export interface PricingResponse {
+  success: boolean;
+  message: string;
+  data: PricingData;
+}
+
+/** API may return `PricingData` and/or legacy `breakdown` / `currency` fields */
+type PricingSummaryApiData = Partial<PricingData> & {
+  breakdown?: OrderSummaryBreakdown;
+  currency?: string;
+  result?: { currency?: string };
+  vehicles?: unknown[];
+};
+
 /** Sender: either existing `customerId` or manual `name` + `email` + `phone` (validated in schema). */
 function applySenderToShipmentPayload(
   converted: ConvertedShipment,
@@ -476,9 +511,11 @@ export default function OrderForm() {
     createEmptyFormValues(),
   );
   const [loadingEditOrder, setLoadingEditOrder] = useState(false);
-  const [validatePhaseComplete, setValidatePhaseComplete] = useState(false);
-  const [validatingDropoff, setValidatingDropoff] = useState(false);
-  const [updatingFinalPrice, setUpdatingFinalPrice] = useState(false);
+  const [confirmingDropoffUpdate, setConfirmingDropoffUpdate] = useState(false);
+  /** Order `finalPrice` at load — shown as “previous price” vs pricing summary */
+  const [originalDropoffPrice, setOriginalDropoffPrice] = useState<number | null>(
+    null,
+  );
   const [orderSummary, setOrderSummary] = useState<OrderSummaryData | null>(
     null,
   );
@@ -571,7 +608,7 @@ export default function OrderForm() {
   useEffect(() => {
     if (!isDropoffAcceptEdit || !editOrderId) {
       setFormInitialValues(createEmptyFormValues());
-      setValidatePhaseComplete(false);
+      setOriginalDropoffPrice(null);
       return;
     }
     let cancelled = false;
@@ -582,8 +619,15 @@ export default function OrderForm() {
         if (cancelled) return;
         const mapped = mapOrderDetailToFormValues(order);
         setFormInitialValues(mapped);
-        setValidatePhaseComplete(false);
         setOrderSummary(null);
+        const fpRaw = order.finalPrice;
+        const fpNum =
+          typeof fpRaw === "number"
+            ? fpRaw
+            : fpRaw != null
+              ? Number(fpRaw)
+              : NaN;
+        setOriginalDropoffPrice(Number.isFinite(fpNum) ? fpNum : null);
         if (order.customer?.name) {
           setManagerSearch(order.customer.name);
         }
@@ -675,6 +719,11 @@ export default function OrderForm() {
         : [...(_values.vehicleTypeIds || [])],
     };
 
+    const branchIdTrimEstimate = String(_values.branchId ?? "").trim();
+    if (branchIdTrimEstimate) {
+      converted.branchId = branchIdTrimEstimate;
+    }
+
     if (_values.fulfillmentType === "PICKUP") {
       converted.pickupAddress = {
         lat: String(_values.pickupLatitude),
@@ -693,9 +742,7 @@ export default function OrderForm() {
       converted.destinationCity = _values.destinationCity;
     }
 
-    if (_values.fulfillmentType === "DROPOFF" && _values.branchId) {
-      converted.branchId = _values.branchId;
-    }
+   console.log("converted: ", converted);
 
     applySenderToShipmentPayload(converted, _values);
 
@@ -710,14 +757,27 @@ export default function OrderForm() {
       converted.length = _values?.length;
     }
     try {
-      const res = await api.post("/pricing/order/summary", converted);
-      console.log("res of create order: ", res.data);
-      toast.success(res.data?.message);
+      const res = await api.post<{ data?: PricingSummaryApiData; message?: string }>(
+        "/pricing/order/summary",
+        converted,
+      );
+      toast.success(res.data?.message?.trim() || "Pricing updated.");
       const payload = res.data?.data;
-      const breakdown =
+      let breakdown: OrderSummaryBreakdown | null =
         payload?.breakdown && typeof payload.breakdown === "object"
-          ? (payload.breakdown as OrderSummaryBreakdown)
+          ? payload.breakdown
           : null;
+      if (
+        !breakdown &&
+        payload &&
+        typeof payload === "object" &&
+        ("baseFee" in payload || "distanceKm" in payload)
+      ) {
+        breakdown = {};
+        if (typeof payload.baseFee === "number") breakdown.basePrice = payload.baseFee;
+        if (typeof payload.distanceKm === "number")
+          breakdown.distance = payload.distanceKm;
+      }
       const vehiclesRaw = payload?.vehicles;
       const vehicles: OrderSummaryVehicle[] = Array.isArray(vehiclesRaw)
         ? vehiclesRaw
@@ -843,8 +903,10 @@ export default function OrderForm() {
       converted.destinationCity = _values.destinationCity;
     }
 
-    if (_values.fulfillmentType === "DROPOFF" && _values.branchId) {
-      converted.branchId = _values.branchId;
+    const branchIdTrimSubmit = String(_values.branchId ?? "").trim();
+    console.log("branchIdTrimSubmit: ", branchIdTrimSubmit);
+    if (branchIdTrimSubmit) {
+      converted.branchId = branchIdTrimSubmit;
     }
 
     applySenderToShipmentPayload(converted, _values);
@@ -949,54 +1011,46 @@ export default function OrderForm() {
     setShowBranchDropdown(false);
   };
 
-  const handleDropoffValidateUpdate = async (
+  const handleDropoffConfirmUpdate = async (
     values: Record<string, unknown>,
   ) => {
-    const vid = Array.isArray(values.vehicleTypeIds)
-      ? String(values.vehicleTypeIds[0] ?? "").trim()
-      : "";
-    if (!vid) {
-      toast.error("Select exactly one vehicle type.");
+    const vehicleTypeId = String(
+      values.selectedVehicleTypeId ??
+        (Array.isArray(values.vehicleTypeIds)
+          ? values.vehicleTypeIds[0]
+          : "") ??
+        "",
+    ).trim();
+    if (!vehicleTypeId) {
+      toast.error("Select a vehicle option from the pricing summary.");
+      return;
+    }
+    const sessionId = String(values.sessionId ?? "").trim();
+    if (!sessionId) {
+      toast.error("Pricing session is missing. Run verify again.");
+      return;
+    }
+    const finalPrice = Number(values.finalPrice);
+    if (!Number.isFinite(finalPrice) || finalPrice < 0) {
+      toast.error("Enter a valid final price.");
       return;
     }
     try {
-      setValidatingDropoff(true);
-      await api.patch(`/order/validate/${editOrderId}`, {
+      setConfirmingDropoffUpdate(true);
+      const res = await api.patch(`/order/validate/${editOrderId}`, {
         weight: values.weight,
         isFragile: values.isFragile,
         isUnusual: values.isUnusual,
         unusualReason: values.unusualReason ?? "",
         validatedNotes: String(values.validatedNotes ?? ""),
-        vehicleTypeId: vid,
+        vehicleTypeId,
+        sessionId,
+        finalPrice,
       });
-      toast.success("Order updated.");
-      setValidatePhaseComplete(true);
-      setOrderSummary(null);
-    } catch (error: unknown) {
-      const msg =
-        error &&
-        typeof error === "object" &&
-        "response" in error &&
-        (error as { response?: { data?: { message?: string } } }).response?.data
-          ?.message;
-      toast.error(
-        typeof msg === "string" && msg.trim() ? msg : "Update failed.",
+      toast.success(
+        (res.data as { message?: string } | undefined)?.message?.trim() ||
+          "Order verified successfully.",
       );
-    } finally {
-      setValidatingDropoff(false);
-    }
-  };
-
-  const handleUpdateFinalPrice = async (values: Record<string, unknown>) => {
-    const price = Number(values.finalPrice);
-    if (!Number.isFinite(price) || price < 0) {
-      toast.error("Enter a valid final price.");
-      return;
-    }
-    try {
-      setUpdatingFinalPrice(true);
-      await api.patch(`/order/${editOrderId}`, { finalPrice: price });
-      toast.success("Price updated.");
       navigate("/order");
     } catch (error: unknown) {
       const msg =
@@ -1006,10 +1060,10 @@ export default function OrderForm() {
         (error as { response?: { data?: { message?: string } } }).response?.data
           ?.message;
       toast.error(
-        typeof msg === "string" && msg.trim() ? msg : "Could not update price.",
+        typeof msg === "string" && msg.trim() ? msg : "Could not confirm update.",
       );
     } finally {
-      setUpdatingFinalPrice(false);
+      setConfirmingDropoffUpdate(false);
     }
   };
 
@@ -1345,10 +1399,6 @@ export default function OrderForm() {
                   value={values.fulfillmentType}
                   onValueChange={(val) => {
                     setFieldValue("fulfillmentType", val);
-                    if (val !== "DROPOFF") {
-                      setFieldValue("branchId", "");
-                      setBranchSearch("");
-                    }
                     if (val === "DROPOFF") {
                       clearPickupFields(setFieldValue);
                     }
@@ -1414,8 +1464,7 @@ export default function OrderForm() {
                 </Label>
               </div>
 
-              {/* Branch Selection (only for DROPOFF) */}
-
+              {/* Branch — sent on estimate & create whenever selected (PICKUP or DROPOFF) */}
               <div className="relative space-y-3">
                 <Label className="mb-2">Branch *</Label>
                 <p className="text-sm text-gray-600">
@@ -1801,65 +1850,29 @@ export default function OrderForm() {
                 </div>
               )}
 
-              {isDropoffAcceptEdit && !validatePhaseComplete && (
-                <div className="space-y-4 border-t border-gray-200 pt-4">
-                  <div>
-                    <Label className="mb-1">Validation notes</Label>
-                    <Field
-                      as={Textarea}
-                      name="validatedNotes"
-                      placeholder="Notes for validation"
-                      className="min-h-[100px] py-3"
-                    />
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-3 w-full">
-                    <Button
-                      type="button"
-                      disabled={validatingDropoff}
-                      onClick={() => navigate("/order")}
-                      className="flex-1 min-h-[48px] bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      className="flex-1 min-h-[48px] flex flex-row justify-center items-center cursor-pointer bg-blue-600 hover:bg-blue-700"
-                      disabled={validatingDropoff}
-                      onClick={() => handleDropoffValidateUpdate(values)}
-                    >
-                      {validatingDropoff ? (
-                        <Spinner className="h-6 w-6 text-center text-white mr-2" />
-                      ) : null}
-                      Update order
-                    </Button>
-                  </div>
+              {isDropoffAcceptEdit && !orderSummary && (
+                <div className="flex flex-col sm:flex-row gap-3 w-full border-t border-gray-200 pt-4">
+                  <Button
+                    type="button"
+                    disabled={priceLoading}
+                    onClick={() => navigate("/order")}
+                    className="flex-1 min-h-[48px] bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    className="flex-1 min-h-[48px] flex flex-row justify-center items-center cursor-pointer bg-blue-600 hover:bg-blue-700"
+                    disabled={priceLoading}
+                    onClick={() => onEstimate(values, setFieldValue)}
+                  >
+                    {priceLoading ? (
+                      <Spinner className="h-6 w-6 text-center text-white mr-2" />
+                    ) : null}
+                    Verify order
+                  </Button>
                 </div>
               )}
-
-              {isDropoffAcceptEdit &&
-                validatePhaseComplete &&
-                !orderSummary && (
-                  <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-gray-200 w-full">
-                    <Button
-                      type="button"
-                      onClick={() => navigate("/order")}
-                      className="flex-1 min-h-[48px] bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      className="flex-1 min-h-[48px] flex flex-row justify-center items-center cursor-pointer bg-blue-600 hover:bg-blue-700"
-                      onClick={() => onEstimate(values, setFieldValue)}
-                    >
-                      {priceLoading ? (
-                        <Spinner className="h-6 w-6 text-center text-white mr-2" />
-                      ) : (
-                        "Generate estimate"
-                      )}
-                    </Button>
-                  </div>
-                )}
 
               {!isDropoffAcceptEdit && (
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -2030,6 +2043,53 @@ export default function OrderForm() {
 
               {orderSummary && isDropoffAcceptEdit && (
                 <div className="space-y-4 pt-2 border-t border-gray-200">
+                  <div>
+                    <Label className="mb-1">Validation notes</Label>
+                    <Field
+                      as={Textarea}
+                      name="validatedNotes"
+                      placeholder="Notes for validation"
+                      className="min-h-[100px] py-3"
+                    />
+                  </div>
+
+                  <div className="rounded-lg border border-gray-200 bg-white p-4">
+                    <h3 className="text-sm font-semibold text-gray-800 mb-3">
+                      Price comparison
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="rounded-md bg-gray-50 p-4 text-center sm:text-left">
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                          Previous price
+                        </p>
+                        <p className="mt-1 text-lg font-semibold text-gray-900">
+                          {formatOrderMoney(
+                            originalDropoffPrice ?? undefined,
+                            orderSummary.currency,
+                          )}
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-blue-50 p-4 text-center sm:text-left">
+                        <p className="text-xs font-medium text-blue-800 uppercase tracking-wide">
+                          New price
+                        </p>
+                        <p className="mt-1 text-lg font-semibold text-blue-900">
+                          {formatOrderMoney(
+                            (() => {
+                              const fp = Number(values.finalPrice);
+                              if (Number.isFinite(fp) && fp >= 0) return fp;
+                              if (orderSummary.vehicles.length === 1) {
+                                return orderSummary.vehicles[0].totalPrice;
+                              }
+                              return undefined;
+                            })(),
+                            orderSummary.currency,
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   {orderSummary.vehicles.length > 1 && (
                     <div>
                       <h3 className="text-sm font-semibold text-gray-800 mb-2">
@@ -2092,7 +2152,7 @@ export default function OrderForm() {
                       className="py-7"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Adjust if needed before saving. Currency:{" "}
+                      Confirmed amount sent on update. Currency:{" "}
                       {orderSummary.currency ?? "—"}
                     </p>
                   </div>
@@ -2100,7 +2160,7 @@ export default function OrderForm() {
                   <div className="flex flex-col sm:flex-row gap-3 pt-2 w-full">
                     <Button
                       type="button"
-                      disabled={updatingFinalPrice}
+                      disabled={confirmingDropoffUpdate}
                       onClick={() => navigate("/order")}
                       className="flex-1 min-h-[48px] bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300"
                     >
@@ -2108,14 +2168,14 @@ export default function OrderForm() {
                     </Button>
                     <Button
                       type="button"
-                      disabled={updatingFinalPrice}
+                      disabled={confirmingDropoffUpdate}
                       className="flex-1 min-h-[48px] flex flex-row justify-center items-center cursor-pointer bg-blue-600 hover:bg-blue-700"
-                      onClick={() => handleUpdateFinalPrice(values)}
+                      onClick={() => handleDropoffConfirmUpdate(values)}
                     >
-                      {updatingFinalPrice ? (
+                      {confirmingDropoffUpdate ? (
                         <Spinner className="h-6 w-6 text-white mr-2" />
                       ) : null}
-                      Update price
+                      Confirm Update
                     </Button>
                   </div>
                 </div>

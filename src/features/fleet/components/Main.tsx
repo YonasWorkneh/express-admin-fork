@@ -44,6 +44,24 @@ import { exportToExcel } from "@/utils/exportToExcel";
 import { cn } from "@/lib/utils";
 import FleetTypesList from "./FleetTypesList";
 
+function isInternalFleetOwnership(t: unknown): boolean {
+  const s = String(t ?? "").trim();
+  const u = s.toUpperCase().replace(/[\s-]+/g, "_");
+  return (
+    u === "INTERNAL" ||
+    u === "INHOUSE" ||
+    u === "IN_HOUSE" ||
+    s.toLowerCase() === "inhouse" ||
+    s.toLowerCase() === "internal" ||
+    s.toLowerCase() === "in-house"
+  );
+}
+
+function isExternalFleetOwnership(t: unknown): boolean {
+  const s = String(t ?? "").trim();
+  return s.toUpperCase() === "EXTERNAL" || s.toLowerCase() === "external";
+}
+
 
 export interface FleetDashboardStats {
   totalVehicles: number;
@@ -164,7 +182,7 @@ console.log(staffs.data)
         {
           label: "Total Vehicles",
           value: `${summary.totalVehicles}`,
-          sublabel: `${summary.inHouse} In-house, ${summary.external} External`,
+          sublabel: `${summary.inHouse} Internal, ${summary.external} External`,
           icon: <IoCarSport className="h-5 w-5" />,
           color: "blue",
         },
@@ -456,8 +474,8 @@ console.log(staffs.data)
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Ownership</SelectItem>
-                  <SelectItem value="In-house">In-house</SelectItem>
-                  <SelectItem value="External">External</SelectItem>
+                  <SelectItem value="INTERNAL">Internal</SelectItem>
+                  <SelectItem value="EXTERNAL">External</SelectItem>
                 </SelectContent>
               </Select> */}
             </div>
@@ -553,16 +571,16 @@ console.log(staffs.data)
                       <TableCell>
                         <Badge
                           className={
-                            vehicle?.type === "inhouse"
+                            isInternalFleetOwnership(vehicle?.type)
                               ? "bg-green-100 text-green-700"
-                              : vehicle?.type === "external"
+                              : isExternalFleetOwnership(vehicle?.type)
                                 ? "bg-blue-100 text-blue-700"
                                 : "bg-gray-100 text-gray-500"
                           }
                         >
-                          {vehicle?.type === "inhouse"
-                            ? "In-house"
-                            : vehicle?.type === "external"
+                          {isInternalFleetOwnership(vehicle?.type)
+                            ? "Internal"
+                            : isExternalFleetOwnership(vehicle?.type)
                               ? "External"
                               : "-"}
                         </Badge>
