@@ -460,6 +460,7 @@ export interface Order {
   batchId: string | null;
   finalPrice: number;
   currency: string;
+  vehicleTypeId?: string | null;
   customer: Customer;
   receiver: Receiver;
   branch: any | null;

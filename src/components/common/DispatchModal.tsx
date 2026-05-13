@@ -22,7 +22,11 @@ import {
 import type { Order } from "@/types/types";
 import api from "@/lib/api/api";
 import toast from "react-hot-toast";
-
+import {
+  fetchFleetVehicleTypeById,
+  type FleetVehicleTypeListItem,
+} from "@/lib/api/fleet";
+import { Spinner } from "@/utils/spinner";
 
 interface DispatchModalProps {
   isOpen: boolean;
@@ -55,6 +59,15 @@ const toDisplayText = (value: unknown, fallback = "-"): string => {
   return fallback;
 };
 
+const getOrderVehicleTypeId = (order: Order): string => {
+  const extended = order as Order & {
+    vehicleType?: { id?: string | null } | null;
+  };
+  return String(
+    extended.vehicleTypeId ?? extended.vehicleType?.id ?? "",
+  ).trim();
+};
+
 const getStatusColor = (status: string) => {
   switch (status) {
     case "Available":
@@ -68,19 +81,17 @@ const getStatusColor = (status: string) => {
   }
 };
 
-function DispatchModal({
-  isOpen,
-  onClose,
-  order,
-}: DispatchModalProps) {
+function DispatchModal({ isOpen, onClose, order }: DispatchModalProps) {
   const [selectedDriver, setSelectedDriver] = useState<any>(null);
-  const [selectedExternalDrivers, setSelectedExternalDrivers] = useState<any[]>([]);
+  const [selectedExternalDrivers, setSelectedExternalDrivers] = useState<any[]>(
+    [],
+  );
   const [dispatchNotes, setDispatchNotes] = useState("");
   const [activeTab, setActiveTab] = useState("internal");
   const [loading, setLoading] = useState(false);
   // const [showDriverDropdown, setShowDriverDropdown] = useState(false);
   const [loadingDriver, setLoadingDriver] = useState(false);
-  const [driver, setDriver] = useState<any[]>( [
+  const [driver, setDriver] = useState<any[]>([
     // {
     //   "driverId": "cmhx9ab12000kjn89xyz88pq1",
     //   "userId": "cmhx9ab0d0009jn89lkc672aa",
@@ -199,6 +210,11 @@ function DispatchModal({
     //   }
     // }
   ]);
+  const [vehicleType, setVehicleType] = useState<FleetVehicleTypeListItem | null>(
+    null,
+  );
+  const [loadingVehicleType, setLoadingVehicleType] = useState(false);
+  const orderVehicleTypeId = getOrderVehicleTypeId(order);
   // Reset selections when switching tabs
   useEffect(() => {
     console.log("[DispatchModal] mounted/open state", {
@@ -210,6 +226,34 @@ function DispatchModal({
       serviceTypeRaw: order?.serviceType,
     });
   }, [isOpen, order]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setVehicleType(null);
+      setLoadingVehicleType(false);
+      return;
+    }
+    if (!orderVehicleTypeId) {
+      setVehicleType(null);
+      setLoadingVehicleType(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingVehicleType(true);
+        const vt = await fetchFleetVehicleTypeById(orderVehicleTypeId);
+        if (!cancelled) setVehicleType(vt);
+      } catch {
+        if (!cancelled) setVehicleType(null);
+      } finally {
+        if (!cancelled) setLoadingVehicleType(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, orderVehicleTypeId]);
 
   useEffect(() => {
     if (activeTab === "internal") {
@@ -231,11 +275,13 @@ function DispatchModal({
     }
 
     setLoading(true);
-    
+
     try {
       if (activeTab === "external") {
         // For external drivers: create request with multiple driverIds
-        const driverIds = selectedExternalDrivers.map((driver) => driver.driverId);
+        const driverIds = selectedExternalDrivers.map(
+          (driver) => driver.driverId,
+        );
         const payload = {
           orderId: order?.id,
           driverIds: driverIds,
@@ -243,9 +289,11 @@ function DispatchModal({
         console.log("[DispatchModal] external dispatch payload", payload);
 
         const res = await api.post<any>("/dispatch/driver/requests", payload);
-        
-        toast.success(res.data.message || "Driver request created successfully");
-        
+
+        toast.success(
+          res.data.message || "Driver request created successfully",
+        );
+
         // Reset form
         setSelectedExternalDrivers([]);
         setDispatchNotes("");
@@ -262,9 +310,9 @@ function DispatchModal({
         });
 
         const res = await api.post<any>("/dispatch/assign-pickup", payload);
-        
+
         toast.success(res.data.message || "Order dispatched successfully");
-        
+
         // Optionally handle pagination if needed in the future
         // Reset form
         setSelectedDriver(null);
@@ -300,7 +348,9 @@ function DispatchModal({
 
   const fetchInternalDriver = useCallback(async () => {
     if (!order?.id) {
-      console.warn("[DispatchModal] fetchInternalDriver skipped: missing order id");
+      console.warn(
+        "[DispatchModal] fetchInternalDriver skipped: missing order id",
+      );
       return;
     }
     try {
@@ -331,12 +381,18 @@ function DispatchModal({
   }, [order?.id]);
 
   const fetchExternalDriver = useCallback(async () => {
+    console.log("[DispatchModal] order", order);
     if (!order?.id) {
-      console.warn("[DispatchModal] fetchExternalDriver skipped: missing order id");
+      console.warn(
+        "[DispatchModal] fetchExternalDriver skipped: missing order id",
+      );
       return;
     }
-    const pickupLat = Number(order?.pickupAddress?.lat);
-    const pickupLon = Number(order?.pickupAddress?.long);
+    const pickupLat =
+      Number(order?.pickupAddress?.lat) || Number(order?.deliveryAddress?.lat);
+    const pickupLon =
+      Number(order?.pickupAddress?.long) ||
+      Number(order?.deliveryAddress?.long);
     if (!Number.isFinite(pickupLat) || !Number.isFinite(pickupLon)) {
       console.warn(
         "[DispatchModal] fetchExternalDriver skipped: invalid pickup coordinates",
@@ -375,11 +431,7 @@ function DispatchModal({
     } finally {
       setLoadingExternalDriver(false);
     }
-  }, [
-    order?.id,
-    order?.pickupAddress?.lat,
-    order?.pickupAddress?.long,
-  ]);
+  }, [order?.id, order?.pickupAddress?.lat, order?.pickupAddress?.long]);
 
   /** Refetch whenever the modal is open and the active tab expects a different driver list */
   useEffect(() => {
@@ -395,8 +447,6 @@ function DispatchModal({
       void fetchExternalDriver();
     }
   }, [isOpen, activeTab, order?.id, fetchExternalDriver]);
-
-  
 
   if (!isOpen) return null;
 
@@ -439,6 +489,20 @@ function DispatchModal({
               <div>
                 <Label className="text-gray-600">Customer</Label>
                 <p className="font-medium">{order?.customer?.name}</p>
+              </div>
+              <div>
+                <Label className="text-gray-600">Vehicle type</Label>
+                <p className="font-medium">
+                  {loadingVehicleType ? (
+                    <span className="inline-flex items-center gap-2 text-gray-500">
+                      <Spinner className="h-4 w-4 text-blue-600" />
+                      Loading…
+                    </span>
+                  ) : (
+                    vehicleType?.name ??
+                    (orderVehicleTypeId ? "—" : "Not assigned")
+                  )}
+                </p>
               </div>
               <div className="md:col-span-2">
                 <Label className="text-gray-600">Delivery Address</Label>
@@ -485,7 +549,9 @@ function DispatchModal({
                 {loadingDriver ? (
                   <div className="flex justify-center items-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    <span className="ml-2 text-gray-600">Loading drivers...</span>
+                    <span className="ml-2 text-gray-600">
+                      Loading drivers...
+                    </span>
                   </div>
                 ) : driver.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
@@ -494,57 +560,61 @@ function DispatchModal({
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {driver.map((driver) => (
-                    <Card
-                      key={driver.driverId ?? driver.userId ?? driver?.user?.id}
-                      className={`cursor-pointer transition-all ${
-                        selectedDriver?.driverId === driver.driverId
-                          ? "ring-2 ring-blue-500 bg-blue-50"
-                          : "hover:bg-gray-50"
-                      }`}
-                      onClick={() => setSelectedDriver(driver)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                              <IoPerson className="h-5 w-5 text-blue-600" />
+                      <Card
+                        key={
+                          driver.driverId ?? driver.userId ?? driver?.user?.id
+                        }
+                        className={`cursor-pointer transition-all ${
+                          selectedDriver?.driverId === driver.driverId
+                            ? "ring-2 ring-blue-500 bg-blue-50"
+                            : "hover:bg-gray-50"
+                        }`}
+                        onClick={() => setSelectedDriver(driver)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <IoPerson className="h-5 w-5 text-blue-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium">
+                                  {driver?.user?.name}
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  ★ {driver.rank} • {driver.user.phone}
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="font-medium">{driver?.user?.name}</p>
-                              <p className="text-sm text-gray-500">
-                                ★ {driver.rank} • {driver.user.phone}
-                              </p>
+                            <Badge className={getStatusColor(driver.status)}>
+                              {"Available"}
+                            </Badge>
+                          </div>
+
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center gap-2">
+                              <IoPodium className="h-4 w-4 text-gray-400" />
+                              <span>{driver.score}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <IoLocation className="h-4 w-4 text-gray-400" />
+                              <span>{driver.distanceKm} KM</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <IoTime className="h-4 w-4 text-gray-400" />
+                              <span>
+                                Last update:{" "}
+                                {new Date(driver.lastUpdated).toLocaleString()}
+                              </span>
                             </div>
                           </div>
-                          <Badge className={getStatusColor(driver.status)}>
-                            {"Available"}
-                          </Badge>
-                        </div>
 
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-center gap-2">
-                            <IoPodium className="h-4 w-4 text-gray-400" />
-                            <span>{driver.score}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <IoLocation className="h-4 w-4 text-gray-400" />
-                            <span>{driver.distanceKm} KM</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <IoTime className="h-4 w-4 text-gray-400" />
-                            <span>Last update: {new Date(driver.lastUpdated).toLocaleString()}</span>
-                          </div>
-                        </div>
-                        
-
-                        <div className="mt-3">
-                          <div className="flex items-center gap-4 text-sm mb-1">
-                            <span>Active Orders: </span>
-                            <span>
-                              {driver.activeOrders}
-                            </span>
-                          </div>
-                          {/* <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="mt-3">
+                            <div className="flex items-center gap-4 text-sm mb-1">
+                              <span>Active Orders: </span>
+                              <span>{driver.activeOrders}</span>
+                            </div>
+                            {/* <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
                               className="bg-blue-600 h-2 rounded-full"
                               style={{
@@ -554,18 +624,18 @@ function DispatchModal({
                               }}
                             ></div>
                           </div> */}
-                        </div>
-
-                        {selectedDriver?.driverId === driver.driverId && (
-                          <div className="mt-3 flex items-center gap-2 text-blue-600">
-                            <IoCheckmarkCircle className="h-4 w-4" />
-                            <span className="text-sm font-medium">
-                              Selected
-                            </span>
                           </div>
-                        )}
-                      </CardContent>
-                    </Card>
+
+                          {selectedDriver?.driverId === driver.driverId && (
+                            <div className="mt-3 flex items-center gap-2 text-blue-600">
+                              <IoCheckmarkCircle className="h-4 w-4" />
+                              <span className="text-sm font-medium">
+                                Selected
+                              </span>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 )}
@@ -581,7 +651,9 @@ function DispatchModal({
                 {loadingExternalDriver ? (
                   <div className="flex justify-center items-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    <span className="ml-2 text-gray-600">Loading drivers...</span>
+                    <span className="ml-2 text-gray-600">
+                      Loading drivers...
+                    </span>
                   </div>
                 ) : externalDriver.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
@@ -591,7 +663,7 @@ function DispatchModal({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {externalDriver.map((driver) => {
                       const isSelected = selectedExternalDrivers.some(
-                        (d) => d.driverId === driver.driverId
+                        (d) => d.driverId === driver.driverId,
                       );
                       return (
                         <Card
@@ -604,57 +676,64 @@ function DispatchModal({
                           onClick={() => {
                             if (isSelected) {
                               setSelectedExternalDrivers((prev) =>
-                                prev.filter((d) => d.driverId !== driver.driverId)
+                                prev.filter(
+                                  (d) => d.driverId !== driver.driverId,
+                                ),
                               );
                             } else {
-                              setSelectedExternalDrivers((prev) => [...prev, driver]);
+                              setSelectedExternalDrivers((prev) => [
+                                ...prev,
+                                driver,
+                              ]);
                             }
                           }}
                         >
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                              <IoPerson className="h-5 w-5 text-green-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{driver?.user?.name}</p>
-                              <p className="text-sm text-gray-500">
-                                {driver.distanceKm} Km
-                              </p>
-                              {/* <p className="text-sm text-gray-500">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                  <IoPerson className="h-5 w-5 text-green-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">
+                                    {driver?.user?.name}
+                                  </p>
+                                  <p className="text-sm text-gray-500">
+                                    {driver.distanceKm} Km
+                                  </p>
+                                  {/* <p className="text-sm text-gray-500">
                                 ★ {driver.rating}
                               </p> */}
+                                </div>
+                              </div>
+                              <Badge className="bg-green-100 text-green-700">
+                                {"Available"}
+                              </Badge>
                             </div>
-                          </div>
-                          <Badge className="bg-green-100 text-green-700">
-                            {"Available"}
-                          </Badge>
-                        </div>
 
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-center gap-2">
-                            <IoPhonePortraitOutline className="h-4 w-4 text-gray-400" />
-                            <span>{driver?.user?.phone}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <IoMail className="h-4 w-4 text-gray-400" />
-                            <span>{driver?.user?.email}</span>
-                          </div>
-                        </div>
-
-                        <div className="mt-3">
-                          {isSelected && (
-                            <div className="flex items-center gap-2 text-blue-600">
-                              <IoCheckmarkCircle className="h-4 w-4" />
-                              <span className="text-sm font-medium">
-                                Selected
-                              </span>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex items-center gap-2">
+                                <IoPhonePortraitOutline className="h-4 w-4 text-gray-400" />
+                                <span>{driver?.user?.phone}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <IoMail className="h-4 w-4 text-gray-400" />
+                                <span>{driver?.user?.email}</span>
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
+
+                            <div className="mt-3">
+                              {isSelected && (
+                                <div className="flex items-center gap-2 text-blue-600">
+                                  <IoCheckmarkCircle className="h-4 w-4" />
+                                  <span className="text-sm font-medium">
+                                    Selected
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
                       );
                     })}
                   </div>
@@ -680,7 +759,8 @@ function DispatchModal({
               onClick={handleDispatch}
               disabled={
                 (activeTab === "internal" && !selectedDriver) ||
-                (activeTab === "external" && selectedExternalDrivers.length === 0) ||
+                (activeTab === "external" &&
+                  selectedExternalDrivers.length === 0) ||
                 loading
               }
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"

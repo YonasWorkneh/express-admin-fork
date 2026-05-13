@@ -54,13 +54,14 @@ export interface OrderDetailApi {
   vehicleTypeId?: string | null;
   unusualReason?: string | null;
   validatedNotes?: string | null;
-  branch?: { id: string; name?: string } | null;
+  branch?: { id: string; name?: string; location?: string | null } | null;
   cost?: number;
   currency?: string;
   shipmentType?: string;
   shippingScope?: string;
   fulfillmentType?: string;
   isFragile: boolean;
+  isDelivery?: boolean;
   isUnusual?: boolean;
   quantity?: number;
   length?: number | null;
@@ -70,6 +71,9 @@ export interface OrderDetailApi {
   deliveryDate?: string;
   distance?: number;
   estimatedDistance?: number;
+  estimatedPrice?: number;
+  estimatedDeliveryAt?: string | null;
+  actualDeliveryAt?: string | null;
   notes?: string | null;
   customer?: OrderDetailPerson;
   receiver?: OrderDetailPerson;

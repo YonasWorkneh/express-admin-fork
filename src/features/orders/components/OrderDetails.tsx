@@ -33,8 +33,13 @@ import {
   IoShield,
   IoMap,
   IoList,
+  IoCar,
 } from "react-icons/io5";
 import { fetchOrderById } from "@/lib/api/orders";
+import {
+  fetchFleetVehicleTypeById,
+  type FleetVehicleTypeListItem,
+} from "@/lib/api/fleet";
 import type { OrderDetailApi } from "@/types/orderDetail";
 
 function getServiceTypeLabel(st: OrderDetailApi["serviceType"]): string {
@@ -63,12 +68,22 @@ function formatDimensions(order: OrderDetailApi): string {
   return `${l}×${w}×${h} cm`;
 }
 
+function formatOrderDateTime(iso?: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString();
+}
+
 export default function OrderDetails() {
   const { id: routeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [order, setOrder] = useState<OrderDetailApi | null>(null);
   const [loadingOrder, setLoadingOrder] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [vehicleType, setVehicleType] = useState<FleetVehicleTypeListItem | null>(
+    null,
+  );
+  const [loadingVehicleType, setLoadingVehicleType] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,6 +122,30 @@ export default function OrderDetails() {
       cancelled = true;
     };
   }, [routeId]);
+
+  useEffect(() => {
+    const vehicleTypeId = order?.vehicleTypeId?.trim();
+    if (!vehicleTypeId) {
+      setVehicleType(null);
+      setLoadingVehicleType(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingVehicleType(true);
+        const vt = await fetchFleetVehicleTypeById(vehicleTypeId);
+        if (!cancelled) setVehicleType(vt);
+      } catch {
+        if (!cancelled) setVehicleType(null);
+      } finally {
+        if (!cancelled) setLoadingVehicleType(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [order?.vehicleTypeId]);
 
   const orderLogs = useMemo(() => {
     if (!order?.orderTracking?.length) return [];
@@ -433,6 +472,90 @@ export default function OrderDetails() {
                       >
                         {values.serviceType}
                       </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <IoCar className="h-5 w-5" />
+                      Delivery information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <Label className="text-gray-600">Vehicle type</Label>
+                        <p className="font-medium mt-1">
+                          {loadingVehicleType ? (
+                            <span className="inline-flex items-center gap-2 text-gray-500">
+                              <Spinner className="h-4 w-4 text-blue-600" />
+                              Loading…
+                            </span>
+                          ) : (
+                            vehicleType?.name ??
+                            (order.vehicleTypeId ? "—" : "Not assigned")
+                          )}
+                        </p>
+                        {vehicleType?.description ? (
+                          <p className="text-gray-600 mt-1">
+                            {vehicleType.description}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div>
+                        <Label className="text-gray-600">Is delivery</Label>
+                        <p className="font-medium mt-1">
+                          {order.isDelivery ? "Yes" : "No"}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-gray-600">Scheduled delivery</Label>
+                        <p className="font-medium mt-1">
+                          {formatOrderDateTime(order.deliveryDate)}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-gray-600">Estimated delivery</Label>
+                        <p className="font-medium mt-1">
+                          {formatOrderDateTime(order.estimatedDeliveryAt)}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-gray-600">Distance</Label>
+                        <p className="font-medium mt-1">
+                          {order.distance ?? order.estimatedDistance ?? "—"}
+                          {order.distance != null || order.estimatedDistance != null
+                            ? " km"
+                            : ""}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-gray-600">Route</Label>
+                        <p className="font-medium mt-1">
+                          {[order.originCityRaw, order.destinationCityRaw]
+                            .filter(Boolean)
+                            .join(" → ") || "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-gray-600">Branch</Label>
+                        <p className="font-medium mt-1">
+                          {order.branch?.name ?? "—"}
+                        </p>
+                        {order.branch?.location ? (
+                          <p className="text-gray-600 mt-1">
+                            {order.branch.location}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div>
+                        <Label className="text-gray-600">Delivery driver</Label>
+                        <p className="font-medium mt-1">
+                          {order.deliveryDriver?.name ?? "—"}
+                        </p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

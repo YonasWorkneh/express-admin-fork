@@ -258,6 +258,23 @@ export async function fetchFleetVehicleTypes(): Promise<
 }
 
 /**
+ * Single fleet vehicle type by id.
+ * GET /fleet/type?filter=id:{id}
+ */
+export async function fetchFleetVehicleTypeById(
+  id: string,
+): Promise<FleetVehicleTypeListItem | null> {
+  const clean = id.replace(/^#/, "").trim();
+  if (!clean) return null;
+  const response = await api.get<FleetVehicleTypesListResponse>(
+    `/fleet/type?filter=${encodeURIComponent(`id:${clean}`)}`,
+  );
+  const list = extractVehicleTypesFromEnvelope(response.data);
+  const mapped = mapVehicleTypeList(list);
+  return mapped[0] ?? null;
+}
+
+/**
  * Public catalog (e.g. order creation). GET /fleet/type/public
  */
 export async function fetchFleetPublicVehicleTypes(): Promise<
