@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef, type MouseEvent } from "react";
 import {
   Search,
   Download,
@@ -167,7 +167,6 @@ export default function OrdersPage() {
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [acceptDropoffModal, setIsAcceptDropoffModal] = useState(false);
   const [isExportLoading, setIsExportLoading] = useState(false);
   // ........................ request states
 
@@ -473,27 +472,6 @@ export default function OrdersPage() {
       setIsActionLoading(false);
     }
   };
-  const handleAcceptDropoff = async () => {
-    try {
-      setIsActionLoading(true);
-      const payload = {
-        trackingCode: selectedOrder?.trackingCode,
-      };
-      const res = await api.post("/order/accept", payload);
-      toast.success(res.data.message);
-      fetchOrders(currentPage, pageSize);
-      setIsAcceptDropoffModal(false);
-      setIsActionLoading(false);
-    } catch (error: unknown) {
-      const msg =
-        (error && typeof error === "object" && "response" in error
-          ? (error as { response?: { data?: { message?: string } } }).response
-              ?.data?.message
-          : null) || "Something went wrong!";
-      toast.error(msg);
-      setIsActionLoading(false);
-    }
-  };
   const handleAssignDriver = async () => {
     try {
       setIsActionLoading(true);
@@ -570,6 +548,19 @@ export default function OrdersPage() {
   useEffect(() => {
     fetchDriver();
   }, [fetchDriver]);
+
+  const acceptDropoffButtonClassName =
+    "p-2 text-green-700 bg-green-50 hover:bg-green-100 hover:text-green-800 cursor-pointer border border-green-200";
+
+  const navigateToAcceptDropoff = (
+    order: Order,
+    event: MouseEvent<HTMLButtonElement>,
+  ) => {
+    event.stopPropagation();
+    navigate(
+      `/order/new?editMode=dropoffAccept&orderId=${encodeURIComponent(order.id)}`,
+    );
+  };
 
   return (
     <div className="min-h-screen">
@@ -1011,13 +1002,10 @@ export default function OrdersPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="p-2 text-green-700 bg-green-50 hover:bg-green-100 hover:text-green-800 cursor-pointer border border-green-200"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(
-                                      `/order/new?editMode=dropoffAccept&orderId=${encodeURIComponent(order.id)}`,
-                                    );
-                                  }}
+                                  className={acceptDropoffButtonClassName}
+                                  onClick={(e) =>
+                                    navigateToAcceptDropoff(order, e)
+                                  }
                                 >
                                   Accept Dropoff
                                 </Button>
@@ -1053,13 +1041,10 @@ export default function OrdersPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="p-2 text-green-700 bg-green-50 hover:bg-green-100 hover:text-green-800 cursor-pointer border border-green-200"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(
-                                      `/order/new?editMode=dropoffAccept&orderId=${encodeURIComponent(order.id)}`,
-                                    );
-                                  }}
+                                  className={acceptDropoffButtonClassName}
+                                  onClick={(e) =>
+                                    navigateToAcceptDropoff(order, e)
+                                  }
                                 >
                                   Accept Dropoff
                                 </Button>
@@ -1079,12 +1064,10 @@ export default function OrdersPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="p-2 text-yellow-600 bg-yellow-50 hover:bg-yellow-100 hover:text-yellow-700 cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setIsAcceptDropoffModal(true);
-                                  setSelectedOrder(order);
-                                }}
+                                className={acceptDropoffButtonClassName}
+                                onClick={(e) =>
+                                  navigateToAcceptDropoff(order, e)
+                                }
                               >
                                 Accept Dropoff
                               </Button>
@@ -1239,25 +1222,6 @@ export default function OrdersPage() {
             )}
           </>
         )}
-      </ConfirmationModal>
-
-      <ConfirmationModal
-        isOpen={acceptDropoffModal}
-        onClose={() => setIsAcceptDropoffModal(false)}
-        title="Accept Dropoff"
-        description={`You are about to accept the drop-off for package with tracking code: ${selectedOrder?.trackingCode}. Please confirm this action.`}
-        onConfirm={handleAcceptDropoff}
-        variant="info"
-        confirmText="Accept"
-        isLoading={isActionLoading}
-      >
-        {/* <textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="reason "
-          className=" placeholder-gray-500 py-4 h-32 resize-none border rounded-md px-4 w-full"
-        /> */}
-        <></>
       </ConfirmationModal>
 
       <ConfirmationModal
