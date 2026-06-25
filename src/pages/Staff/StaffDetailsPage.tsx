@@ -14,7 +14,7 @@ export default function StaffDetailsPage() {
   if (isPending) {
     return (
       <div className="flex justify-center items-center min-h-[40vh]">
-        <Spinner className="h-10 w-10 text-blue-600" />
+        <Spinner className="h-10 w-10 text-[#EE1E21]" />
       </div>
     );
   }
@@ -44,9 +44,9 @@ export default function StaffDetailsPage() {
             variant="ghost"
             size="sm"
             onClick={() => navigate("/staff")}
-            className="p-2 rounded-full bg-blue-100 hover:bg-blue-200"
+            className="p-2 rounded-full bg-[#EE1E21]/10 hover:bg-[#EE1E21]/20"
           >
-            <ArrowLeft className="h-4 w-4 text-blue-600" />
+            <ArrowLeft className="h-4 w-4 text-[#EE1E21]" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{staff.name}</h1>
@@ -54,7 +54,7 @@ export default function StaffDetailsPage() {
         </div>
         <Button
           variant="outline"
-          className="text-blue-600 border-blue-200"
+          className="text-[#EE1E21] border-[#EE1E21]/20"
           onClick={() => navigate(`/staff/edit/${staff.id}`)}
         >
           Edit staff

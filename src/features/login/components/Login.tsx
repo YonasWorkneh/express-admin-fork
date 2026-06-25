@@ -133,10 +133,10 @@ const Login = () => {
         </video>
 
         {/* Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-400/80 to-blue-900/50" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#EE1E21]/80 to-[#cc1a1c]/70" />
 
         {/* Content */}
-        <div className="relative z-10 flex flex-col justify-center items-center text-white p-12">
+        <div className="relative z-10 flex flex-col justify-center items-center text-[#FADF4B] p-12">
           <div className="text-center max-w-md">
             <motion.h1
               className="text-5xl font-bold mb-14 mt-10 ml-3"
@@ -184,7 +184,7 @@ const Login = () => {
                 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <IoCar className="h-5 w-5 text-blue-300" />
+                <IoCar className="h-5 w-5 text-[#FADF4B]" />
                 <span className="text-xl">Fast Delivery Network</span>
               </motion.div>
               <motion.div
@@ -218,11 +218,11 @@ const Login = () => {
             transition={{ duration: 0.6, ease: "easeOut" }}
           >
             <motion.div
-              className="bg-blue-600 rounded-2xl p-3"
+              className="bg-[#EE1E21] rounded-2xl p-3"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <IoCar className="h-8 w-8 text-white" />
+              <IoCar className="h-8 w-8 text-[#FADF4B]" />
             </motion.div>
             <span className="ml-3 text-2xl font-bold text-gray-900">
               Express Service
@@ -302,7 +302,7 @@ const Login = () => {
                   type="email"
                   placeholder="Enter your email"
                   {...register("email")}
-                  className={`w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
+                  className={`w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#EE1E21] focus:border-transparent ${
                     errors.email && touchedFields.email
                       ? "border-red-500 focus:ring-red-500"
                       : "border-gray-300"
@@ -343,7 +343,7 @@ const Login = () => {
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   {...register("password")}
-                  className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
+                  className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#EE1E21] focus:border-transparent ${
                     errors.password && touchedFields.password
                       ? "border-red-500 focus:ring-red-500"
                       : "border-gray-300"
@@ -389,7 +389,7 @@ const Login = () => {
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="h-4 w-4 text-[#EE1E21] border-gray-300 rounded focus:ring-[#EE1E21]"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   transition={{ duration: 0.2 }}
@@ -404,7 +404,7 @@ const Login = () => {
               <div className="text-sm">
                 <motion.a
                   href="#"
-                  className="font-medium text-blue-600 hover:text-blue-500"
+                  className="font-medium text-[#EE1E21] hover:text-[#cc1a1c]"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   transition={{ duration: 0.2 }}
@@ -418,10 +418,10 @@ const Login = () => {
             <motion.button
               type="submit"
               disabled={status === "submitting" || isPending}
-              className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${
+              className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-[#FADF4B] ${
                 status === "submitting" || isPending
-                  ? "bg-blue-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  ? "bg-[#EE1E21]/60 cursor-not-allowed"
+                  : "bg-[#EE1E21] hover:bg-[#cc1a1c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#EE1E21]"
               }`}
               variants={inputVariants}
               transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
@@ -460,7 +460,7 @@ const Login = () => {
               Don't have an account?{" "}
               <motion.a
                 href="#"
-                className="font-medium text-blue-600 hover:text-blue-500"
+                className="font-medium text-[#EE1E21] hover:text-[#cc1a1c]"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 transition={{ duration: 0.2 }}

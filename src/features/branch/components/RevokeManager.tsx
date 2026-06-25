@@ -203,10 +203,10 @@ console.log(pagination,loading)
               <div className="absolute h-full top-0 left-0 flex items-center">
                 <Button
                   type="button"
-                  className="!text-white !size-[40px] bg-blue-500 hover:bg-blue-400 !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
+                  className="!text-[#FADF4B] !size-[40px] bg-[#EE1E21] hover:bg-[#EE1E21] !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
                   onClick={() => navigate(-1)}
                 >
-                  <IoArrowBack className="text-white text-lg" />
+                  <IoArrowBack className="text-[#FADF4B] text-lg" />
                 </Button>
               </div>
               <div className="flex gap-5 items-center justify-center mb-6">
@@ -270,7 +270,7 @@ console.log(pagination,loading)
                   {showManagerDropdown && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                        {loadingStaff&&   <div className="flex justify-center items-center py-8">
-                        <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                        <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                       </div>}
                       {staffs.length > 0 ? (
                         staffs.map((manager) => (
@@ -344,7 +344,7 @@ console.log(pagination,loading)
                   {showBranchDropdown && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                         {loadingBrand&&   <div className="flex justify-center items-center py-8">
-                        <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                        <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                       </div>} 
                       {branches.length > 0 ? (
                         branches.map((branch) => (

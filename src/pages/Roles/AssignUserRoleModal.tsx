@@ -146,7 +146,7 @@ export default function AssignUserRoleModal({
               <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                 {fetching ? (
                   <div className="flex justify-center items-center py-4">
-                    <Spinner className="h-5 w-5 text-blue-600" />
+                    <Spinner className="h-5 w-5 text-[#EE1E21]" />
                   </div>
                 ) : users.length === 0 ? (
                   <div className="px-4 py-3 text-sm text-gray-500">
@@ -169,7 +169,7 @@ export default function AssignUserRoleModal({
           </div>
 
           {selectedUser && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="p-3 bg-[#EE1E21]/5 border border-[#EE1E21]/20 rounded-lg">
               <div className="text-sm font-medium text-gray-900">
                 Selected User: {selectedUser.name}
               </div>
@@ -185,11 +185,11 @@ export default function AssignUserRoleModal({
           <Button
             onClick={handleSubmit}
             disabled={loading || !selectedUser}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B]"
           >
             {loading ? (
               <span className="flex items-center">
-                <Spinner className="h-4 w-4 text-white mr-2" />
+                <Spinner className="h-4 w-4 text-[#FADF4B] mr-2" />
                 Assigning...
               </span>
             ) : (

@@ -213,7 +213,7 @@ export default function CustomerDetailsPage() {
     return (
       <div className="min-h-[40vh] flex items-center justify-center">
         <div className="flex items-center gap-2 text-gray-600">
-          <Spinner className="h-6 w-6 text-blue-600" />
+          <Spinner className="h-6 w-6 text-[#EE1E21]" />
           <span>Loading customer details...</span>
         </div>
       </div>
@@ -227,9 +227,9 @@ export default function CustomerDetailsPage() {
           variant="ghost"
           size="sm"
           onClick={() => navigate("/customer")}
-          className="p-2 rounded-full bg-blue-100 hover:bg-blue-200 mb-4"
+          className="p-2 rounded-full bg-[#EE1E21]/10 hover:bg-[#EE1E21]/20 mb-4"
         >
-          <ArrowLeft className="h-4 w-4 text-blue-600" />
+          <ArrowLeft className="h-4 w-4 text-[#EE1E21]" />
         </Button>
         <p className="text-red-600">{fetchError || "Customer not found."}</p>
       </div>
@@ -281,9 +281,9 @@ export default function CustomerDetailsPage() {
             variant="ghost"
             size="sm"
             onClick={() => navigate("/customer")}
-            className="p-2 rounded-full bg-blue-100 hover:bg-blue-200"
+            className="p-2 rounded-full bg-[#EE1E21]/10 hover:bg-[#EE1E21]/20"
           >
-            <ArrowLeft className="h-4 w-4 text-blue-600" />
+            <ArrowLeft className="h-4 w-4 text-[#EE1E21]" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
@@ -301,7 +301,7 @@ export default function CustomerDetailsPage() {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <User className="h-5 w-5 mr-2 text-blue-600" />
+                <User className="h-5 w-5 mr-2 text-[#EE1E21]" />
                 Customer Information
               </CardTitle>
             </CardHeader>
@@ -369,7 +369,7 @@ export default function CustomerDetailsPage() {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <SlidersHorizontal className="h-5 w-5 mr-2 text-blue-600" />
+                <SlidersHorizontal className="h-5 w-5 mr-2 text-[#EE1E21]" />
                 Service Configuration
               </CardTitle>
             </CardHeader>
@@ -389,7 +389,7 @@ export default function CustomerDetailsPage() {
                     {notif ? (
                       <>
                         {notif.email ? (
-                          <Badge className="bg-blue-100 text-blue-700">Email</Badge>
+                          <Badge className="bg-[#EE1E21]/10 text-[#EE1E21]">Email</Badge>
                         ) : null}
                         {notif.inApp ? (
                           <Badge className="bg-slate-100 text-slate-700">In-app</Badge>
@@ -421,7 +421,7 @@ export default function CustomerDetailsPage() {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <Wallet className="h-5 w-5 mr-2 text-blue-600" />
+                <Wallet className="h-5 w-5 mr-2 text-[#EE1E21]" />
                 Account Management
               </CardTitle>
             </CardHeader>
@@ -466,7 +466,7 @@ export default function CustomerDetailsPage() {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <Contact className="h-5 w-5 mr-2 text-blue-600" />
+                <Contact className="h-5 w-5 mr-2 text-[#EE1E21]" />
                 Contact Information
               </CardTitle>
             </CardHeader>
@@ -558,7 +558,7 @@ export default function CustomerDetailsPage() {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <Calendar className="h-5 w-5 mr-2 text-blue-600" />
+                <Calendar className="h-5 w-5 mr-2 text-[#EE1E21]" />
                 Customer Summary
               </CardTitle>
             </CardHeader>
@@ -601,7 +601,7 @@ export default function CustomerDetailsPage() {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
+                <TrendingUp className="h-5 w-5 mr-2 text-[#EE1E21]" />
                 Recent Order History
               </CardTitle>
             </CardHeader>

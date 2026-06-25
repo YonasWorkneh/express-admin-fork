@@ -178,7 +178,7 @@ export default function AssignPermissionsModal({
         <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
           {fetching ? (
             <div className="flex justify-center items-center py-8">
-              <Spinner className="h-6 w-6 text-blue-600" />
+              <Spinner className="h-6 w-6 text-[#EE1E21]" />
             </div>
           ) : allPermissions.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
@@ -194,7 +194,7 @@ export default function AssignPermissionsModal({
                   key={permission.id}
                   className={`border mx-2 rounded-lg p-4 ${
                     isSelected
-                      ? "border-blue-500 bg-blue-50"
+                      ? "border-[#EE1E21] bg-[#EE1E21]/5"
                       : "border-gray-200"
                   }`}
                 >
@@ -210,7 +210,7 @@ export default function AssignPermissionsModal({
                             {permission.resource}
                           </h3>
                           {isSelected && (
-                            <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                            <Badge variant="secondary" className="bg-[#EE1E21]/10 text-[#EE1E21]">
                               Selected
                             </Badge>
                           )}
@@ -318,11 +318,11 @@ export default function AssignPermissionsModal({
           <Button
             onClick={handleSubmit}
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B]"
           >
             {loading ? (
               <span className="flex items-center">
-                <Spinner className="h-4 w-4 text-white mr-2" />
+                <Spinner className="h-4 w-4 text-[#FADF4B] mr-2" />
                 Assigning...
               </span>
             ) : (

@@ -86,7 +86,7 @@ export default function DriverCommissionConfigurePage() {
       {pageLoading && (
         <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-40 flex items-center justify-center rounded-lg">
           <div className="flex flex-col items-center gap-3">
-            <Spinner className="h-8 w-8 text-blue-600" />
+            <Spinner className="h-8 w-8 text-[#EE1E21]" />
             <p className="text-gray-600 font-medium">Loading…</p>
           </div>
         </div>

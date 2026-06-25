@@ -97,7 +97,7 @@ export function StaffDetailDialog({
 
         {isPending ? (
           <div className="flex justify-center py-16">
-            <Spinner className="h-10 w-10 text-blue-600" />
+            <Spinner className="h-10 w-10 text-[#EE1E21]" />
           </div>
         ) : null}
 

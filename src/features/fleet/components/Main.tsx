@@ -347,14 +347,14 @@ console.log(staffs.data)
                 )}
                 <Button
                   onClick={() => navigate("/fleet/maintenance")}
-                  className="bg-blue-500 hover:bg-blue-600 cursor-pointer text-white"
+                  className="bg-[#EE1E21] hover:bg-[#cc1a1c] cursor-pointer text-[#FADF4B]"
                 >
                   <IoConstruct className="mr-2 h-4 w-4" />
                   Maintenance Logs
                 </Button>
                 <Button
                   variant="outline"
-                  className="bg-blue-500 hover:bg-blue-600 cursor-pointer text-white hover:text-white"
+                  className="bg-[#EE1E21] hover:bg-[#cc1a1c] cursor-pointer text-[#FADF4B] hover:text-[#FADF4B]"
                   onClick={() => navigate("/fleet/type/create?tab=types")}
                 >
                   <IoAdd className="mr-2 h-4 w-4" />
@@ -362,7 +362,7 @@ console.log(staffs.data)
                 </Button>
                 <Button
                   onClick={() => navigate("/fleet/create")}
-                  className="bg-blue-500 hover:bg-blue-600 cursor-pointer text-white"
+                  className="bg-[#EE1E21] hover:bg-[#cc1a1c] cursor-pointer text-[#FADF4B]"
                 >
                   <IoAdd className="mr-2 h-4 w-4" />
                   Add Vehicle
@@ -376,7 +376,7 @@ console.log(staffs.data)
                 className={cn(
                   "pb-3 px-3 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
                   fleetTab === "vehicles"
-                    ? "border-blue-600 text-blue-600"
+                    ? "border-[#EE1E21] text-[#EE1E21]"
                     : "border-transparent text-gray-500 hover:text-gray-800",
                 )}
                 onClick={() => setFleetTab("vehicles")}
@@ -388,7 +388,7 @@ console.log(staffs.data)
                 className={cn(
                   "pb-3 px-3 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
                   fleetTab === "types"
-                    ? "border-blue-600 text-blue-600"
+                    ? "border-[#EE1E21] text-[#EE1E21]"
                     : "border-transparent text-gray-500 hover:text-gray-800",
                 )}
                 onClick={() => setFleetTab("types")}
@@ -543,7 +543,7 @@ console.log(staffs.data)
                     {loading && (
                       <TableCell colSpan={11}>
                         <div className="flex justify-center items-center py-8">
-                          <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                          <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                           <span className="text-gray-600 font-medium">
                             Loading fleet data...
                           </span>
@@ -560,7 +560,7 @@ console.log(staffs.data)
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox />
                       </TableCell>
-                      <TableCell className="font-medium text-blue-600">
+                      <TableCell className="font-medium text-[#EE1E21]">
                         {vehicle.plateNumber}
                       </TableCell>
                       <TableCell>
@@ -670,7 +670,7 @@ console.log(staffs.data)
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                            className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
                               navigate(
@@ -685,7 +685,7 @@ console.log(staffs.data)
                           {/* <Button
                             variant="ghost"
                             size="sm"
-                            className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700"
+                            className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c]"
                           >
                             <IoLockOpen className="h-6 w-6 font-bold" />
                           </Button> */}

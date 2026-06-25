@@ -95,7 +95,7 @@ const MiniChart = ({ color }: { color: string }) => {
 const pricingParameters: Record<string, PricingParameters> = {
   town: {
     title: "Town",
-    icon: <Package className="h-6 w-6 text-blue-600" />,
+    icon: <Package className="h-6 w-6 text-[#EE1E21]" />,
     description: "Local delivery within city limits",
   },
   regional: {
@@ -251,7 +251,7 @@ export default function PricingMain() {
                     <div
                       className={`p-3 rounded-full ${
                         metric.color === "blue"
-                          ? "bg-blue-100 text-blue-600"
+                          ? "bg-blue-100 text-[#EE1E21]"
                           : metric.color === "green"
                           ? "bg-green-100 text-green-600"
                           : metric.color === "purple"
@@ -276,7 +276,7 @@ export default function PricingMain() {
             return (
               <Card
                 key={zone}
-                className="border-2 border-dashed border-gray-300 hover:border-blue-400 hover:shadow-lg transition-all cursor-pointer"
+                className="border-2 border-dashed border-[#EE1E21] hover:border-[#cc1a1c] hover:shadow-lg transition-all cursor-pointer"
                 onClick={() => handleNavigateToForm(zone)}
               >
                 <CardHeader className="text-center pb-4">
@@ -290,7 +290,7 @@ export default function PricingMain() {
                 </CardHeader>
                 <CardContent className="text-center">
                   <Button
-                    className="w-full bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                    className="w-full bg-[#EE1E21] hover:bg-[#cc1a1c] cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleNavigateToForm(zone);
@@ -306,11 +306,11 @@ export default function PricingMain() {
 
         <div className="mb-8">
           <Card
-            className="border-2 border-dashed border-gray-300 hover:border-blue-400 hover:shadow-lg transition-all cursor-pointer bg-white"
+            className="border-2 border-dashed border-[#EE1E21] hover:border-[#cc1a1c] hover:shadow-lg transition-all cursor-pointer bg-white"
             onClick={() => navigate("/pricing/driver-commission-config")}
           >
             <CardHeader className="flex flex-row items-center gap-4 sm:gap-6">
-              <div className="p-3 rounded-full bg-blue-100 text-blue-600 shrink-0">
+              <div className="p-3 rounded-full bg-[#EE1E21]/10 text-[#EE1E21] shrink-0">
                 <Percent className="h-6 w-6" />
               </div>
               <div className="flex-1 text-left min-w-0">
@@ -323,7 +323,7 @@ export default function PricingMain() {
                 </p>
               </div>
               <Button
-                className="shrink-0 bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                className="shrink-0 bg-[#EE1E21] hover:bg-[#cc1a1c] cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
                   navigate("/pricing/driver-commission-config");
@@ -378,7 +378,7 @@ export default function PricingMain() {
                   <TableRow>
                     <TableCell colSpan={6}>
                       <div className="flex justify-center items-center py-8">
-                        <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                        <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                         <span className="text-gray-600 font-medium">
                           Loading Pricing data...
                         </span>
@@ -406,7 +406,7 @@ export default function PricingMain() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-medium text-blue-600">
+                          <span className="font-medium text-[#EE1E21]">
                             {log?.shippingScope}
                           </span>
                           
@@ -466,7 +466,7 @@ export default function PricingMain() {
                               size="sm"
                               onClick={(e) => handleActivate(log.id, log.shippingScope, e)}
                               disabled={activatingId === log.id}
-                              className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                              className="text-[#EE1E21] border-[#EE1E21]/30 hover:bg-[#EE1E21]/5"
                             >
                               {activatingId === log.id ? (
                                 <>
@@ -599,7 +599,7 @@ export default function PricingMain() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                          className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                         >
                           <MdEdit className="h-4 w-4" />
                         </Button>

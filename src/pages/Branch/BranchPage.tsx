@@ -228,7 +228,7 @@ interface BranchDashboardStats {
               <span className="hidden sm:inline">Export</span>
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer text-xs sm:text-sm px-2 sm:px-4"
+              className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B] cursor-pointer text-xs sm:text-sm px-2 sm:px-4"
               onClick={() => navigate("/branch/create")}
             >
               <IoAdd className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
@@ -329,7 +329,7 @@ interface BranchDashboardStats {
             <TableHeader>
               <TableRow className="border-gray-200">
                 <TableHead className="w-12">
-                  <Checkbox className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 data-[state=checked]:text-white focus-visible:ring-blue-500/40" />
+                  <Checkbox className="data-[state=checked]:bg-[#EE1E21] data-[state=checked]:border-[#EE1E21] data-[state=checked]:text-[#FADF4B] focus-visible:ring-[#EE1E21]/40" />
                 </TableHead>
                 <TableHead className="text-gray-600 font-medium">
                   Branch ID
@@ -374,7 +374,7 @@ interface BranchDashboardStats {
                 {loadingBrand && (
                   <TableCell colSpan={11}>
                     <div className="flex justify-center items-center py-8">
-                      <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                      <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                       <span className="text-gray-600 font-medium">
                         Loading Beanch data...
                       </span>
@@ -389,15 +389,15 @@ interface BranchDashboardStats {
                   onClick={() => navigate(`/branch/${branch.id}`)}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Checkbox className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 data-[state=checked]:text-white focus-visible:ring-blue-500/40" />
+                    <Checkbox className="data-[state=checked]:bg-[#EE1E21] data-[state=checked]:border-[#EE1E21] data-[state=checked]:text-[#FADF4B] focus-visible:ring-[#EE1E21]/40" />
                   </TableCell>
-                  <TableCell className="font-medium text-blue-500">
+                  <TableCell className="font-medium text-[#EE1E21]">
                     {branch?.customId}
                   </TableCell>
                   <TableCell className="font-medium text-gray-900">
                     <Button
                       variant="ghost"
-                      className="p-0 text-blue-600 hover:text-blue-800 cursor-pointer"
+                      className="p-0 text-[#EE1E21] hover:text-[#cc1a1c] cursor-pointer"
                     >
                       {branch.name}
                     </Button>
@@ -437,7 +437,7 @@ interface BranchDashboardStats {
                   <TableCell>
                     <Badge
                       variant="secondary"
-                      className="bg-blue-100 text-blue-700"
+                      className="bg-[#EE1E21]/10 text-[#EE1E21]"
                     >
                       {/* {branch.activeOrders} */}
                    {Number(branch?.activeOrders).toFixed()}
@@ -458,7 +458,7 @@ interface BranchDashboardStats {
                     <div className="flex items-center gap-2">
                       <div className="w-20 bg-gray-200 rounded-full h-2">
                         <div
-                          className="bg-blue-600 h-2 rounded-full"
+                          className="bg-[#EE1E21] h-2 rounded-full"
                           // style={{ width: `${branch.efficiency}%` }}  Will Change
                              style={{width:`${branch?.efficiency}%`}} 
                         ></div>
@@ -483,7 +483,7 @@ interface BranchDashboardStats {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                        className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/branch/edit/${branch.id}`);
@@ -494,7 +494,7 @@ interface BranchDashboardStats {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700"
+                        className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c]"
                       >
                         <IoLockOpen className="h-6 w-6 font-bold" />
                       </Button>

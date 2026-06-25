@@ -289,12 +289,12 @@ console.log(pagination,setFilterStatus,setFilterType)
                     variant="ghost"
                     size="sm"
                     onClick={() => navigate("/fleet")}
-                    className="cursor-pointer bg-blue-400 text-white hover:bg-blue-500 hover:text-white p-2"
+                    className="cursor-pointer bg-[#EE1E21] text-[#FADF4B] hover:bg-[#cc1a1c] hover:text-[#FADF4B] p-2"
                   >
                     <IoArrowBack className="h-5 w-5" />
                   </Button>
                   <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                    <IoConstruct className="text-blue-500" />
+                    <IoConstruct className="text-[#EE1E21]" />
                     Maintenance Logs
                   </h1>
                 </div>
@@ -305,7 +305,7 @@ console.log(pagination,setFilterStatus,setFilterType)
               <div className="flex gap-3 mt-4 md:mt-0">
                 <Button
                   onClick={() => navigate("/fleet/maintenance/create")}
-                  className="bg-blue-500 hover:bg-blue-600 cursor-pointer text-white"
+                  className="bg-[#EE1E21] hover:bg-[#cc1a1c] cursor-pointer text-[#FADF4B]"
                 >
                   <IoAdd className="mr-2 h-4 w-4" />
                   Add Maintenance Record
@@ -434,7 +434,7 @@ console.log(pagination,setFilterStatus,setFilterType)
                 {loading && (
                   <TableCell colSpan={11}>
                     <div className="flex justify-center items-center py-8">
-                      <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                      <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                       <span className="text-gray-600 font-medium">
                         Loading Maintenance logs data...
                       </span>
@@ -462,7 +462,7 @@ console.log(pagination,setFilterStatus,setFilterType)
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-medium text-blue-600">
+                          <span className="font-medium text-[#EE1E21]">
                             {log?.vehicle?.plateNumber}
                           </span>
                           <span className="text-sm text-gray-500">

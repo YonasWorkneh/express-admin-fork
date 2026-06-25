@@ -235,7 +235,7 @@ function LicenseImageTile({
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:underline inline-flex items-center gap-1"
+              className="text-[#EE1E21] hover:underline inline-flex items-center gap-1"
             >
               Open URL
               <ExternalLink className="h-3 w-3" />
@@ -246,7 +246,7 @@ function LicenseImageTile({
         <button
           type="button"
           onClick={onExpand}
-          className="group relative w-full rounded-lg border border-gray-200 bg-gray-50/80 overflow-hidden text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          className="group relative w-full rounded-lg border border-gray-200 bg-gray-50/80 overflow-hidden text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EE1E21] focus-visible:ring-offset-2"
         >
           <img
             src={displaySrc}
@@ -283,7 +283,7 @@ export function StaffDetailView({ staff }: StaffDetailViewProps) {
         <Card>
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center text-lg font-semibold">
-              <User className="h-5 w-5 mr-2 text-blue-600" />
+              <User className="h-5 w-5 mr-2 text-[#EE1E21]" />
               Staff information
             </CardTitle>
           </CardHeader>
@@ -340,7 +340,7 @@ export function StaffDetailView({ staff }: StaffDetailViewProps) {
         <Card>
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center text-lg font-semibold">
-              <Building2 className="h-5 w-5 mr-2 text-blue-600" />
+              <Building2 className="h-5 w-5 mr-2 text-[#EE1E21]" />
               Branch
             </CardTitle>
           </CardHeader>
@@ -357,7 +357,7 @@ export function StaffDetailView({ staff }: StaffDetailViewProps) {
         <Card>
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center text-lg font-semibold">
-              <Car className="h-5 w-5 mr-2 text-blue-600" />
+              <Car className="h-5 w-5 mr-2 text-[#EE1E21]" />
               Driver profile
             </CardTitle>
           </CardHeader>
@@ -455,7 +455,7 @@ export function StaffDetailView({ staff }: StaffDetailViewProps) {
         <Card>
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center text-lg font-semibold">
-              <Phone className="h-5 w-5 mr-2 text-blue-600" />
+              <Phone className="h-5 w-5 mr-2 text-[#EE1E21]" />
               Contact
             </CardTitle>
           </CardHeader>
@@ -498,7 +498,7 @@ export function StaffDetailView({ staff }: StaffDetailViewProps) {
         <Card>
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center text-lg font-semibold">
-              <Shield className="h-5 w-5 mr-2 text-blue-600" />
+              <Shield className="h-5 w-5 mr-2 text-[#EE1E21]" />
               Identifiers
             </CardTitle>
           </CardHeader>
@@ -527,7 +527,7 @@ export function StaffDetailView({ staff }: StaffDetailViewProps) {
         <Card>
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center text-lg font-semibold">
-              <FileText className="h-5 w-5 mr-2 text-blue-600" />
+              <FileText className="h-5 w-5 mr-2 text-[#EE1E21]" />
               Record
             </CardTitle>
           </CardHeader>

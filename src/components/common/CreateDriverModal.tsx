@@ -348,7 +348,7 @@ export default function CreateDriverModal({
                         onChange={(e) =>
                           handleInputChange("type", e.target.value)
                         }
-                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                        className="w-4 h-4 accent-[#EE1E21] border-gray-300 focus:ring-[#EE1E21]"
                       />
                       <span className="text-sm text-gray-700">Internal</span>
                     </label>
@@ -361,7 +361,7 @@ export default function CreateDriverModal({
                         onChange={(e) =>
                           handleInputChange("type", e.target.value)
                         }
-                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                        className="w-4 h-4 accent-[#EE1E21] border-gray-300 focus:ring-[#EE1E21]"
                       />
                       <span className="text-sm text-gray-700">External</span>
                     </label>
@@ -409,7 +409,7 @@ export default function CreateDriverModal({
                       <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {loadingVehicles ? (
                         <div className="flex justify-center items-center py-8">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#EE1E21]"></div>
                         </div>
                       ) : vehicles.length > 0 ? (
                         vehicles.map((vehicle) => (
@@ -520,7 +520,7 @@ export default function CreateDriverModal({
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                className="flex-1 bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B]"
               >
                 {isLoading ? (
                   <>

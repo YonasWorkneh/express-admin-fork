@@ -131,7 +131,7 @@ export default function TablePagination({
                 onClick={() => onPageChange(page as number)}
                 className={`h-8 w-8 p-0 ${
                   currentPage === page
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                    ? "bg-[#EE1E21] text-[#FADF4B] hover:bg-[#cc1a1c]"
                     : ""
                 }`}
               >

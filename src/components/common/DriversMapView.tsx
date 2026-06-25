@@ -51,7 +51,7 @@ function ConfirmationModal({ open, onClose, onConfirm, title, description, confi
             Cancel
           </Button>
           <Button
-            className="bg-blue-600 text-white hover:bg-blue-700"
+            className="bg-[#EE1E21] text-[#FADF4B] hover:bg-[#cc1a1c]"
             onClick={onConfirm}
             disabled={confirming}
           >
@@ -291,7 +291,7 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
             </h2>
             <Button
               onClick={onCreateDriver}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B]"
             >
               <IoAdd className="h-4 w-4 mr-2" />
               Add Driver
@@ -332,15 +332,15 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
                 key={driver.id}
                 className={`p-4 border-b border-gray-100 cursor-pointer transition-colors ${
                   selectedDriver?.id === driver.id
-                    ? "bg-blue-50"
+                    ? "bg-[#EE1E21]/5"
                     : "hover:bg-gray-50"
                 }`}
                 onClick={() => handleSelectDriver(driver)}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <IoPerson className="h-5 w-5 text-blue-600" />
+                    <div className="w-10 h-10 bg-[#EE1E21]/10 rounded-full flex items-center justify-center">
+                      <IoPerson className="h-5 w-5 text-[#EE1E21]" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -350,7 +350,7 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
                         {(driver?.performance?.totalOrders ?? 0) > 0 && (
                           <Badge
                             variant="secondary"
-                            className="bg-blue-100 text-blue-700"
+                            className="bg-[#EE1E21]/10 text-[#EE1E21]"
                           >
                             {driver.performance?.totalOrders ?? 0}
                           </Badge>
@@ -367,7 +367,7 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
                           </span>
                           <div className="w-16 bg-gray-200 rounded-full h-1">
                             <div
-                              className="bg-blue-600 h-1 rounded-full"
+                              className="bg-[#EE1E21] h-1 rounded-full"
                               style={{
                                 width: `${
                                   (driver?.performance?.totalOrders ?? 0) > 0
@@ -402,7 +402,7 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
                           <Button
                             size="sm"
                             variant="outline"
-                            className="bg-blue-50 text-blue-700 hover:bg-blue-100"
+                            className="bg-[#EE1E21]/5 text-[#EE1E21] hover:bg-[#EE1E21]/10"
                             onClick={e => {
                               e.stopPropagation();
                               setApproveModalOpen(true);
@@ -470,7 +470,7 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
               </p>
               <Button
                 onClick={onCreateDriver}
-                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white"
+                className="mt-4 bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B]"
                 size="sm"
               >
                 <IoAdd className="h-4 w-4 mr-2" />
@@ -542,7 +542,7 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
                   key={pageNum}
                   className={`h-8 w-8 text-xs rounded ${
                     page === pageNum
-                      ? "bg-blue-600 text-white font-bold"
+                      ? "bg-[#EE1E21] text-[#FADF4B] font-bold"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                   onClick={() => setCurrentPage(pageNum)}
@@ -602,7 +602,7 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className="bg-blue-600 h-2 rounded-full"
+                    className="bg-[#EE1E21] h-2 rounded-full"
                     style={{ width: `${dispatchProgress}%` }}
                   ></div>
                 </div>
@@ -630,7 +630,7 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
           {driverLoading ? (
             <div className="absolute inset-0 bg-gray-100 flex items-center justify-center z-10">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#EE1E21] mx-auto mb-4"></div>
                 <p className="text-gray-600">Loading map...</p>
               </div>
             </div>
@@ -778,7 +778,7 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
                           <Button
                             size="sm"
                             variant="outline"
-                            className="ml-2 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                            className="ml-2 bg-[#EE1E21]/5 text-[#EE1E21] hover:bg-[#EE1E21]/10"
                             onClick={() => {
                               setApproveModalOpen(true);
                               setApproveDriver(selectedDriver);
@@ -800,7 +800,7 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
                         <span className="text-sm">Masonhave</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <div className="w-2 h-2 bg-[#EE1E21] rounded-full"></div>
                         <span className="text-sm">Janafort</span>
                       </div>
                     </div>

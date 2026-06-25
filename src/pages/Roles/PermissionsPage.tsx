@@ -136,7 +136,7 @@ function PermissionsPage() {
           </Button>
           <Button
             onClick={() => navigate("/permissions/create")}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B]"
           >
             <IoAdd className="h-5 w-5 mr-2" />
             Create Permission
@@ -195,7 +195,7 @@ function PermissionsPage() {
                 <TableRow>
                   <TableCell colSpan={6}>
                     <div className="flex justify-center items-center py-8">
-                      <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                      <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                       <span className="text-gray-600 font-medium">
                         Loading permissions...
                       </span>
@@ -221,7 +221,7 @@ function PermissionsPage() {
                     <TableCell>
                       <Checkbox />
                     </TableCell>
-                    <TableCell className="font-medium text-blue-500">
+                    <TableCell className="font-medium text-[#EE1E21]">
                       {permission.id}
                     </TableCell>
                     <TableCell className="font-medium text-gray-900">
@@ -238,7 +238,7 @@ function PermissionsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                          className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                           onClick={() =>
                             navigate(`/permissions/edit/${permission.id}`)
                           }

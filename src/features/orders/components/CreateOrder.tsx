@@ -370,7 +370,7 @@ function VehicleTypeTile({
       className={cn(
         "border rounded-lg p-3 flex flex-col items-center gap-2 transition-colors text-center cursor-pointer",
         selected
-          ? "border-blue-600 bg-blue-50 ring-2 ring-blue-500"
+          ? "border-[#EE1E21] bg-[#EE1E21]/5 ring-2 ring-[#EE1E21]"
           : "border-gray-200 hover:border-gray-300 bg-white",
       )}
     >
@@ -430,7 +430,7 @@ function OrderVehicleTypesSection({
         )}
         {trimmedServiceTypeId && loadingVehicleTypes && (
           <div className="flex items-center gap-2 py-4 text-gray-600">
-            <Spinner className="h-6 w-6 text-blue-600" />
+            <Spinner className="h-6 w-6 text-[#EE1E21]" />
             Loading vehicle types…
           </div>
         )}
@@ -1071,7 +1071,7 @@ export default function OrderForm() {
     <div className="max-w-4xl p-6 bg-white relative">
       {loadingEditOrder && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 rounded-lg">
-          <Spinner className="h-10 w-10 text-blue-600" />
+          <Spinner className="h-10 w-10 text-[#EE1E21]" />
         </div>
       )}
       <Formik
@@ -1087,15 +1087,15 @@ export default function OrderForm() {
               <div className="absolute h-full top-0 left-0 flex items-center">
                 <Button
                   type="button"
-                  className="!text-white !size-[40px] bg-blue-500 hover:bg-blue-400 !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
+                  className="!text-[#FADF4B] !size-[40px] bg-[#EE1E21] hover:bg-[#EE1E21] !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
                   onClick={() => navigate(-1)}
                 >
-                  <IoArrowBack className="text-white text-lg" />
+                  <IoArrowBack className="text-[#FADF4B] text-lg" />
                 </Button>
               </div>
               <div className="flex gap-5 items-center justify-center mb-6">
                 <div className="flex gap-4 items-center">
-                  <IoLogoDropbox className="text-4xl text-blue-500" />
+                  <IoLogoDropbox className="text-4xl text-[#EE1E21]" />
                   <h1 className="text-3xl font-medium text-gray-700">
                     {isDropoffAcceptEdit
                       ? "Accept drop-off"
@@ -1148,7 +1148,7 @@ export default function OrderForm() {
                       <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                         {loadingStaff && (
                           <div className="flex justify-center items-center py-8">
-                            <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                            <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                           </div>
                         )}
                         {custoemr.length > 0 ? (
@@ -1189,7 +1189,7 @@ export default function OrderForm() {
                       className={cn(
                         "!w-full text-sm border transition-colors",
                         canPrefillSender
-                          ? "!bg-blue-600 hover:!bg-blue-700 !text-white border-blue-600 cursor-pointer"
+                          ? "!bg-[#EE1E21] hover:!bg-[#cc1a1c] !text-[#FADF4B] border-[#EE1E21] cursor-pointer"
                           : "!bg-gray-100 !text-gray-400 border-gray-200 cursor-not-allowed opacity-80",
                       )}
                       onClick={() =>
@@ -1454,7 +1454,7 @@ export default function OrderForm() {
                   onCheckedChange={(c) =>
                     setFieldValue("isDelivery", c === true)
                   }
-                  className="border-gray-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 data-[state=checked]:text-white"
+                  className="border-gray-300 data-[state=checked]:bg-[#EE1E21] data-[state=checked]:border-[#EE1E21] data-[state=checked]:text-[#FADF4B]"
                 />
                 <Label
                   htmlFor="is-delivery"
@@ -1502,7 +1502,7 @@ export default function OrderForm() {
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {loadingBranch && (
                       <div className="flex justify-center items-center py-8">
-                        <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                        <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                       </div>
                     )}
                     {branches.length > 0 ? (
@@ -1692,7 +1692,7 @@ export default function OrderForm() {
                   <Label className="mb-1">Category</Label>
                   {loadingOrderItemCategories && (
                     <div className="flex items-center gap-2 py-2 text-sm text-gray-600">
-                      <Spinner className="h-5 w-5 text-blue-600" />
+                      <Spinner className="h-5 w-5 text-[#EE1E21]" />
                       Loading categories…
                     </div>
                   )}
@@ -1846,7 +1846,7 @@ export default function OrderForm() {
                   >
                     Requirement Checklist
                   </Label>
-                  <Checkbox className="border-gray-300 ml-2 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 data-[state=checked]:text-white" />
+                  <Checkbox className="border-gray-300 ml-2 data-[state=checked]:bg-[#EE1E21] data-[state=checked]:border-[#EE1E21] data-[state=checked]:text-[#FADF4B]" />
                 </div>
               )}
 
@@ -1862,12 +1862,12 @@ export default function OrderForm() {
                   </Button>
                   <Button
                     type="button"
-                    className="flex-1 min-h-[48px] flex flex-row justify-center items-center cursor-pointer bg-blue-600 hover:bg-blue-700"
+                    className="flex-1 min-h-[48px] flex flex-row justify-center items-center cursor-pointer bg-[#EE1E21] hover:bg-[#cc1a1c]"
                     disabled={priceLoading}
                     onClick={() => onEstimate(values, setFieldValue)}
                   >
                     {priceLoading ? (
-                      <Spinner className="h-6 w-6 text-center text-white mr-2" />
+                      <Spinner className="h-6 w-6 text-center text-[#FADF4B] mr-2" />
                     ) : null}
                     Verify order
                   </Button>
@@ -1878,11 +1878,11 @@ export default function OrderForm() {
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button
                     type="button"
-                    className="flex flex-row justify-center items-center cursor-pointer hover:bg-blue-700 sm:flex-1"
+                    className="flex flex-row justify-center items-center cursor-pointer hover:bg-[#cc1a1c] sm:flex-1"
                     onClick={() => onEstimate(values, setFieldValue)}
                   >
                     {priceLoading ? (
-                      <Spinner className="h-6 w-6 text-center text-white mr-2" />
+                      <Spinner className="h-6 w-6 text-center text-[#FADF4B] mr-2" />
                     ) : (
                       "Generate estimate"
                     )}
@@ -1971,7 +1971,7 @@ export default function OrderForm() {
                             className={cn(
                               "flex gap-3 p-3 rounded-lg border text-left transition-colors",
                               selected
-                                ? "border-blue-600 bg-blue-50 ring-2 ring-blue-500"
+                                ? "border-[#EE1E21] bg-[#EE1E21]/5 ring-2 ring-[#EE1E21]"
                                 : "border-gray-200 bg-white hover:border-gray-300",
                             )}
                           >
@@ -2018,11 +2018,11 @@ export default function OrderForm() {
                         !values.selectedVehicleTypeId?.trim() ||
                         !values.sessionId?.trim()
                       }
-                      className="flex flex-row justify-center items-center cursor-pointer hover:bg-blue-700"
+                      className="flex flex-row justify-center items-center cursor-pointer hover:bg-[#cc1a1c]"
                     >
                       {loading ? (
                         <span className="flex items-center justify-center w-full">
-                          <Spinner className="h-6 w-6 text-white mr-2" />
+                          <Spinner className="h-6 w-6 text-[#FADF4B] mr-2" />
                           <span>Submitting...</span>
                         </span>
                       ) : (
@@ -2069,11 +2069,11 @@ export default function OrderForm() {
                           )}
                         </p>
                       </div>
-                      <div className="rounded-md bg-blue-50 p-4 text-center sm:text-left">
-                        <p className="text-xs font-medium text-blue-800 uppercase tracking-wide">
+                      <div className="rounded-md bg-[#EE1E21]/5 p-4 text-center sm:text-left">
+                        <p className="text-xs font-medium text-[#EE1E21] uppercase tracking-wide">
                           New price
                         </p>
-                        <p className="mt-1 text-lg font-semibold text-blue-900">
+                        <p className="mt-1 text-lg font-semibold text-gray-900">
                           {formatOrderMoney(
                             (() => {
                               const fp = Number(values.finalPrice);
@@ -2119,7 +2119,7 @@ export default function OrderForm() {
                               className={cn(
                                 "flex gap-3 p-3 rounded-lg border text-left transition-colors",
                                 selected
-                                  ? "border-blue-600 bg-blue-50 ring-2 ring-blue-500"
+                                  ? "border-[#EE1E21] bg-[#EE1E21]/5 ring-2 ring-[#EE1E21]"
                                   : "border-gray-200 bg-white hover:border-gray-300",
                               )}
                             >
@@ -2169,11 +2169,11 @@ export default function OrderForm() {
                     <Button
                       type="button"
                       disabled={confirmingDropoffUpdate}
-                      className="flex-1 min-h-[48px] flex flex-row justify-center items-center cursor-pointer bg-blue-600 hover:bg-blue-700"
+                      className="flex-1 min-h-[48px] flex flex-row justify-center items-center cursor-pointer bg-[#EE1E21] hover:bg-[#cc1a1c]"
                       onClick={() => handleDropoffConfirmUpdate(values)}
                     >
                       {confirmingDropoffUpdate ? (
-                        <Spinner className="h-6 w-6 text-white mr-2" />
+                        <Spinner className="h-6 w-6 text-[#FADF4B] mr-2" />
                       ) : null}
                       Confirm Update
                     </Button>

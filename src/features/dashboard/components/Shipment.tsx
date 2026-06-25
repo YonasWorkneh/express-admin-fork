@@ -197,7 +197,7 @@ const Shipment = () => {
           <div>
             <h3 className="text-base mb-2">Shipment Performance Summary</h3>
           </div>
-          <button className="mt-4 md:mt-0 px-6 py-2 bg-darkblue text-sm cursor-pointer text-white rounded-full">
+          <button className="mt-4 md:mt-0 px-6 py-2 bg-[#EE1E21] text-sm cursor-pointer text-[#FADF4B] rounded-full">
             View Full Report
           </button>
         </div>

@@ -235,7 +235,7 @@ export default function Sidebar() {
               isCollapsed ? "justify-center" : "gap-2 sm:gap-3 px-3 sm:px-6"
             }`}
           >
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-darkblue rounded-lg flex items-center justify-center shadow-lg">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#EE1E21] rounded-lg flex items-center justify-center shadow-lg">
               <FaCrown className="text-white text-sm sm:text-lg" />
             </div>
             {!isCollapsed && (
@@ -271,7 +271,7 @@ export default function Sidebar() {
                 {/* Parent */}
                 <div
                   className={`flex items-center justify-between cursor-pointer rounded-lg transition-all group ${
-                    isActive ? "bg-blue-500" : "hover:bg-blue-500"
+                    isActive ? "bg-[#EE1E21]" : "hover:bg-[#EE1E21]"
                   } ${isCollapsed ? "justify-center py-2 sm:py-4" : ""}`}
                   onClick={() => (subItems ? toggleParent(name) : null)}
                 >
@@ -285,8 +285,8 @@ export default function Sidebar() {
                     <span
                       className={`text-lg sm:text-2xl ${
                         isActive
-                          ? "text-white"
-                          : "text-black group-hover:text-white"
+                          ? "text-[#FADF4B]"
+                          : "text-black group-hover:text-[#FADF4B]"
                       }`}
                     >
                       {icon}
@@ -295,8 +295,8 @@ export default function Sidebar() {
                       <span
                         className={`${
                           isActive
-                            ? "text-white"
-                            : "text-black group-hover:text-white"
+                            ? "text-[#FADF4B]"
+                            : "text-black group-hover:text-[#FADF4B]"
                         } text-xs sm:text-sm`}
                       >
                         {name}
@@ -305,7 +305,7 @@ export default function Sidebar() {
                   </NavLink>
                   {!isCollapsed && subItems && (
                     <FaChevronDown
-                      className={`text-xs transition-transform group-hover:text-white mr-1 sm:mr-2 ${
+                      className={`text-xs transition-transform group-hover:text-[#FADF4B] mr-1 sm:mr-2 ${
                         isExpanded ? "rotate-180" : ""
                       }`}
                     />
@@ -358,8 +358,8 @@ export default function Sidebar() {
                             <div
                               className={`flex items-center justify-between rounded-lg cursor-pointer ${
                                 isSubActive
-                                  ? "bg-blue-500"
-                                  : "hover:bg-blue-500 hover:text-white group-hover:text-white"
+                                  ? "bg-[#EE1E21]"
+                                  : "hover:bg-[#EE1E21]"
                               }`}
                               onClick={() =>
                                 hasSubsub && toggleSub(name, sub.name)
@@ -373,8 +373,8 @@ export default function Sidebar() {
                                 <span
                                   className={
                                     isSubActive
-                                      ? "text-white"
-                                      : "text-black group-hover:text-white"
+                                      ? "text-[#FADF4B]"
+                                      : "text-black group-hover:text-[#FADF4B]"
                                   }
                                 >
                                   {sub.icon}
@@ -382,8 +382,8 @@ export default function Sidebar() {
                                 <span
                                   className={
                                     isSubActive
-                                      ? "text-white"
-                                      : "text-black group-hover:text-white"
+                                      ? "text-[#FADF4B]"
+                                      : "text-black group-hover:text-[#FADF4B]"
                                   }
                                 >
                                   {sub.name}
@@ -391,7 +391,7 @@ export default function Sidebar() {
                               </NavLink>
                               {hasSubsub && (
                                 <FaChevronDown
-                                  className={`text-xs transition-transform group-hover:text-white mr-1 sm:mr-2 ${
+                                  className={`text-xs transition-transform group-hover:text-[#FADF4B] mr-1 sm:mr-2 ${
                                     isSubExpanded ? "rotate-180" : ""
                                   }`}
                                 />
@@ -422,8 +422,8 @@ export default function Sidebar() {
                                         key={`${ss.path}-${ss.name}-${index}`}
                                         className={`w-full shrink-0 rounded-lg cursor-pointer ${
                                           isSSActive
-                                            ? "bg-blue-500"
-                                            : "hover:bg-blue-500 hover:text-white group-hover:text-white"
+                                            ? "bg-[#EE1E21]"
+                                            : "hover:bg-[#EE1E21]"
                                         } ${isLast ? "mb-0.5" : ""}`}
                                       >
                                         <NavLink
@@ -433,8 +433,8 @@ export default function Sidebar() {
                                           <span
                                             className={`text-xs sm:text-sm ${
                                               isSSActive
-                                                ? "text-white"
-                                                : "text-black group-hover:text-white"
+                                                ? "text-[#FADF4B]"
+                                                : "text-black group-hover:text-[#FADF4B]"
                                             }`}
                                           >
                                             {ss.name}

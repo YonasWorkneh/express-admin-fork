@@ -186,7 +186,7 @@ const CreateVehicle = () => {
       <div className="max-w-4xl p-6 bg-white">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#EE1E21] mx-auto mb-4"></div>
             <p className="text-gray-500">Loading vehicle data...</p>
           </div>
         </div>
@@ -209,15 +209,15 @@ const CreateVehicle = () => {
               <div className="absolute h-full top-0 left-0 flex items-center">
                 <Button
                   type="button"
-                  className="!text-white !size-[40px] bg-blue-500 hover:bg-blue-400 !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
+                  className="!text-[#FADF4B] !size-[40px] bg-[#EE1E21] hover:bg-[#EE1E21] !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
                   onClick={() => navigate(-1)}
                 >
-                  <IoArrowBack className="text-white text-lg" />
+                  <IoArrowBack className="text-[#FADF4B] text-lg" />
                 </Button>
               </div>
               <div className="flex gap-5 items-center justify-center mb-6">
                 <div className="flex gap-4 items-center">
-                  <IoCarSport className="text-3xl text-blue-500" />
+                  <IoCarSport className="text-3xl text-[#EE1E21]" />
                   <h1 className="text-3xl font-medium text-gray-700">
                     {isEditMode ? "Edit Vehicle" : "Register New Vehicle"}
                   </h1>
@@ -397,7 +397,7 @@ const CreateVehicle = () => {
                 <Button
                   type="submit"
                   disabled={status === "submitting"}
-                  className={`flex-1 cursor-pointer hover:bg-blue-700 ${
+                  className={`flex-1 cursor-pointer hover:bg-[#cc1a1c] ${
                     status === "submitting"
                       ? "disabled:opacity-70 disabled:cursor-not-allowed"
                       : ""

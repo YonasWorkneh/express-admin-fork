@@ -228,7 +228,7 @@ export default function DriverCommissionTable({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Button
             type="submit"
-            className="cursor-pointer hover:bg-blue-700"
+            className="cursor-pointer hover:bg-[#cc1a1c]"
             disabled={submitDisabled || isSubmitting}
           >
             {isSubmitting ? (

@@ -46,7 +46,7 @@ const RoleDetailsPage = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <Spinner className="h-8 w-8 text-blue-600" />
+        <Spinner className="h-8 w-8 text-[#EE1E21]" />
       </div>
     );
   }
@@ -162,7 +162,7 @@ const RoleDetailsPage = () => {
                           <Badge
                             key={action}
                             variant="secondary"
-                            className="bg-blue-100 text-blue-700"
+                            className="bg-[#EE1E21]/10 text-[#EE1E21]"
                           >
                             {action}
                           </Badge>

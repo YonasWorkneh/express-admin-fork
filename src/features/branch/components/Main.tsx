@@ -181,7 +181,7 @@ export default function BranchMain() {
               <span className="hidden sm:inline">Export</span>
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer text-xs sm:text-sm px-2 sm:px-4"
+              className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B] cursor-pointer text-xs sm:text-sm px-2 sm:px-4"
               onClick={() => navigate("/branch/create")}
             >
               <IoAdd className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
@@ -320,13 +320,13 @@ export default function BranchMain() {
                   <TableCell>
                     <Checkbox />
                   </TableCell>
-                  <TableCell className="font-medium text-blue-500">
+                  <TableCell className="font-medium text-[#EE1E21]">
                     {branch.id}
                   </TableCell>
                   <TableCell className="font-medium text-gray-900">
                     <Button
                       variant="ghost"
-                      className="p-0 text-blue-600 hover:text-blue-800 cursor-pointer"
+                      className="p-0 text-[#EE1E21] hover:text-[#cc1a1c] cursor-pointer"
                     >
                       {branch.name}
                     </Button>
@@ -364,7 +364,7 @@ export default function BranchMain() {
                   <TableCell>
                     <Badge
                       variant="secondary"
-                      className="bg-blue-100 text-blue-700"
+                      className="bg-[#EE1E21]/10 text-[#EE1E21]"
                     >
                       {branch.activeOrders}
                     </Badge>
@@ -379,7 +379,7 @@ export default function BranchMain() {
                     <div className="flex items-center gap-2">
                       <div className="w-20 bg-gray-200 rounded-full h-2">
                         <div
-                          className="bg-blue-600 h-2 rounded-full"
+                          className="bg-[#EE1E21] h-2 rounded-full"
                           style={{ width: `${branch.efficiency}%` }}
                         ></div>
                       </div>
@@ -401,7 +401,7 @@ export default function BranchMain() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                        className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/branch/edit/${branch.id}`);
@@ -412,7 +412,7 @@ export default function BranchMain() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700"
+                        className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c]"
                       >
                         <IoLockOpen className="h-6 w-6 font-bold" />
                       </Button>

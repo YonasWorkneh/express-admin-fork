@@ -74,7 +74,7 @@ function Calendar({
         ),
         range_end: cn("day-range-end", defaultClassNames.range_end),
         selected: cn(
-          "bg-blue-600 text-white hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white",
+          "bg-[#EE1E21] text-[#FADF4B] hover:bg-[#EE1E21] hover:text-[#FADF4B] focus:bg-[#EE1E21] focus:text-[#FADF4B]",
           defaultClassNames.selected,
         ),
         today: cn("bg-gray-100 text-gray-900", defaultClassNames.today),

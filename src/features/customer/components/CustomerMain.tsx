@@ -241,7 +241,7 @@ export default function CustomerMain() {
               Export
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+              className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B] cursor-pointer"
               onClick={() => navigate("/customer/create")}
             >
               <IoAdd className="h-4 w-4 mr-2" />
@@ -323,7 +323,7 @@ export default function CustomerMain() {
                   <div
                     className={`p-3 rounded-full ${
                       metric.color === "blue"
-                        ? "bg-blue-100 text-blue-600"
+                        ? "bg-blue-100 text-[#EE1E21]"
                         : metric.color === "green"
                         ? "bg-green-100 text-green-600"
                         : metric.color === "purple"
@@ -412,7 +412,7 @@ export default function CustomerMain() {
                 {loading && (
                   <TableCell colSpan={11}>
                     <div className="flex justify-center items-center py-8">
-                      <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                      <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                       <span className="text-gray-600 font-medium">
                         Loading customer data...
                       </span>
@@ -432,18 +432,18 @@ export default function CustomerMain() {
                   <TableCell className="font-medium text-gray-900">
                     <Button
                       variant="ghost"
-                      className="p-0 text-blue-600 hover:text-blue-800 cursor-pointer"
+                      className="p-0 text-[#EE1E21] hover:text-[#cc1a1c] cursor-pointer"
                     >
                       {customer.customId}
                     </Button>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <div className="w-8 h-8 bg-[#EE1E21]/10 rounded-full flex items-center justify-center">
                         {customer.type === "Corporate" ? (
-                          <IoBusiness className="h-4 w-4 text-blue-600" />
+                          <IoBusiness className="h-4 w-4 text-[#EE1E21]" />
                         ) : (
-                          <IoPerson className="h-4 w-4 text-blue-600" />
+                          <IoPerson className="h-4 w-4 text-[#EE1E21]" />
                         )}
                       </div>
                       <div>
@@ -518,7 +518,7 @@ export default function CustomerMain() {
                       {/* <Button
                         variant="ghost"
                         size="sm"
-                        className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                        className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/customer/edit/${customer.id}`);
@@ -529,7 +529,7 @@ export default function CustomerMain() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700"
+                        className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c]"
                       >
                         <IoLockOpen className="h-6 w-6 font-bold" />
                       </Button>

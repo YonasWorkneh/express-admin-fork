@@ -51,7 +51,7 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     return (
       <div className="p-4 bg-slate-900/90 border border-slate-700 flex flex-col gap-2 rounded-lg shadow-xl">
         <p className="text-white font-semibold">{label}</p>
-        <p className="text-sm text-blue-400">
+        <p className="text-sm text-[#EE1E21]">
           Revenue: <span className="ml-2">${payload[0].value}</span>
         </p>
         <p className="text-sm text-indigo-400">
@@ -143,7 +143,7 @@ const Revenue = () => {
               onClick={() => setView(option as typeof view)}
               className={`px-3 py-1 rounded-md text-sm font-medium transition ${
                 view === option
-                  ? "bg-blue-600 text-white"
+                  ? "bg-[#EE1E21] text-[#FADF4B]"
                   : "bg-slate-200 text-slate-700 hover:bg-slate-300"
               }`}
             >

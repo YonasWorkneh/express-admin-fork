@@ -94,7 +94,7 @@ export function PricingRemarkDateFields({
   setFieldTouched,
 }: PricingRemarkDateFieldsProps) {
   return (
-    <div className="rounded-lg border border-blue-100 bg-blue-50/40 px-4 py-4 space-y-4">
+    <div className="rounded-lg border border-[#EE1E21]/10 bg-[#EE1E21]/5 px-4 py-4 space-y-4">
       <p className="text-sm text-gray-700">
         Holiday and event tariffs apply only within the window you set below.
       </p>
