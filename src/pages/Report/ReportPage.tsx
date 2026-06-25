@@ -823,7 +823,7 @@ export default function ReportPage() {
                                 {item.revenue.toLocaleString()}
                               </span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-8">
+                            <div className="w-full bg-[#EE1E21]/10 rounded-full h-8">
                               <div
                                 className="bg-[#EE1E21] h-8 rounded-full flex items-center justify-end pr-2"
                                 style={{ width: `${height}%` }}
@@ -882,7 +882,7 @@ export default function ReportPage() {
                       <TableCell>{service.revenue.toLocaleString()}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                          <div className="w-24 bg-[#EE1E21]/10 rounded-full h-2">
                             <div
                               className="bg-[#EE1E21] h-2 rounded-full"
                               style={{ width: `${service.percentage}%` }}

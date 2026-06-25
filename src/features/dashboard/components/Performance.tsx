@@ -211,7 +211,7 @@ const Performance = () => {
 
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <div className="w-20 bg-gray-200 rounded-full h-2">
+                      <div className="w-20 bg-[#EE1E21]/10 rounded-full h-2">
                         <div
                           className="bg-[#EE1E21] h-2 rounded-full"
                           style={{ width: `${city.efficiency}%` }}

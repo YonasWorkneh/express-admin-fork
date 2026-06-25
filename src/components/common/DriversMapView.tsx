@@ -365,7 +365,7 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
                             {driver?.performance?.completedOrders || 0}/
                             {driver?.performance?.totalOrders || 0}
                           </span>
-                          <div className="w-16 bg-gray-200 rounded-full h-1">
+                          <div className="w-16 bg-[#EE1E21]/10 rounded-full h-1">
                             <div
                               className="bg-[#EE1E21] h-1 rounded-full"
                               style={{
@@ -600,7 +600,7 @@ export default function DriversMapView({ onCreateDriver }: DriversMapViewProps) 
                     {dispatchProgress}%
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-[#EE1E21]/10 rounded-full h-2">
                   <div
                     className="bg-[#EE1E21] h-2 rounded-full"
                     style={{ width: `${dispatchProgress}%` }}
