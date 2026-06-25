@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { FaChevronDown, FaCrown, FaTimes, FaCodeBranch } from "react-icons/fa";
+import { FaChevronDown, FaTimes, FaCodeBranch } from "react-icons/fa";
 import menuItems from "../../../constants/AdminSidebar";
 import { useAppSelector, useAppDispatch } from "../../../store/hooks";
 import { toggleSidebar } from "../sidebarSlice";
@@ -229,28 +229,20 @@ export default function Sidebar() {
         }`}
       >
         {/* Header */}
-        <div className="sticky top-0 z-15 pt-4 sm:pt-6 py-3 sm:py-5 bg-white border-b border-gray-100">
-          <div
-            className={`flex items-center ${
-              isCollapsed ? "justify-center" : "gap-2 sm:gap-3 px-3 sm:px-6"
-            }`}
-          >
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#EE1E21] rounded-lg flex items-center justify-center shadow-lg">
-              <FaCrown className="text-white text-sm sm:text-lg" />
-            </div>
+        <div className="sticky top-0 z-15 bg-white border-b border-gray-100">
+          <div className="relative flex items-center justify-center bg-secondary">
+            <img
+              src="/images/yes-logo.png"
+              alt="Yes Express Service"
+              className="w-auto object-cover h-40"
+            />
             {!isCollapsed && (
-              <>
-                <p className="font-medium text-sm sm:text-base flex-1">
-                  Express Service
-                </p>
-                {/* Mobile Close Button */}
-                <button
-                  onClick={() => dispatch(toggleSidebar())}
-                  className="lg:hidden p-2 hover:bg-gray-100 rounded-lg text-gray-600"
-                >
-                  <FaTimes className="w-4 h-4" />
-                </button>
-              </>
+              <button
+                onClick={() => dispatch(toggleSidebar())}
+                className="lg:hidden absolute right-2 p-2 hover:bg-gray-100/50 rounded-lg text-gray-600"
+              >
+                <FaTimes className="w-4 h-4" />
+              </button>
             )}
           </div>
         </div>
