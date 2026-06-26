@@ -171,7 +171,7 @@ export default function RevenueReportPage() {
                     endDate: undefined,
                   }))
                 }
-                className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs text-blue-700 hover:bg-blue-100"
+                className="inline-flex items-center gap-1 rounded-full border border-[#EE1E21]/20 bg-[#EE1E21]/5 px-3 py-1 text-xs text-[#EE1E21] hover:bg-[#EE1E21]/10"
               >
                 <span>
                   Date: {filters.startDate} → {filters.endDate}
@@ -584,14 +584,14 @@ export default function RevenueReportPage() {
             size="sm"
             onClick={handleApplyFilters}
             disabled={isLoading || customRangeInvalid}
-            className="bg-blue-600 hover:bg-blue-700 cursor-pointer text-white"
+            className="bg-[#EE1E21] hover:bg-[#cc1a1c] cursor-pointer text-[#FADF4B]"
           >
             Apply now
           </Button>
           <Button
             onClick={() => refetch()}
             disabled={isLoading}
-            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+            className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B] flex items-center gap-2"
           >
             <RefreshCw
               className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
@@ -615,7 +615,7 @@ export default function RevenueReportPage() {
 
       {isLoading && (
         <div className="flex items-center justify-center py-12">
-          <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+          <RefreshCw className="h-8 w-8 animate-spin text-[#EE1E21]" />
           <span className="ml-3 text-gray-600">Loading revenue report...</span>
         </div>
       )}
@@ -655,7 +655,7 @@ export default function RevenueReportPage() {
                 <CardTitle className="text-sm font-medium text-gray-600">
                   Total Orders
                 </CardTitle>
-                <Package className="h-5 w-5 text-blue-500" />
+                <Package className="h-5 w-5 text-[#EE1E21]" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-gray-900">

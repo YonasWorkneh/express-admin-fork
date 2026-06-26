@@ -169,7 +169,7 @@ export default function OrderItemCategoriesPage() {
             </Button>
             <div>
               <div className="flex items-center gap-2 text-slate-500">
-                <LayoutGrid className="h-5 w-5 text-blue-600" />
+                <LayoutGrid className="h-5 w-5 text-[#EE1E21]" />
 
                 <h1 className="text-2xl font-semibold text-gray-900">
                   Item categories
@@ -181,7 +181,7 @@ export default function OrderItemCategoriesPage() {
             </div>
           </div>
           <Button
-            className="bg-blue-600 text-white shadow-sm hover:bg-blue-700"
+            className="bg-[#EE1E21] text-[#FADF4B] shadow-sm hover:bg-[#cc1a1c]"
             onClick={openAdd}
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -199,7 +199,7 @@ export default function OrderItemCategoriesPage() {
             {isLoading ? (
               <div className="flex items-center justify-center py-20 text-slate-500">
                 <div className="flex flex-col items-center gap-3">
-                  <div className="h-9 w-9 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                  <div className="h-9 w-9 animate-spin rounded-full border-2 border-[#EE1E21] border-t-transparent" />
                   <span className="text-sm">Loading categories…</span>
                 </div>
               </div>
@@ -228,7 +228,7 @@ export default function OrderItemCategoriesPage() {
                   Create your first item category to use it on orders.
                 </p>
                 <Button
-                  className="mt-6 bg-blue-600 text-white hover:bg-blue-700"
+                  className="mt-6 bg-[#EE1E21] text-[#FADF4B] hover:bg-[#cc1a1c]"
                   onClick={openAdd}
                 >
                   <Plus className="mr-2 h-4 w-4" />
@@ -258,7 +258,7 @@ export default function OrderItemCategoriesPage() {
                     {categories.map((row, index) => (
                       <TableRow
                         key={row.id || `${row.name}-${index}`}
-                        className="border-slate-100 transition-colors hover:bg-blue-50/40"
+                        className="border-slate-100 transition-colors hover:bg-[#EE1E21]/5"
                       >
                         <TableCell className="font-medium text-slate-900">
                           {row.name}
@@ -283,12 +283,12 @@ export default function OrderItemCategoriesPage() {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="cursor-pointer text-blue-600 bg-blue-50 hover:text-blue-700 hover:bg-blue-100"
+                              className="cursor-pointer text-[#EE1E21] bg-[#EE1E21]/5 hover:text-[#cc1a1c] hover:bg-[#EE1E21]/10"
                               aria-label={`Edit ${row.name}`}
                               onClick={() => openEdit(row)}
                             >
                               <Pencil
-                                className="h-4 w-4 text-blue-600"
+                                className="h-4 w-4 text-[#EE1E21]"
                                 aria-hidden
                               />
                             </Button>
@@ -376,7 +376,7 @@ export default function OrderItemCategoriesPage() {
               </Button>
               <Button
                 type="submit"
-                className="bg-blue-600 text-white hover:bg-blue-700"
+                className="bg-[#EE1E21] text-[#FADF4B] hover:bg-[#cc1a1c]"
                 disabled={
                   createMutation.isPending || updateMutation.isPending
                 }

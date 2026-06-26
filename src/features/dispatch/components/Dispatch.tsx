@@ -863,7 +863,7 @@ const [loading] = useState<boolean>(true);
                     <TableRow>
                       <TableCell colSpan={13}>
                         <div className="flex justify-center items-center py-8">
-                          <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                          <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                           <span className="text-gray-600 font-medium">
                             Loading order data...
                           </span>
@@ -900,7 +900,7 @@ const [loading] = useState<boolean>(true);
                           <TableCell className="font-medium text-gray-900">
                             <Button
                               variant="ghost"
-                              className="p-0 text-blue-600 hover:text-blue-800 cursor-pointer"
+                              className="p-0 text-[#EE1E21] hover:text-[#cc1a1c] cursor-pointer"
                             >
                               {order?.trackingCode}
                             </Button>
@@ -1060,7 +1060,7 @@ const [loading] = useState<boolean>(true);
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                                className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                                 disabled
                               >
                                 Waiting for request
@@ -1071,7 +1071,7 @@ const [loading] = useState<boolean>(true);
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                                  className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setApproveModal(true); //
@@ -1083,7 +1083,7 @@ const [loading] = useState<boolean>(true);
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                                  className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setRejectModal(true); //
@@ -1100,7 +1100,7 @@ const [loading] = useState<boolean>(true);
                             //   <Button
                             //     variant="ghost"
                             //     size="sm"
-                            //     className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                            //     className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                             //     onClick={(e) => {
                             //       e.stopPropagation();
                             //       setisAssignCargoOfficerModal(true);
@@ -1116,7 +1116,7 @@ const [loading] = useState<boolean>(true);
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                                className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   // setIsDialogOpen(true);
@@ -1131,7 +1131,7 @@ const [loading] = useState<boolean>(true);
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                                className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                                 disabled
                               >
                                 No Action
@@ -1504,7 +1504,7 @@ const [loading] = useState<boolean>(true);
                       <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                         {loadingCargoOfficer && (
                           <div className="flex justify-center items-center py-8">
-                            <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                            <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                           </div>
                         )}
                         {cargoOfficers.length > 0 ? (

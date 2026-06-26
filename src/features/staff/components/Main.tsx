@@ -172,7 +172,7 @@ export default function StaffMain() {
               Export
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+              className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B] cursor-pointer"
               onClick={() => navigate("/staff/create")}
             >
               <IoAdd className="h-4 w-4 mr-2" />
@@ -298,15 +298,15 @@ export default function StaffMain() {
                   <TableCell className="font-medium text-gray-900">
                     <Button
                       variant="ghost"
-                      className="p-0 text-blue-600 hover:text-blue-800 cursor-pointer"
+                      className="p-0 text-[#EE1E21] hover:text-[#cc1a1c] cursor-pointer"
                     >
                       {member.id}
                     </Button>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <IoPerson className="h-4 w-4 text-blue-600" />
+                      <div className="w-8 h-8 bg-[#EE1E21]/10 rounded-full flex items-center justify-center">
+                        <IoPerson className="h-4 w-4 text-[#EE1E21]" />
                       </div>
                       <span className="font-medium text-gray-900">
                         {member.name}
@@ -364,7 +364,7 @@ export default function StaffMain() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                        className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/staff/edit/${member.id}`);
@@ -375,7 +375,7 @@ export default function StaffMain() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700"
+                        className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c]"
                       >
                         <IoLockOpen className="h-6 w-6 font-bold" />
                       </Button>

@@ -478,7 +478,7 @@ export default function CustomersReportPage() {
                       size="sm"
                       onClick={handleApplyFilters}
                       disabled={isLoading || customRangeInvalid}
-                      className="flex-1 bg-blue-600 cursor-pointer hover:bg-blue-700 text-white"
+                      className="flex-1 bg-[#EE1E21] cursor-pointer hover:bg-[#cc1a1c] text-[#FADF4B]"
                     >
                       Apply now
                     </Button>
@@ -490,7 +490,7 @@ export default function CustomersReportPage() {
             <Button
               onClick={handleApplyFilters}
               disabled={isLoading || customRangeInvalid}
-              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+              className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B] flex items-center gap-2"
             >
               <RefreshCw
                 className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
@@ -543,7 +543,7 @@ export default function CustomersReportPage() {
                         endDate: undefined,
                       }))
                     }
-                    className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs text-blue-800 shadow-sm hover:bg-blue-100"
+                    className="inline-flex items-center gap-1 rounded-full border border-[#EE1E21]/20 bg-[#EE1E21]/5 px-3 py-1 text-xs text-[#EE1E21] shadow-sm hover:bg-[#EE1E21]/10"
                   >
                     <span>
                       Date: {filters.startDate} → {filters.endDate}
@@ -675,7 +675,7 @@ export default function CustomersReportPage() {
 
       {isLoading && (
         <div className="flex items-center justify-center py-12">
-          <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+          <RefreshCw className="h-8 w-8 animate-spin text-[#EE1E21]" />
           <span className="ml-3 text-gray-600">Loading customers report…</span>
         </div>
       )}
@@ -698,7 +698,7 @@ export default function CustomersReportPage() {
                 <CardTitle className="text-sm font-medium text-gray-600">
                   Customers (rows)
                 </CardTitle>
-                <UserCircle className="h-5 w-5 text-blue-500" />
+                <UserCircle className="h-5 w-5 text-[#EE1E21]" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-gray-900">

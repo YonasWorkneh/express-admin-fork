@@ -863,7 +863,7 @@ export default function TownPricingForm({
       {loading && (
         <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
           <div className="flex flex-col items-center gap-3">
-            <Spinner className="h-8 w-8 text-blue-600" />
+            <Spinner className="h-8 w-8 text-[#EE1E21]" />
             <p className="text-gray-600 font-medium">
               {isEditing ? "Updating pricing..." : "Saving pricing..."}
             </p>
@@ -873,7 +873,7 @@ export default function TownPricingForm({
 
       {(loadingST || loadingCat) && (
         <div className="flex items-center justify-center py-20 text-gray-600">
-          <Spinner className="h-8 w-8 text-blue-600 mr-2" />
+          <Spinner className="h-8 w-8 text-[#EE1E21] mr-2" />
           Loading service types and categories…
         </div>
       )}
@@ -935,7 +935,7 @@ export default function TownPricingForm({
                         type="button"
                         className={`px-4 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer border ${
                           active
-                            ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                            ? "bg-[#EE1E21] text-[#FADF4B] border-[#EE1E21] shadow-sm"
                             : "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200 hover:border-gray-300"
                         }`}
                         onClick={() => setActiveTabId(st.id)}
@@ -946,11 +946,11 @@ export default function TownPricingForm({
                   })}
                 </div>
                 <div
-                  className="mt-3 mb-4 flex gap-2.5 rounded-lg border border-blue-200/80 bg-blue-50/90 px-3 py-2.5 text-sm text-blue-900"
+                  className="mt-3 mb-4 flex gap-2.5 rounded-lg border border-[#EE1E21]/20 bg-[#EE1E21]/5 px-3 py-2.5 text-sm text-gray-900"
                   role="status"
                 >
                   <Info
-                    className="mt-0.5 h-5 w-5 shrink-0 text-blue-600"
+                    className="mt-0.5 h-5 w-5 shrink-0 text-[#EE1E21]"
                     aria-hidden
                   />
                   <p className="leading-snug">
@@ -1047,11 +1047,11 @@ export default function TownPricingForm({
                             Item categories
                           </h3>
                           <div
-                            className="mb-3 flex gap-2.5 rounded-lg border border-blue-200/80 bg-blue-50/90 px-3 py-2.5 text-sm text-blue-900"
+                            className="mb-3 flex gap-2.5 rounded-lg border border-[#EE1E21]/20 bg-[#EE1E21]/5 px-3 py-2.5 text-sm text-gray-900"
                             role="status"
                           >
                             <Info
-                              className="mt-0.5 h-5 w-5 shrink-0 text-blue-600"
+                              className="mt-0.5 h-5 w-5 shrink-0 text-[#EE1E21]"
                               aria-hidden
                             />
                             <p className="leading-snug">
@@ -1068,8 +1068,8 @@ export default function TownPricingForm({
                                   type="button"
                                   className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors cursor-pointer ${
                                     active
-                                      ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                                      : "bg-white text-gray-700 border-gray-200 hover:border-blue-300 hover:bg-blue-50/60"
+                                      ? "bg-[#EE1E21] text-[#FADF4B] border-[#EE1E21] shadow-sm"
+                                      : "bg-white text-gray-700 border-gray-200 hover:border-[#EE1E21]/30 hover:bg-[#EE1E21]/5"
                                   }`}
                                   onClick={() =>
                                     setActiveCategoryByService((prev) => ({

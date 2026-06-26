@@ -198,7 +198,7 @@ export default function CorporateClients() {
                     variant="ghost"
                     size="sm"
                     onClick={() => navigate("/customer")}
-                    className="cursor-pointer bg-blue-400 text-white hover:bg-blue-500 hover:text-white p-2"
+                    className="cursor-pointer bg-[#EE1E21] text-[#FADF4B] hover:bg-[#cc1a1c] hover:text-[#FADF4B] p-2"
                   >
                     <IoArrowBack className="h-5 w-5" />
                   </Button>
@@ -388,7 +388,7 @@ export default function CorporateClients() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="p-0 px-3 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                            className="p-0 px-3 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
                               navigate(`/customer/edit/${client.id}`);

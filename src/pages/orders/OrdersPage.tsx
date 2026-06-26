@@ -600,7 +600,7 @@ export default function OrdersPage() {
             </Button>
 
             <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white !cursor-pointer"
+              className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B] !cursor-pointer"
               onClick={() => navigate("/order/new")}
             >
               Create order
@@ -750,7 +750,7 @@ export default function OrdersPage() {
                   <TableRow>
                     <TableCell colSpan={12}>
                       <div className="flex justify-center items-center py-8">
-                        <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                        <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                         <span className="text-gray-600 font-medium">
                           Loading Order data...
                         </span>
@@ -784,14 +784,14 @@ export default function OrdersPage() {
                           className="flex items-center gap-1.5 max-w-[240px]"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <span className="truncate text-blue-600 font-medium">
+                          <span className="truncate text-[#EE1E21] font-medium">
                             {order?.trackingCode}
                           </span>
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 shrink-0 text-gray-500 hover:text-blue-700"
+                            className="h-8 w-8 shrink-0 text-gray-500 hover:text-[#cc1a1c]"
                             aria-label="Copy tracking code"
                             onClick={() => {
                               const code = order.trackingCode ?? "";
@@ -982,7 +982,7 @@ export default function OrdersPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                                  className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setIsDialogOpen(true);
@@ -1021,7 +1021,7 @@ export default function OrdersPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                                  className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setIsDialogOpen(true);
@@ -1099,7 +1099,7 @@ export default function OrdersPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                                  className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setIsDialogOpen(true);
@@ -1189,22 +1189,18 @@ export default function OrdersPage() {
 
             {/* Fragile */}
             <div className="mb-4 flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={isFragile}
-                onChange={(e) => setIsFragile(e.target.checked)}
-                className="accent-blue-500"
+                onCheckedChange={(checked) => setIsFragile(checked as boolean)}
               />
               <span className="font-medium">Is Fragile?</span>
             </div>
 
             {/* Unusual */}
             <div className="mb-4 flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={isUnusual}
-                onChange={(e) => setIsUnusual(e.target.checked)}
-                className="accent-blue-500"
+                onCheckedChange={(checked) => setIsUnusual(checked as boolean)}
               />
               <span className="font-medium">Is Unusual?</span>
             </div>
@@ -1271,7 +1267,7 @@ export default function OrdersPage() {
             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
               {loadingDriver && (
                 <div className="flex justify-center items-center py-8">
-                  <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                  <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                 </div>
               )}
               {driver.length > 0 ? (

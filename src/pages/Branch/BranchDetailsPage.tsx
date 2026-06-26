@@ -122,7 +122,7 @@ export default function BranchDetailsPage() {
   if (branchDetailQuery.isPending) {
     return (
       <div className="flex justify-center items-center min-h-[40vh]">
-        <Spinner className="h-10 w-10 text-blue-600" />
+        <Spinner className="h-10 w-10 text-[#EE1E21]" />
       </div>
     );
   }
@@ -160,9 +160,9 @@ export default function BranchDetailsPage() {
             variant="ghost"
             size="sm"
             onClick={() => navigate("/branch")}
-            className="p-2 rounded-full bg-blue-100 hover:bg-blue-200"
+            className="p-2 rounded-full bg-[#EE1E21]/10 hover:bg-[#EE1E21]/20"
           >
-            <ArrowLeft className="h-4 w-4 text-blue-600" />
+            <ArrowLeft className="h-4 w-4 text-[#EE1E21]" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{branch.name}</h1>
@@ -173,7 +173,7 @@ export default function BranchDetailsPage() {
         </div>
         <Button
           variant="outline"
-          className="text-blue-600 border-blue-200"
+          className="text-[#EE1E21] border-[#EE1E21]/20"
           onClick={() => navigate(`/branch/edit/${branch.id}`)}
         >
           Edit branch
@@ -185,7 +185,7 @@ export default function BranchDetailsPage() {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <Building2 className="h-5 w-5 mr-2 text-blue-600" />
+                <Building2 className="h-5 w-5 mr-2 text-[#EE1E21]" />
                 Branch information
               </CardTitle>
             </CardHeader>
@@ -212,7 +212,7 @@ export default function BranchDetailsPage() {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <User className="h-5 w-5 mr-2 text-blue-600" />
+                <User className="h-5 w-5 mr-2 text-[#EE1E21]" />
                 Manager
               </CardTitle>
             </CardHeader>
@@ -276,7 +276,7 @@ export default function BranchDetailsPage() {
                   <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {loadingStaff ? (
                       <div className="px-4 py-6 flex justify-center">
-                        <Spinner className="h-6 w-6 text-blue-600" />
+                        <Spinner className="h-6 w-6 text-[#EE1E21]" />
                       </div>
                     ) : staffs.length > 0 ? (
                       staffs.map((manager) => (
@@ -310,7 +310,7 @@ export default function BranchDetailsPage() {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <Users className="h-5 w-5 mr-2 text-blue-600" />
+                <Users className="h-5 w-5 mr-2 text-[#EE1E21]" />
                 Staff ({staffList.length})
               </CardTitle>
             </CardHeader>
@@ -346,7 +346,7 @@ export default function BranchDetailsPage() {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <MapPin className="h-5 w-5 mr-2 text-blue-600" />
+                <MapPin className="h-5 w-5 mr-2 text-[#EE1E21]" />
                 Address
               </CardTitle>
             </CardHeader>
@@ -381,7 +381,7 @@ export default function BranchDetailsPage() {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <Package className="h-5 w-5 mr-2 text-blue-600" />
+                <Package className="h-5 w-5 mr-2 text-[#EE1E21]" />
                 Orders ({orderList.length})
               </CardTitle>
             </CardHeader>
@@ -400,7 +400,7 @@ export default function BranchDetailsPage() {
                         <span className="font-mono text-sm text-gray-900">
                           {o.trackingCode}
                         </span>
-                        <ExternalLink className="h-4 w-4 text-blue-500 shrink-0" />
+                        <ExternalLink className="h-4 w-4 text-[#EE1E21] shrink-0" />
                       </button>
                     </li>
                   ))}
@@ -412,7 +412,7 @@ export default function BranchDetailsPage() {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center text-lg font-semibold">
-                <FileText className="h-5 w-5 mr-2 text-blue-600" />
+                <FileText className="h-5 w-5 mr-2 text-[#EE1E21]" />
                 Record
               </CardTitle>
             </CardHeader>

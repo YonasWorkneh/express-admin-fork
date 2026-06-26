@@ -177,7 +177,7 @@ export default function ServiceTypesPage() {
             </p>
           </div>
           <Button
-            className="bg-blue-600 hover:bg-blue-700 text-white !cursor-pointer shrink-0"
+            className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B] !cursor-pointer shrink-0"
             onClick={openCreate}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -223,7 +223,7 @@ export default function ServiceTypesPage() {
                   Create a service type with a name and description.
                 </p>
                 <Button
-                  className="mt-6 bg-blue-600 text-white hover:bg-blue-700"
+                  className="mt-6 bg-[#EE1E21] text-[#FADF4B] hover:bg-[#cc1a1c]"
                   onClick={openCreate}
                 >
                   <Plus className="mr-2 h-4 w-4" />
@@ -279,7 +279,7 @@ export default function ServiceTypesPage() {
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="h-9 w-9 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                className="h-9 w-9 text-[#EE1E21] hover:text-[#cc1a1c] hover:bg-[#EE1E21]/5"
                                 aria-label="Edit service type"
                                 onClick={() => openEdit(row)}
                               >
@@ -376,7 +376,7 @@ export default function ServiceTypesPage() {
               </Button>
               <Button
                 type="submit"
-                className="bg-blue-600 text-white hover:bg-blue-700"
+                className="bg-[#EE1E21] text-[#FADF4B] hover:bg-[#cc1a1c]"
                 disabled={createMutation.isPending}
               >
                 {createMutation.isPending ? "Saving…" : "Create"}
@@ -443,7 +443,7 @@ export default function ServiceTypesPage() {
               </Button>
               <Button
                 type="submit"
-                className="bg-blue-600 text-white hover:bg-blue-700"
+                className="bg-[#EE1E21] text-[#FADF4B] hover:bg-[#cc1a1c]"
                 disabled={updateMutation.isPending}
               >
                 {updateMutation.isPending ? "Saving…" : "Save changes"}

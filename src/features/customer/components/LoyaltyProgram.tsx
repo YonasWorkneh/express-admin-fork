@@ -240,12 +240,12 @@ export default function LoyaltyProgram() {
                     variant="ghost"
                     size="sm"
                     onClick={() => navigate("/customer")}
-                    className="cursor-pointer bg-blue-400 text-white hover:bg-blue-500 hover:text-white p-2"
+                    className="cursor-pointer bg-[#EE1E21] text-[#FADF4B] hover:bg-[#cc1a1c] hover:text-[#FADF4B] p-2"
                   >
                     <IoArrowBack className="h-5 w-5" />
                   </Button>
                   <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                    <IoStar className="text-blue-500" />
+                    <IoStar className="text-[#EE1E21]" />
                     Loyalty Program
                   </h1>
                 </div>
@@ -256,7 +256,7 @@ export default function LoyaltyProgram() {
               <div className="flex gap-3 mt-4 md:mt-0">
                 <Button
                   onClick={() => navigate("/customer/loyalty/create")}
-                  className="bg-blue-500 hover:bg-blue-600 cursor-pointer text-white"
+                  className="bg-[#EE1E21] hover:bg-[#cc1a1c] cursor-pointer text-[#FADF4B]"
                 >
                   <IoAdd className="mr-2 h-4 w-4" />
                   Add Points
@@ -469,7 +469,7 @@ export default function LoyaltyProgram() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="p-0 px-3 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
+                            className="p-0 px-3 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
                               navigate(`/customer/loyalty/edit/${member.id}`);

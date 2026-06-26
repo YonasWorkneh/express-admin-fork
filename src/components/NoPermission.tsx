@@ -15,7 +15,7 @@ export default function NoPermission() {
             <div className="relative">
               <div className="absolute inset-0 bg-red-500 blur-3xl opacity-20 rounded-full"></div>
               <div className="relative bg-gradient-to-br from-red-500 to-red-600 p-6 rounded-full shadow-lg">
-                <ShieldX className="h-16 w-16 text-white" />
+                <ShieldX className="h-16 w-16 text-[#FADF4B]" />
               </div>
             </div>
 
@@ -41,7 +41,7 @@ export default function NoPermission() {
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto pt-4">
               <Button
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                className="flex items-center gap-2 bg-[#EE1E21] hover:bg-[#cc1a1c] cursor-pointer"
                 onClick={() => navigate("/dashboard")}
               >
                 <Home className="h-4 w-4" />
@@ -55,7 +55,7 @@ export default function NoPermission() {
                 Need help? Contact support at{" "}
                 <a
                   href="mailto:support@expressservice.com"
-                  className="text-blue-600 hover:underline"
+                  className="text-[#EE1E21] hover:underline"
                 >
                   support@expressservice.com
                 </a>

@@ -159,7 +159,7 @@ export default function SuccessModal({
                 variant="ghost"
                 size="sm"
                 onClick={onClose}
-                className="h-8 w-8 p-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="h-8 w-8 p-0 focus:outline-none focus:ring-2 focus:ring-[#EE1E21]"
                 tabIndex={0}
                 aria-label="Close"
               >
@@ -198,7 +198,7 @@ export default function SuccessModal({
                   {copied ? "Copied!" : "Copy"}
                 </Button>
               </div>
-              <div className="bg-white p-3 rounded border font-mono text-lg font-bold text-center text-blue-600">
+              <div className="bg-white p-3 rounded border font-mono text-lg font-bold text-center text-[#EE1E21]">
                 {trackingNumber}
               </div>
             </div>
@@ -225,7 +225,7 @@ export default function SuccessModal({
                   </div>
                 ) : trackingNumber ? (
                   <div className="w-48 h-48 bg-gray-100 rounded flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#EE1E21]"></div>
                   </div>
                 ) : (
                   <div className="w-48 h-48 bg-gray-100 rounded flex items-center justify-center">
@@ -242,7 +242,7 @@ export default function SuccessModal({
             <div className="flex gap-3 mt-auto">
               <Button
                 onClick={onClose}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B] focus:outline-none focus:ring-2 focus:ring-[#EE1E21]"
                 tabIndex={0}
                 aria-label="Close modal"
               >

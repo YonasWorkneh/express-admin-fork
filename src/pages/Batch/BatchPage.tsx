@@ -552,7 +552,7 @@ function BatchPage() {
           )}
           <Button
             onClick={() => navigate("/batch/create")}
-            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+            className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B] flex items-center gap-2"
           >
             <IoAdd className="h-5 w-5" />
             Create Batch
@@ -768,7 +768,7 @@ function BatchPage() {
                                     setSelectedBatchForOfficer(batch);
                                     setisAssignCargoOfficerModal(true);
                                   }}
-                                  className="flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  className="flex items-center gap-1 text-[#EE1E21] hover:text-[#cc1a1c] hover:bg-[#EE1E21]/5"
                                 >
                                   <IoPersonAdd className="h-4 w-4" />
                                   Assign Officer
@@ -881,7 +881,7 @@ function BatchPage() {
                     key={officer.id}
                     className={`p-3 border rounded-lg cursor-pointer hover:bg-gray-50 ${
                       selectedOfficer?.id === officer.id
-                        ? "border-blue-500 bg-blue-50"
+                        ? "border-[#EE1E21] bg-[#EE1E21]/5"
                         : ""
                     }`}
                     onClick={() => setSelectedOfficer(officer)}
@@ -933,7 +933,7 @@ function BatchPage() {
             <div className="border border-gray-300 rounded-lg max-h-60 overflow-y-auto">
               {loadingCargoOfficer ? (
                 <div className="flex justify-center items-center py-8">
-                  <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                  <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                   <span className="text-gray-600">Loading...</span>
                 </div>
               ) : cargoOfficers.length > 0 ? (
@@ -942,7 +942,7 @@ function BatchPage() {
                     key={officer.id}
                     className={`flex items-start gap-3 px-4 py-3 cursor-pointer border-b border-gray-100 last:border-b-0 ${
                       selectedCargoOfficer?.id === officer.id
-                        ? "bg-blue-50"
+                        ? "bg-[#EE1E21]/5"
                         : ""
                     }`}
                   >

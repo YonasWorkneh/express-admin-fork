@@ -349,7 +349,7 @@ export default function ReportPage() {
                       {filters.serviceType && (
                         <button
                           onClick={() => setFilters({ ...filters, serviceType: undefined })}
-                          className="text-xs text-blue-600 hover:text-blue-700"
+                          className="text-xs text-[#EE1E21] hover:text-[#cc1a1c]"
                         >
                           Reset
                         </button>
@@ -384,7 +384,7 @@ export default function ReportPage() {
                       {filters.status && (
                         <button
                           onClick={() => setFilters({ ...filters, status: undefined })}
-                          className="text-xs text-blue-600 hover:text-blue-700"
+                          className="text-xs text-[#EE1E21] hover:text-[#cc1a1c]"
                         >
                           Reset
                         </button>
@@ -421,7 +421,7 @@ export default function ReportPage() {
                       {filters.branchId && (
                         <button
                           onClick={() => setFilters({ ...filters, branchId: undefined })}
-                          className="text-xs text-blue-600 hover:text-blue-700"
+                          className="text-xs text-[#EE1E21] hover:text-[#cc1a1c]"
                         >
                           Reset
                         </button>
@@ -513,7 +513,7 @@ export default function ReportPage() {
                         setIsFilterOpen(false);
                       }}
                       disabled={isLoading || (filters.preset === ReportPreset.CUSTOM && (!startDate || !endDate))}
-                      className="flex-1 bg-blue-600 cursor-pointer hover:bg-blue-700 text-white"
+                      className="flex-1 bg-[#EE1E21] cursor-pointer hover:bg-[#cc1a1c] text-[#FADF4B]"
                     >
                       Apply now
                     </Button>
@@ -524,7 +524,7 @@ export default function ReportPage() {
             <Button
               onClick={handleApplyFilters}
               disabled={isLoading}
-              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+              className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B] flex items-center gap-2"
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
               Refresh Data
@@ -576,7 +576,7 @@ export default function ReportPage() {
                   endDate: undefined,
                 }));
               }}
-              className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs text-blue-700 hover:bg-blue-100"
+              className="inline-flex items-center gap-1 rounded-full border border-[#EE1E21]/20 bg-[#EE1E21]/5 px-3 py-1 text-xs text-[#EE1E21] hover:bg-[#EE1E21]/10"
             >
               <span>
                 Date: {startDate} → {endDate}
@@ -646,7 +646,7 @@ export default function ReportPage() {
       {/* Loading State */}
       {isLoading && (
         <div className="flex items-center justify-center py-12">
-          <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+          <RefreshCw className="h-8 w-8 animate-spin text-[#EE1E21]" />
           <span className="ml-3 text-gray-600">Loading report data...</span>
         </div>
       )}
@@ -823,12 +823,12 @@ export default function ReportPage() {
                                 {item.revenue.toLocaleString()}
                               </span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-8">
+                            <div className="w-full bg-[#EE1E21]/10 rounded-full h-8">
                               <div
-                                className="bg-blue-600 h-8 rounded-full flex items-center justify-end pr-2"
+                                className="bg-[#EE1E21] h-8 rounded-full flex items-center justify-end pr-2"
                                 style={{ width: `${height}%` }}
                               >
-                                <span className="text-xs text-white font-medium">
+                                <span className="text-xs text-[#FADF4B] font-medium">
                                   {item.revenue > maxRevenue * 0.3
                                     ? item.revenue.toLocaleString()
                                     : ""}
@@ -882,9 +882,9 @@ export default function ReportPage() {
                       <TableCell>{service.revenue.toLocaleString()}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <div className="w-24 bg-gray-200 rounded-full h-2">
+                          <div className="w-24 bg-[#EE1E21]/10 rounded-full h-2">
                             <div
-                              className="bg-blue-600 h-2 rounded-full"
+                              className="bg-[#EE1E21] h-2 rounded-full"
                               style={{ width: `${service.percentage}%` }}
                             />
                           </div>
@@ -927,7 +927,7 @@ export default function ReportPage() {
                       className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#EE1E21]/10 text-[#EE1E21] font-bold">
                           {index + 1}
                         </div>
                         <div>

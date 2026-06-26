@@ -229,7 +229,7 @@ export default function OrderDetails() {
   if (loadingOrder) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3 p-6">
-        <Spinner className="h-10 w-10 text-blue-600" />
+        <Spinner className="h-10 w-10 text-[#EE1E21]" />
         <p className="text-gray-600">Loading order…</p>
       </div>
     );
@@ -271,10 +271,10 @@ export default function OrderDetails() {
               <div className="flex gap-5 items-center">
                 <Button
                   type="button"
-                  className="!text-white !size-[40px] bg-blue-500 hover:bg-blue-400 !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
+                  className="!text-[#FADF4B] !size-[40px] bg-[#EE1E21] hover:bg-[#EE1E21] !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
                   onClick={() => navigate("/order")}
                 >
-                  <IoArrowBack className="text-white text-2xl" />
+                  <IoArrowBack className="text-[#FADF4B] text-2xl" />
                 </Button>
                 <div>
                   <h1 className="text-2xl font-medium text-gray-700">
@@ -295,7 +295,7 @@ export default function OrderDetails() {
                 </Button>
                 <Button
                   type="submit"
-                  className="!cursor-pointer !bg-blue-500 hover:!bg-blue-400"
+                  className="!cursor-pointer !bg-[#EE1E21] hover:!bg-[#cc1a1c]"
                 >
                   Save Changes
                 </Button>
@@ -490,7 +490,7 @@ export default function OrderDetails() {
                         <p className="font-medium mt-1">
                           {loadingVehicleType ? (
                             <span className="inline-flex items-center gap-2 text-gray-500">
-                              <Spinner className="h-4 w-4 text-blue-600" />
+                              <Spinner className="h-4 w-4 text-[#EE1E21]" />
                               Loading…
                             </span>
                           ) : (
@@ -852,12 +852,12 @@ export default function OrderDetails() {
                       </Table>
 
                       {groupedOrders.length > 0 && (
-                        <div className="bg-blue-50 p-3 rounded-lg">
-                          <p className="text-blue-700 text-sm font-medium">
+                        <div className="bg-[#EE1E21]/5 p-3 rounded-lg">
+                          <p className="text-[#EE1E21] text-sm font-medium">
                             {groupedOrders.length} order(s) selected for
                             grouping
                           </p>
-                          <p className="text-blue-600 text-xs">
+                          <p className="text-[#EE1E21] text-xs">
                             These orders will be bundled for efficient delivery
                             routing.
                           </p>

@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { FaChevronDown, FaCrown, FaTimes, FaCodeBranch } from "react-icons/fa";
+import { FaChevronDown, FaTimes, FaCodeBranch } from "react-icons/fa";
 import menuItems from "../../../constants/AdminSidebar";
 import { useAppSelector, useAppDispatch } from "../../../store/hooks";
 import { toggleSidebar } from "../sidebarSlice";
@@ -229,28 +229,20 @@ export default function Sidebar() {
         }`}
       >
         {/* Header */}
-        <div className="sticky top-0 z-15 pt-4 sm:pt-6 py-3 sm:py-5 bg-white border-b border-gray-100">
-          <div
-            className={`flex items-center ${
-              isCollapsed ? "justify-center" : "gap-2 sm:gap-3 px-3 sm:px-6"
-            }`}
-          >
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-darkblue rounded-lg flex items-center justify-center shadow-lg">
-              <FaCrown className="text-white text-sm sm:text-lg" />
-            </div>
+        <div className="sticky top-0 z-15 bg-white border-b border-gray-100">
+          <div className="relative flex items-center justify-center bg-secondary">
+            <img
+              src="/images/yes-logo.png"
+              alt="Yes Express Service"
+              className="w-auto object-cover h-40"
+            />
             {!isCollapsed && (
-              <>
-                <p className="font-medium text-sm sm:text-base flex-1">
-                  Express Service
-                </p>
-                {/* Mobile Close Button */}
-                <button
-                  onClick={() => dispatch(toggleSidebar())}
-                  className="lg:hidden p-2 hover:bg-gray-100 rounded-lg text-gray-600"
-                >
-                  <FaTimes className="w-4 h-4" />
-                </button>
-              </>
+              <button
+                onClick={() => dispatch(toggleSidebar())}
+                className="lg:hidden absolute right-2 p-2 hover:bg-gray-100/50 rounded-lg text-gray-600"
+              >
+                <FaTimes className="w-4 h-4" />
+              </button>
             )}
           </div>
         </div>
@@ -271,7 +263,7 @@ export default function Sidebar() {
                 {/* Parent */}
                 <div
                   className={`flex items-center justify-between cursor-pointer rounded-lg transition-all group ${
-                    isActive ? "bg-blue-500" : "hover:bg-blue-500"
+                    isActive ? "bg-[#EE1E21]" : "hover:bg-[#EE1E21]"
                   } ${isCollapsed ? "justify-center py-2 sm:py-4" : ""}`}
                   onClick={() => (subItems ? toggleParent(name) : null)}
                 >
@@ -285,8 +277,8 @@ export default function Sidebar() {
                     <span
                       className={`text-lg sm:text-2xl ${
                         isActive
-                          ? "text-white"
-                          : "text-black group-hover:text-white"
+                          ? "text-[#FADF4B]"
+                          : "text-black group-hover:text-[#FADF4B]"
                       }`}
                     >
                       {icon}
@@ -295,8 +287,8 @@ export default function Sidebar() {
                       <span
                         className={`${
                           isActive
-                            ? "text-white"
-                            : "text-black group-hover:text-white"
+                            ? "text-[#FADF4B]"
+                            : "text-black group-hover:text-[#FADF4B]"
                         } text-xs sm:text-sm`}
                       >
                         {name}
@@ -305,7 +297,7 @@ export default function Sidebar() {
                   </NavLink>
                   {!isCollapsed && subItems && (
                     <FaChevronDown
-                      className={`text-xs transition-transform group-hover:text-white mr-1 sm:mr-2 ${
+                      className={`text-xs transition-transform group-hover:text-[#FADF4B] mr-1 sm:mr-2 ${
                         isExpanded ? "rotate-180" : ""
                       }`}
                     />
@@ -358,8 +350,8 @@ export default function Sidebar() {
                             <div
                               className={`flex items-center justify-between rounded-lg cursor-pointer ${
                                 isSubActive
-                                  ? "bg-blue-500"
-                                  : "hover:bg-blue-500 hover:text-white group-hover:text-white"
+                                  ? "bg-[#EE1E21]"
+                                  : "hover:bg-[#EE1E21]"
                               }`}
                               onClick={() =>
                                 hasSubsub && toggleSub(name, sub.name)
@@ -373,8 +365,8 @@ export default function Sidebar() {
                                 <span
                                   className={
                                     isSubActive
-                                      ? "text-white"
-                                      : "text-black group-hover:text-white"
+                                      ? "text-[#FADF4B]"
+                                      : "text-black group-hover:text-[#FADF4B]"
                                   }
                                 >
                                   {sub.icon}
@@ -382,8 +374,8 @@ export default function Sidebar() {
                                 <span
                                   className={
                                     isSubActive
-                                      ? "text-white"
-                                      : "text-black group-hover:text-white"
+                                      ? "text-[#FADF4B]"
+                                      : "text-black group-hover:text-[#FADF4B]"
                                   }
                                 >
                                   {sub.name}
@@ -391,7 +383,7 @@ export default function Sidebar() {
                               </NavLink>
                               {hasSubsub && (
                                 <FaChevronDown
-                                  className={`text-xs transition-transform group-hover:text-white mr-1 sm:mr-2 ${
+                                  className={`text-xs transition-transform group-hover:text-[#FADF4B] mr-1 sm:mr-2 ${
                                     isSubExpanded ? "rotate-180" : ""
                                   }`}
                                 />
@@ -422,8 +414,8 @@ export default function Sidebar() {
                                         key={`${ss.path}-${ss.name}-${index}`}
                                         className={`w-full shrink-0 rounded-lg cursor-pointer ${
                                           isSSActive
-                                            ? "bg-blue-500"
-                                            : "hover:bg-blue-500 hover:text-white group-hover:text-white"
+                                            ? "bg-[#EE1E21]"
+                                            : "hover:bg-[#EE1E21]"
                                         } ${isLast ? "mb-0.5" : ""}`}
                                       >
                                         <NavLink
@@ -433,8 +425,8 @@ export default function Sidebar() {
                                           <span
                                             className={`text-xs sm:text-sm ${
                                               isSSActive
-                                                ? "text-white"
-                                                : "text-black group-hover:text-white"
+                                                ? "text-[#FADF4B]"
+                                                : "text-black group-hover:text-[#FADF4B]"
                                             }`}
                                           >
                                             {ss.name}

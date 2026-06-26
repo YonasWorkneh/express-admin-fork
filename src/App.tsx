@@ -147,7 +147,7 @@ const App = () => {
   if (!authReady) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <Spinner className="h-10 w-10 text-blue-600" />
+        <Spinner className="h-10 w-10 text-[#EE1E21]" />
       </div>
     );
   }

@@ -234,7 +234,7 @@ export default function MapAddressSelector({
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
                 >
                   <div className="flex items-start gap-2">
-                    <IoLocation className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <IoLocation className="h-4 w-4 text-[#EE1E21] mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="font-medium text-sm">
                         {result.display_name}
@@ -290,7 +290,7 @@ export default function MapAddressSelector({
       {/* Loading Indicator */}
       {isLoading && (
         <div className="flex items-center justify-center py-4">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#EE1E21]"></div>
           <span className="ml-2 text-sm text-gray-600">Loading...</span>
         </div>
       )}

@@ -12,7 +12,7 @@ const Button = ({
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={`w-full bg-darkblue text-lightgray text-xs sm:text-sm py-3 px-4 rounded-lg ${className}`}
+      className={`w-full bg-[#EE1E21] text-[#FADF4B] text-xs sm:text-sm py-3 px-4 rounded-lg ${className}`}
     >
       {children}
     </button>

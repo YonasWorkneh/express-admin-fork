@@ -76,14 +76,14 @@ const Rating = () => {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="p-4 bg-blue-50 rounded-xl text-center border border-blue-100 transition-all duration-300 hover:scale-105">
-            <p className="text-lg font-semibold text-blue-600">
+          <div className="p-4 bg-[#EE1E21]/5 rounded-xl text-center border border-[#EE1E21]/10 transition-all duration-300 hover:scale-105">
+            <p className="text-lg font-semibold text-[#EE1E21]">
               {animatedComplaint}%
             </p>
             <p className="text-gray-600 text-xs">Complaint Rate</p>
-            <div className="w-full bg-blue-100 rounded-full h-1.5 mt-2">
+            <div className="w-full bg-[#EE1E21]/10 rounded-full h-1.5 mt-2">
               <div
-                className="bg-blue-600 h-1.5 rounded-full transition-all duration-1000"
+                className="bg-[#EE1E21] h-1.5 rounded-full transition-all duration-1000"
                 style={{ width: `${animatedComplaint}%` }}
               ></div>
             </div>

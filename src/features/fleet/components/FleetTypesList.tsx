@@ -50,7 +50,7 @@ function VehicleTypeDescriptionCell({
         {trimmed}{" "}
         <button
           type="button"
-          className="text-blue-600 hover:text-blue-800 hover:underline text-xs font-medium whitespace-nowrap align-baseline cursor-pointer"
+          className="text-[#EE1E21] hover:text-[#cc1a1c] hover:underline text-xs font-medium whitespace-nowrap align-baseline cursor-pointer"
           onClick={() => setExpanded(false)}
         >
           less
@@ -64,7 +64,7 @@ function VehicleTypeDescriptionCell({
       {preview}{" "}
       <button
         type="button"
-        className="text-blue-600 hover:text-blue-800 hover:underline text-xs font-medium whitespace-nowrap align-baseline cursor-pointer"
+        className="text-[#EE1E21] hover:text-[#cc1a1c] hover:underline text-xs font-medium whitespace-nowrap align-baseline cursor-pointer"
         onClick={() => setExpanded(true)}
       >
         more
@@ -124,7 +124,7 @@ export default function FleetTypesList() {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-16 text-gray-600">
-        <Spinner className="h-8 w-8 text-blue-600 mr-2" />
+        <Spinner className="h-8 w-8 text-[#EE1E21] mr-2" />
         Loading fleet types…
       </div>
     );
@@ -213,7 +213,7 @@ export default function FleetTypesList() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="cursor-pointer text-blue-600 bg-blue-50 hover:text-blue-700 hover:bg-blue-100"
+                      className="cursor-pointer text-[#EE1E21] bg-[#EE1E21]/5 hover:text-[#cc1a1c] hover:bg-[#EE1E21]/10"
                       aria-label={`Edit ${vt.name}`}
                       onClick={() =>
                         navigate(
@@ -221,7 +221,7 @@ export default function FleetTypesList() {
                         )
                       }
                     >
-                      <Pencil className="h-4 w-4 text-blue-600" aria-hidden />
+                      <Pencil className="h-4 w-4 text-[#EE1E21]" aria-hidden />
             
                     </Button>
                     <Button

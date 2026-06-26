@@ -172,7 +172,7 @@ const CreateMaintenanceLog = () => {
       <div className="max-w-4xl p-6 bg-white">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#EE1E21] mx-auto mb-4"></div>
             <p className="text-gray-500">Loading maintenance data...</p>
           </div>
         </div>
@@ -213,10 +213,10 @@ const CreateMaintenanceLog = () => {
               <div className="absolute h-full top-0 left-0 flex items-center">
                 <Button
                   type="button"
-                  className="!text-white !size-[40px] bg-blue-500 hover:bg-blue-400 !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
+                  className="!text-[#FADF4B] !size-[40px] bg-[#EE1E21] hover:bg-[#EE1E21] !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
                   onClick={() => navigate(-1)}
                 >
-                  <IoArrowBack className="text-white text-lg" />
+                  <IoArrowBack className="text-[#FADF4B] text-lg" />
                 </Button>
               </div>
               <div className="flex gap-5 items-center justify-center mb-6">
@@ -288,7 +288,7 @@ const CreateMaintenanceLog = () => {
     <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
       {loadingStaff && (
                         <div className="flex justify-center items-center py-8">
-                          <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                          <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                         </div>
                       )}
                       {fleets.length > 0 ? (

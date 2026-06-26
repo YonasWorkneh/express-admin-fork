@@ -179,7 +179,7 @@ export default function VehicleTypeForm({
   if (mode === "edit" && vehicleTypeId && isLoading) {
     return (
       <div className="flex justify-center items-center py-24 text-gray-600">
-        <Spinner className="h-8 w-8 text-blue-600 mr-2" />
+        <Spinner className="h-8 w-8 text-[#EE1E21] mr-2" />
         Loading vehicle type…
       </div>
     );
@@ -213,15 +213,15 @@ export default function VehicleTypeForm({
               <div className="absolute h-full top-0 left-0 flex items-center">
                 <Button
                   type="button"
-                  className="!text-white !size-[40px] bg-blue-500 hover:bg-blue-400 !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
+                  className="!text-[#FADF4B] !size-[40px] bg-[#EE1E21] hover:bg-[#EE1E21] !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
                   onClick={() => navigate(fleetListPath)}
                 >
-                  <IoArrowBack className="text-white text-lg" />
+                  <IoArrowBack className="text-[#FADF4B] text-lg" />
                 </Button>
               </div>
               <div className="flex gap-5 items-center justify-center mb-6">
                 <div className="flex gap-4 items-center">
-                  <IoLayers className="text-3xl text-blue-500" />
+                  <IoLayers className="text-3xl text-[#EE1E21]" />
                   <h1 className="text-3xl font-medium text-gray-700">{title}</h1>
                 </div>
               </div>
@@ -276,11 +276,11 @@ export default function VehicleTypeForm({
                 <div>
                   <Label className="mb-1">{iconLabel}</Label>
                   <p
-                    className="flex gap-2 rounded-md border border-blue-200/80 bg-blue-50/80 px-3 py-2 text-xs text-blue-900 mb-2"
+                    className="flex gap-2 rounded-md border border-[#EE1E21]/20 bg-[#EE1E21]/5 px-3 py-2 text-xs text-gray-900 mb-2"
                     role="note"
                   >
                     <Info
-                      className="mt-0.5 h-4 w-4 shrink-0 text-blue-600"
+                      className="mt-0.5 h-4 w-4 shrink-0 text-[#EE1E21]"
                       aria-hidden
                     />
                     <span>
@@ -352,7 +352,7 @@ export default function VehicleTypeForm({
                 <Button
                   type="submit"
                   disabled={status === "submitting"}
-                  className={`flex-1 cursor-pointer hover:bg-blue-700 ${
+                  className={`flex-1 cursor-pointer hover:bg-[#cc1a1c] ${
                     status === "submitting"
                       ? "disabled:opacity-70 disabled:cursor-not-allowed"
                       : ""

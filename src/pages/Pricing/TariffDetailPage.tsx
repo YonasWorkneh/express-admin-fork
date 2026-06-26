@@ -374,7 +374,7 @@ export default function TariffDetailPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3 p-6 bg-white">
-        <Spinner className="h-10 w-10 text-blue-600" />
+        <Spinner className="h-10 w-10 text-[#EE1E21]" />
         <p className="text-gray-600">Loading tariff…</p>
       </div>
     );
@@ -485,13 +485,13 @@ export default function TariffDetailPage() {
         <div className="flex items-center gap-4 min-w-0">
           <Button
             type="button"
-            className="!text-white !size-[40px] bg-blue-500 hover:bg-blue-400 !rounded-full !p-0 shrink-0 cursor-pointer"
+            className="!text-[#FADF4B] !size-[40px] bg-[#EE1E21] hover:bg-[#EE1E21] !rounded-full !p-0 shrink-0 cursor-pointer"
             onClick={() => navigate("/pricing")}
           >
-            <IoArrowBack className="text-white text-xl" />
+            <IoArrowBack className="text-[#FADF4B] text-xl" />
           </Button>
           <div className="flex items-center gap-3 min-w-0">
-            <IoPricetags className="text-blue-500 text-2xl shrink-0" />
+            <IoPricetags className="text-[#EE1E21] text-2xl shrink-0" />
             <div className="min-w-0">
               <h1 className="text-2xl font-medium text-gray-800 truncate">
                 Tariff details
@@ -504,7 +504,7 @@ export default function TariffDetailPage() {
         </div>
         <Button
           type="button"
-          className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shrink-0"
+          className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B] cursor-pointer shrink-0"
           onClick={() => setEditing(true)}
         >
           Edit
@@ -526,7 +526,7 @@ export default function TariffDetailPage() {
               </div>
               <div>
                 <Label className="text-gray-600">Type</Label>
-                <p className="font-medium text-blue-600 mt-1">{scope}</p>
+                <p className="font-medium text-[#EE1E21] mt-1">{scope}</p>
                 {(tariff.shippingScope ?? tariff.scope) != null ? (
                   <p className="text-xs text-gray-500 mt-0.5">
                     API scope:{" "}

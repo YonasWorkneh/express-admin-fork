@@ -63,7 +63,7 @@ export default function WeightRangesTable({
             <TableRow className="bg-gray-50">
               <TableHead className="w-12 border border-gray-200">
                 <Checkbox
-                  className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                  className="data-[state=checked]:bg-[#EE1E21] data-[state=checked]:border-[#EE1E21]"
                   checked={allSelected}
                   onCheckedChange={(checked) => {
                     if (checked) {
@@ -90,7 +90,7 @@ export default function WeightRangesTable({
               <TableRow key={index}>
                 <TableCell className="border border-gray-200">
                   <Checkbox
-                    className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                    className="data-[state=checked]:bg-[#EE1E21] data-[state=checked]:border-[#EE1E21]"
                     checked={selectedRows.has(index)}
                     onCheckedChange={(checked) => {
                       const newSelected = new Set(selectedRows);
@@ -139,7 +139,7 @@ export default function WeightRangesTable({
     <div className="pt-4">
     <button
             type="button"
-            className="bg-blue-500 hover:bg-blue-600 text-white rounded-full p-2 cursor-pointer transition-colors flex items-center justify-center"
+            className="bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B] rounded-full p-2 cursor-pointer transition-colors flex items-center justify-center"
             onClick={onAddRange}
           >
             <Plus className="h-4 w-4" />

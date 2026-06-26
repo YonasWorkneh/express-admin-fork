@@ -3,6 +3,6 @@ import { cn } from "@/lib/utils"
 
 export function Spinner({ className }: { className?: string }) {
   return (
-    <Loader2 className={cn("h-5 w-5 animate-spin text-blue-600", className)} />
+    <Loader2 className={cn("h-5 w-5 animate-spin text-[#EE1E21]", className)} />
   )
 }

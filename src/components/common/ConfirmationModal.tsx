@@ -43,24 +43,28 @@ export default function ConfirmationModal({
           icon: <IoAlertCircle className="h-6 w-6 text-red-600" />,
           iconBg: "bg-red-100",
           confirmBg: "bg-red-600 hover:bg-red-700",
+          confirmText: "text-white",
         };
       case "warning":
         return {
           icon: <IoWarning className="h-6 w-6 text-yellow-600" />,
           iconBg: "bg-yellow-100",
           confirmBg: "bg-yellow-600 hover:bg-yellow-700",
+          confirmText: "text-white",
         };
       case "info":
         return {
-          icon: <IoCheckmarkCircle className="h-6 w-6 text-blue-600" />,
-          iconBg: "bg-blue-100",
-          confirmBg: "bg-blue-600 hover:bg-blue-700",
+          icon: <IoCheckmarkCircle className="h-6 w-6 text-[#EE1E21]" />,
+          iconBg: "bg-[#EE1E21]/10",
+          confirmBg: "bg-[#EE1E21] hover:bg-[#cc1a1c]",
+          confirmText: "text-[#FADF4B]",
         };
       default:
         return {
           icon: <IoAlertCircle className="h-6 w-6 text-red-600" />,
           iconBg: "bg-red-100",
           confirmBg: "bg-red-600 hover:bg-red-700",
+          confirmText: "text-white",
         };
     }
   };
@@ -121,11 +125,11 @@ export default function ConfirmationModal({
             <Button
               onClick={onConfirm}
               disabled={isLoading}
-              className={`flex-1 text-white cursor-pointer ${variantStyles.confirmBg}`}
+              className={`flex-1 cursor-pointer ${variantStyles.confirmText} ${variantStyles.confirmBg}`}
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <div className={`animate-spin rounded-full h-4 w-4 border-b-2 ${variant === "info" ? "border-[#FADF4B]" : "border-white"}`}></div>
                   <span>Processing...</span>
                 </span>
               ) : (

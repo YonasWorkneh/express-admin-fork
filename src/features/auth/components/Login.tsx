@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { LoginSchema } from "../schemas/LoginSchema";
@@ -355,10 +356,10 @@ const Login = () => {
         </video>
 
         {/* Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-400/80 to-blue-900/50" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#EE1E21]/80 to-[#cc1a1c]/70" />
 
         {/* Content */}
-        <div className="relative z-10 flex flex-col justify-center items-center text-white p-12">
+        <div className="relative z-10 flex flex-col justify-center items-center text-[#FADF4B] p-12">
           <div className="text-center max-w-md">
             <motion.h1
               className="text-5xl font-bold mb-14 mt-10 ml-3"
@@ -406,7 +407,7 @@ const Login = () => {
                 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <IoCar className="h-5 w-5 text-blue-300" />
+                <IoCar className="h-5 w-5 text-[#FADF4B]" />
                 <span className="text-xl">Fast Delivery Network</span>
               </motion.div>
               <motion.div
@@ -440,11 +441,11 @@ const Login = () => {
             transition={{ duration: 0.6, ease: "easeOut" }}
           >
             <motion.div
-              className="bg-blue-600 rounded-2xl p-3"
+              className="bg-[#EE1E21] rounded-2xl p-3"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <IoCar className="h-8 w-8 text-white" />
+              <IoCar className="h-8 w-8 text-[#FADF4B]" />
             </motion.div>
             <span className="ml-3 text-2xl font-bold text-gray-900">
               Express Service
@@ -492,7 +493,7 @@ const Login = () => {
                   : status === "error"
                     ? "bg-red-50 text-red-700 border-red-200"
                     : authStep === "confirmEmail"
-                      ? "bg-blue-50 text-blue-900 border-blue-200"
+                      ? "bg-[#EE1E21]/5 text-gray-900 border-[#EE1E21]/20"
                       : "bg-gray-50 text-gray-800 border-gray-200"
               }`}
               initial={{ opacity: 0, y: -10, scale: 0.95 }}
@@ -517,7 +518,7 @@ const Login = () => {
                   aria-selected={signInTab === "email"}
                   className={`flex-1 rounded-md py-2.5 px-3 text-sm font-medium transition-colors cursor-pointer ${
                     signInTab === "email"
-                      ? "bg-blue-600 text-white shadow-sm"
+                      ? "bg-[#EE1E21] text-[#FADF4B] shadow-sm"
                       : "text-gray-700 hover:bg-gray-50"
                   }`}
                   onClick={() => {
@@ -534,7 +535,7 @@ const Login = () => {
                   aria-selected={signInTab === "phone"}
                   className={`flex-1 rounded-md py-2.5 px-3 text-sm font-medium transition-colors cursor-pointer ${
                     signInTab === "phone"
-                      ? "bg-blue-600 text-white shadow-sm"
+                      ? "bg-[#EE1E21] text-[#FADF4B] shadow-sm"
                       : "text-gray-700 hover:bg-gray-50"
                   }`}
                   onClick={() => {
@@ -578,7 +579,7 @@ const Login = () => {
                         type="email"
                         placeholder="Enter your email"
                         {...registerCredentials("email")}
-                        className={`w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
+                        className={`w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#EE1E21] focus:border-transparent ${
                           credentialErrors.email && credentialTouched.email
                             ? "border-red-500 focus:ring-red-500"
                             : "border-gray-300"
@@ -619,7 +620,7 @@ const Login = () => {
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
                         {...registerCredentials("password")}
-                        className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
+                        className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#EE1E21] focus:border-transparent ${
                           credentialErrors.password &&
                           credentialTouched.password
                             ? "border-red-500 focus:ring-red-500"
@@ -663,15 +664,9 @@ const Login = () => {
                     transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
                   >
                     <div className="flex items-center">
-                      <motion.input
-                        id="remember-me"
-                        name="remember-me"
-                        type="checkbox"
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        transition={{ duration: 0.2 }}
-                      />
+                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} transition={{ duration: 0.2 }}>
+                        <Checkbox id="remember-me" name="remember-me" />
+                      </motion.div>
                       <label
                         htmlFor="remember-me"
                         className="ml-2 block text-sm text-gray-700"
@@ -682,7 +677,7 @@ const Login = () => {
                     <div className="text-sm">
                       <motion.a
                         href="#"
-                        className="font-medium text-blue-600 hover:text-blue-500"
+                        className="font-medium text-[#EE1E21] hover:text-[#cc1a1c]"
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         transition={{ duration: 0.2 }}
@@ -696,10 +691,10 @@ const Login = () => {
                   <motion.button
                     type="submit"
                     disabled={busySigningIn}
-                    className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${
+                    className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-[#FADF4B] ${
                       busySigningIn
-                        ? "bg-blue-400 cursor-not-allowed"
-                        : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        ? "bg-[#EE1E21]/60 cursor-not-allowed"
+                        : "bg-[#EE1E21] hover:bg-[#cc1a1c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#EE1E21]"
                     }`}
                     variants={inputVariants}
                     transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
@@ -739,7 +734,7 @@ const Login = () => {
                     </label>
                     <p className="text-xs text-gray-500 mb-2"></p>
                     <div
-                      className={`flex rounded-lg border overflow-hidden bg-white focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-transparent ${
+                      className={`flex rounded-lg border overflow-hidden bg-white focus-within:ring-1 focus-within:ring-[#EE1E21] focus-within:border-transparent ${
                         phoneErrors.phoneLocal && phoneTouched.phoneLocal
                           ? "border-red-500 ring-1 ring-red-500"
                           : "border-gray-300"
@@ -812,7 +807,7 @@ const Login = () => {
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
                         {...registerPhonePassword("password")}
-                        className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
+                        className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#EE1E21] focus:border-transparent ${
                           phoneErrors.password && phoneTouched.password
                             ? "border-red-500 focus:ring-red-500"
                             : "border-gray-300"
@@ -853,15 +848,9 @@ const Login = () => {
                     transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
                   >
                     <div className="flex items-center">
-                      <motion.input
-                        id="remember-me-phone"
-                        name="remember-me-phone"
-                        type="checkbox"
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        transition={{ duration: 0.2 }}
-                      />
+                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} transition={{ duration: 0.2 }}>
+                        <Checkbox id="remember-me-phone" name="remember-me-phone" />
+                      </motion.div>
                       <label
                         htmlFor="remember-me-phone"
                         className="ml-2 block text-sm text-gray-700"
@@ -872,7 +861,7 @@ const Login = () => {
                     <div className="text-sm">
                       <motion.a
                         href="#"
-                        className="font-medium text-blue-600 hover:text-blue-500"
+                        className="font-medium text-[#EE1E21] hover:text-[#cc1a1c]"
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         transition={{ duration: 0.2 }}
@@ -885,10 +874,10 @@ const Login = () => {
                   <motion.button
                     type="submit"
                     disabled={busySigningIn}
-                    className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${
+                    className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-[#FADF4B] ${
                       busySigningIn
-                        ? "bg-blue-400 cursor-not-allowed"
-                        : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        ? "bg-[#EE1E21]/60 cursor-not-allowed"
+                        : "bg-[#EE1E21] hover:bg-[#cc1a1c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#EE1E21]"
                     }`}
                     variants={inputVariants}
                     transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
@@ -920,7 +909,7 @@ const Login = () => {
               <motion.button
                 type="button"
                 onClick={goBackToSignIn}
-                className="text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer"
+                className="text-sm font-medium text-[#EE1E21] hover:text-[#cc1a1c] cursor-pointer"
               >
                 ← Back to sign in
               </motion.button>
@@ -963,7 +952,7 @@ const Login = () => {
                         shouldTouch: true,
                       });
                     }}
-                    className={`w-full pl-10 pr-3 py-3 border rounded-lg tracking-[0.35em] font-mono text-center text-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full pl-10 pr-3 py-3 border rounded-lg tracking-[0.35em] font-mono text-center text-lg focus:outline-none focus:ring-1 focus:ring-[#EE1E21] focus:border-transparent ${
                       confirmErrors.code && confirmTouched.code
                         ? "border-red-500 focus:ring-red-500"
                         : "border-gray-300"
@@ -987,7 +976,7 @@ const Login = () => {
                         busyConfirming ||
                         resendVerificationPending
                       }
-                      className="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-left sm:text-right shrink-0"
+                      className="text-sm font-medium text-[#EE1E21] hover:text-[#cc1a1c] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-left sm:text-right shrink-0"
                     >
                       {resendVerificationPending ? "Sending…" : "Resend code"}
                     </button>
@@ -1019,7 +1008,7 @@ const Login = () => {
                     type={showNewPassword ? "text" : "password"}
                     placeholder="At least 8 characters"
                     {...registerConfirm("newPassword")}
-                    className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#EE1E21] focus:border-transparent ${
                       confirmErrors.newPassword && confirmTouched.newPassword
                         ? "border-red-500 focus:ring-red-500"
                         : "border-gray-300"
@@ -1065,7 +1054,7 @@ const Login = () => {
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="Re-enter password"
                     {...registerConfirm("confirmPassword")}
-                    className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#EE1E21] focus:border-transparent ${
                       confirmErrors.confirmPassword &&
                       confirmTouched.confirmPassword
                         ? "border-red-500 focus:ring-red-500"
@@ -1097,10 +1086,10 @@ const Login = () => {
               <motion.button
                 type="submit"
                 disabled={busyConfirming}
-                className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white ${
+                className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-[#FADF4B] ${
                   busyConfirming
-                    ? "bg-blue-400 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    ? "bg-[#EE1E21]/60 cursor-not-allowed"
+                    : "bg-[#EE1E21] hover:bg-[#cc1a1c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#EE1E21]"
                 }`}
                 variants={inputVariants}
                 transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
@@ -1136,7 +1125,7 @@ const Login = () => {
                 Don't have an account?{" "}
                 <motion.a
                   href="#"
-                  className="font-medium text-blue-600 hover:text-blue-500"
+                  className="font-medium text-[#EE1E21] hover:text-[#cc1a1c]"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   transition={{ duration: 0.2 }}

@@ -121,7 +121,7 @@ const Performance = () => {
     <div className="w-full bg-white p-6 font-text">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div className="flex items-center gap-2">
-          <FaChartLine className="text-blue-500" size={20} />
+          <FaChartLine className="text-[#EE1E21]" size={20} />
           <p className="text-base font-bold text-gray-900">
             Branch Performance Overview
           </p>
@@ -211,9 +211,9 @@ const Performance = () => {
 
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <div className="w-20 bg-gray-200 rounded-full h-2">
+                      <div className="w-20 bg-[#EE1E21]/10 rounded-full h-2">
                         <div
-                          className="bg-blue-600 h-2 rounded-full"
+                          className="bg-[#EE1E21] h-2 rounded-full"
                           style={{ width: `${city.efficiency}%` }}
                         ></div>
                       </div>

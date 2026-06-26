@@ -495,7 +495,7 @@ function DispatchModal({ isOpen, onClose, order }: DispatchModalProps) {
                 <p className="font-medium">
                   {loadingVehicleType ? (
                     <span className="inline-flex items-center gap-2 text-gray-500">
-                      <Spinner className="h-4 w-4 text-blue-600" />
+                      <Spinner className="h-4 w-4 text-[#EE1E21]" />
                       Loading…
                     </span>
                   ) : (
@@ -548,7 +548,7 @@ function DispatchModal({ isOpen, onClose, order }: DispatchModalProps) {
                 </h3>
                 {loadingDriver ? (
                   <div className="flex justify-center items-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#EE1E21]"></div>
                     <span className="ml-2 text-gray-600">
                       Loading drivers...
                     </span>
@@ -566,7 +566,7 @@ function DispatchModal({ isOpen, onClose, order }: DispatchModalProps) {
                         }
                         className={`cursor-pointer transition-all ${
                           selectedDriver?.driverId === driver.driverId
-                            ? "ring-2 ring-blue-500 bg-blue-50"
+                            ? "ring-2 ring-[#EE1E21] bg-[#EE1E21]/5"
                             : "hover:bg-gray-50"
                         }`}
                         onClick={() => setSelectedDriver(driver)}
@@ -574,8 +574,8 @@ function DispatchModal({ isOpen, onClose, order }: DispatchModalProps) {
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                <IoPerson className="h-5 w-5 text-blue-600" />
+                              <div className="w-10 h-10 bg-[#EE1E21]/10 rounded-full flex items-center justify-center">
+                                <IoPerson className="h-5 w-5 text-[#EE1E21]" />
                               </div>
                               <div>
                                 <p className="font-medium">
@@ -616,7 +616,7 @@ function DispatchModal({ isOpen, onClose, order }: DispatchModalProps) {
                             </div>
                             {/* <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
-                              className="bg-blue-600 h-2 rounded-full"
+                              className="bg-[#EE1E21] h-2 rounded-full"
                               style={{
                                 width: `${
                                   (driver.currentLoad / driver.capacity) * 100
@@ -627,7 +627,7 @@ function DispatchModal({ isOpen, onClose, order }: DispatchModalProps) {
                           </div>
 
                           {selectedDriver?.driverId === driver.driverId && (
-                            <div className="mt-3 flex items-center gap-2 text-blue-600">
+                            <div className="mt-3 flex items-center gap-2 text-[#EE1E21]">
                               <IoCheckmarkCircle className="h-4 w-4" />
                               <span className="text-sm font-medium">
                                 Selected
@@ -650,7 +650,7 @@ function DispatchModal({ isOpen, onClose, order }: DispatchModalProps) {
                 </h3>
                 {loadingExternalDriver ? (
                   <div className="flex justify-center items-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#EE1E21]"></div>
                     <span className="ml-2 text-gray-600">
                       Loading drivers...
                     </span>
@@ -670,7 +670,7 @@ function DispatchModal({ isOpen, onClose, order }: DispatchModalProps) {
                           key={driver.driverId}
                           className={`cursor-pointer transition-all ${
                             isSelected
-                              ? "ring-2 ring-blue-500 bg-blue-50"
+                              ? "ring-2 ring-[#EE1E21] bg-[#EE1E21]/5"
                               : "hover:bg-gray-50"
                           }`}
                           onClick={() => {
@@ -724,7 +724,7 @@ function DispatchModal({ isOpen, onClose, order }: DispatchModalProps) {
 
                             <div className="mt-3">
                               {isSelected && (
-                                <div className="flex items-center gap-2 text-blue-600">
+                                <div className="flex items-center gap-2 text-[#EE1E21]">
                                   <IoCheckmarkCircle className="h-4 w-4" />
                                   <span className="text-sm font-medium">
                                     Selected
@@ -763,7 +763,7 @@ function DispatchModal({ isOpen, onClose, order }: DispatchModalProps) {
                   selectedExternalDrivers.length === 0) ||
                 loading
               }
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-[#EE1E21] hover:bg-[#cc1a1c] text-[#FADF4B] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <IoCheckmarkCircle className="h-4 w-4 mr-2" />
               {loading ? (

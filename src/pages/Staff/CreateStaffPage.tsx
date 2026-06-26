@@ -128,7 +128,7 @@ navigate("/staff")
       <div className="max-w-4xl p-6 bg-white">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#EE1E21] mx-auto mb-4"></div>
             <p className="text-gray-500">Loading ...</p>
           </div>
         </div>
@@ -172,15 +172,15 @@ navigate("/staff")
               <div className="absolute h-full top-0 left-0 flex items-center">
                 <Button
                   type="button"
-                  className="!text-white !size-[40px] bg-blue-500 hover:bg-blue-400 !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
+                  className="!text-[#FADF4B] !size-[40px] bg-[#EE1E21] hover:bg-[#EE1E21] !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
                   onClick={() => navigate(-1)}
                 >
-                  <IoArrowBack className="text-white text-lg" />
+                  <IoArrowBack className="text-[#FADF4B] text-lg" />
                 </Button>
               </div>
               <div className="flex gap-5 items-center justify-center mb-6">
                 <div className="flex gap-4 items-center">
-                  <IoPersonAdd className="text-2xl text-blue-500" />
+                  <IoPersonAdd className="text-2xl text-[#EE1E21]" />
                   <h1 className="text-3xl font-medium text-gray-700">
                     {isEditMode ? "Edit Staff Member" : "Add New Staff Member"}
                   </h1>
@@ -271,7 +271,7 @@ navigate("/staff")
                     </SelectTrigger>
                    <SelectContent>
                    {loadingRole?   <div className="flex justify-center items-center py-8">
-                        <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                        <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                       </div>:
                       roles.map((role) => {
                         return (
@@ -321,7 +321,7 @@ navigate("/staff")
                   {showBranchDropdown && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                        {loadingBrand&&   <div className="flex justify-center items-center py-8">
-                        <Spinner className="h-6 w-6 text-blue-600 mr-2" />
+                        <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                       </div>}
                       {branches.length > 0 ? (
                         branches.map((branch) => (
@@ -413,7 +413,7 @@ navigate("/staff")
                 <Button
                   type="submit"
                   disabled={status === "submitting"}
-                  className={`flex-1 cursor-pointer hover:bg-blue-700 ${
+                  className={`flex-1 cursor-pointer hover:bg-[#cc1a1c] ${
                     status === "submitting"
                       ? "disabled:opacity-70 disabled:cursor-not-allowed"
                       : ""

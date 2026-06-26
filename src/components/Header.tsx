@@ -64,7 +64,7 @@ export default function Header() {
       <div className="flex items-center gap-2 sm:gap-3">
         <button
           onClick={() => dispatch(toggleSidebar())}
-          className="p-2 sm:p-3 hover:bg-gray-100 rounded-lg cursor-pointer text-gray-600 hover:text-blue-600 transition-colors"
+          className="p-2 sm:p-3 hover:bg-gray-100 rounded-lg cursor-pointer text-gray-600 hover:text-[#EE1E21] transition-colors"
         >
           <FaBars className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
@@ -95,7 +95,7 @@ export default function Header() {
             <img
               src="https://ui-avatars.com/api/?name=Admin&background=0B1120&color=fff"
               alt="Admin Avatar"
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-gray hover:border-blue-500 transition-colors cursor-pointer"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-gray hover:border-[#EE1E21] transition-colors cursor-pointer"
             />
             <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
               <div className="p-3 border-b border-gray-200 text-black">
@@ -129,7 +129,7 @@ export default function Header() {
         title={
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <BellOutlined className="text-blue-600" />
+              <BellOutlined className="text-[#EE1E21]" />
               <span className="font-semibold text-lg">Notifications</span>
               {unreadCount > 0 && (
                 <Badge count={unreadCount} style={{ backgroundColor: "#e62727" }} />
@@ -140,7 +140,7 @@ export default function Header() {
                 type="text"
                 size="small"
                 onClick={handleMarkAllAsRead}
-                className="text-blue-600 hover:text-blue-700"
+                className="text-[#EE1E21] hover:text-[#cc1a1c]"
               >
                 Mark all as read
               </Button>
@@ -170,7 +170,7 @@ export default function Header() {
                 <List.Item
                   className={`px-4 py-3 mb-2 rounded-lg border transition-all cursor-pointer hover:bg-gray-50 ${
                     !item.read
-                      ? "bg-blue-50 border-blue-200"
+                      ? "bg-red-50 border-red-200"
                       : "bg-white border-gray-200"
                   }`}
                   onClick={() => !item.read && handleMarkAsRead(item.id)}
@@ -186,7 +186,7 @@ export default function Header() {
                           {item.type.replace(/_/g, " ").toUpperCase()}
                         </span>
                         {!item.read && (
-                          <span className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0"></span>
+                          <span className="w-2 h-2 bg-[#EE1E21] rounded-full flex-shrink-0"></span>
                         )}
                       </div>
                       <p className="text-sm text-gray-600 mb-2 leading-relaxed">
