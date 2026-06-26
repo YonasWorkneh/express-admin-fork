@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { LoginSchema } from "../../auth/schemas/LoginSchema";
@@ -385,15 +386,9 @@ const Login = () => {
               transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
             >
               <div className="flex items-center">
-                <motion.input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-[#EE1E21] border-gray-300 rounded focus:ring-[#EE1E21]"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  transition={{ duration: 0.2 }}
-                />
+                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} transition={{ duration: 0.2 }}>
+                  <Checkbox id="remember-me" name="remember-me" />
+                </motion.div>
                 <label
                   htmlFor="remember-me"
                   className="ml-2 block text-sm text-gray-700"

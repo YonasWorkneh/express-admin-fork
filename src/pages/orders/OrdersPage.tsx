@@ -1189,22 +1189,18 @@ export default function OrdersPage() {
 
             {/* Fragile */}
             <div className="mb-4 flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={isFragile}
-                onChange={(e) => setIsFragile(e.target.checked)}
-                className="accent-blue-500"
+                onCheckedChange={(checked) => setIsFragile(checked as boolean)}
               />
               <span className="font-medium">Is Fragile?</span>
             </div>
 
             {/* Unusual */}
             <div className="mb-4 flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={isUnusual}
-                onChange={(e) => setIsUnusual(e.target.checked)}
-                className="accent-blue-500"
+                onCheckedChange={(checked) => setIsUnusual(checked as boolean)}
               />
               <span className="font-medium">Is Unusual?</span>
             </div>
