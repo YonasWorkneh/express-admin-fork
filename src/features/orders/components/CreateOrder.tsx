@@ -393,6 +393,7 @@ function OrderVehicleTypesSection({
   setFieldTouched,
   vehicleTypeIdsError,
   vehicleTypeIdsTouched,
+  className,
 }: {
   serviceTypeId: string;
   vehicleTypeIds: string[];
@@ -401,6 +402,7 @@ function OrderVehicleTypesSection({
   setFieldTouched: (field: string, touched?: boolean) => void;
   vehicleTypeIdsError: unknown;
   vehicleTypeIdsTouched: boolean;
+  className?: string;
 }) {
   const {
     data: fleetVehicleTypes = [],
@@ -411,7 +413,7 @@ function OrderVehicleTypesSection({
   const trimmedServiceTypeId = serviceTypeId.trim();
 
   return (
-    <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 shadow-sm mt-6 space-y-4">
+    <div className={cn("bg-gray-50 p-6 rounded-lg border border-gray-200 shadow-sm mt-6 space-y-4", className)}>
       <div>
         <h2 className="text-lg font-medium text-gray-900">Vehicle types</h2>
         <p className="text-sm text-gray-500 mt-1">
@@ -1068,7 +1070,7 @@ export default function OrderForm() {
   };
 
   return (
-    <div className="max-w-4xl p-6 bg-white relative">
+    <div className="p-6 bg-white relative">
       {loadingEditOrder && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 rounded-lg">
           <Spinner className="h-10 w-10 text-[#EE1E21]" />
@@ -1105,7 +1107,7 @@ export default function OrderForm() {
               </div>
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
               {/* Customer Info */}
               <div className="bg-gray-50 p-6 rounded-lg space-y-4">
                 <h2 className="text-lg font-medium mb-4">Sender Info</h2>
@@ -1351,78 +1353,78 @@ export default function OrderForm() {
                   </div>
                 )}
               </div>
-            </div>
-
             {/* Service Info */}
             <div className="bg-gray-50 p-6 rounded-lg space-y-4">
               <h2 className="text-lg font-medium mb-4">Service Info</h2>
 
-              <div>
-                <Label className="mb-1">Service Type</Label>
-                <Select
-                  value={values.serviceTypeId || undefined}
-                  onValueChange={(val) => {
-                    setFieldValue("serviceTypeId", val);
-                    setFieldValue("vehicleTypeIds", []);
-                    setFieldValue("selectedVehicleTypeId", "");
-                    setFieldValue("sessionId", "");
-                    setOrderSummary(null);
-                  }}
-                >
-                  <SelectTrigger
-                    className={`py-7 !w-full bg-none border ${
-                      errors.serviceTypeId && touched.serviceTypeId
-                        ? "border-red-500"
-                        : ""
-                    }`}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="mb-1">Service Type</Label>
+                  <Select
+                    value={values.serviceTypeId || undefined}
+                    onValueChange={(val) => {
+                      setFieldValue("serviceTypeId", val);
+                      setFieldValue("vehicleTypeIds", []);
+                      setFieldValue("selectedVehicleTypeId", "");
+                      setFieldValue("sessionId", "");
+                      setOrderSummary(null);
+                    }}
                   >
-                    <SelectValue placeholder="Select service" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {serviceTypes?.map((serviceType) => (
-                      <SelectItem key={serviceType.id} value={serviceType.id}>
-                        {serviceType.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.serviceTypeId && touched.serviceTypeId && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.serviceTypeId}
-                  </p>
-                )}
-              </div>
+                    <SelectTrigger
+                      className={`py-7 !w-full bg-none border ${
+                        errors.serviceTypeId && touched.serviceTypeId
+                          ? "border-red-500"
+                          : ""
+                      }`}
+                    >
+                      <SelectValue placeholder="Select service" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {serviceTypes?.map((serviceType) => (
+                        <SelectItem key={serviceType.id} value={serviceType.id}>
+                          {serviceType.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.serviceTypeId && touched.serviceTypeId && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.serviceTypeId}
+                    </p>
+                  )}
+                </div>
 
-              <div>
-                <Label className="mb-1">Courier Collection Type</Label>
-                <Select
-                  value={values.fulfillmentType}
-                  onValueChange={(val) => {
-                    setFieldValue("fulfillmentType", val);
-                    if (val === "DROPOFF") {
-                      clearPickupFields(setFieldValue);
-                    }
-                  }}
-                >
-                  <SelectTrigger
-                    className={`bg-none py-7 !w-full ${
-                      errors.fulfillmentType && touched.fulfillmentType
-                        ? "border-red-500"
-                        : ""
-                    }`}
+                <div>
+                  <Label className="mb-1">Collection Type</Label>
+                  <Select
+                    value={values.fulfillmentType}
+                    onValueChange={(val) => {
+                      setFieldValue("fulfillmentType", val);
+                      if (val === "DROPOFF") {
+                        clearPickupFields(setFieldValue);
+                      }
+                    }}
                   >
-                    <SelectValue placeholder="Select fulfillment" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PICKUP">PICKUP</SelectItem>
-                    <SelectItem value="DROPOFF">DROPOFF</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.fulfillmentType && touched.fulfillmentType && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.fulfillmentType}
-                  </p>
-                )}
+                    <SelectTrigger
+                      className={`bg-none py-7 !w-full ${
+                        errors.fulfillmentType && touched.fulfillmentType
+                          ? "border-red-500"
+                          : ""
+                      }`}
+                    >
+                      <SelectValue placeholder="Select fulfillment" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PICKUP">PICKUP</SelectItem>
+                      <SelectItem value="DROPOFF">DROPOFF</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.fulfillmentType && touched.fulfillmentType && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.fulfillmentType}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {values.fulfillmentType === "PICKUP" && (
@@ -1594,22 +1596,15 @@ export default function OrderForm() {
                 </Select>
               </div> */}
             </div>
+            </div>
 
-            <OrderVehicleTypesSection
-              serviceTypeId={values.serviceTypeId}
-              vehicleTypeIds={values.vehicleTypeIds}
-              isDropoffAcceptEdit={isDropoffAcceptEdit}
-              setFieldValue={setFieldValue}
-              setFieldTouched={setFieldTouched}
-              vehicleTypeIdsError={errors.vehicleTypeIds}
-              vehicleTypeIdsTouched={Boolean(touched.vehicleTypeIds)}
-            />
-
+            {/* Row 2: Shipment · Vehicle Types · Complete Order */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Shipment Info */}
-            <div className="bg-gray-50 p-6 rounded-lg mt-6 space-y-4">
+            <div className="bg-gray-50 p-6 rounded-lg space-y-4">
               <h2 className="text-lg font-medium mb-4">Shipment Info</h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="mb-1">Shipment Type</Label>
                   <Select
@@ -1833,9 +1828,19 @@ export default function OrderForm() {
                 )}
               </div>
             </div>
-            {/* Estimate & submit */}
+            <OrderVehicleTypesSection
+                serviceTypeId={values.serviceTypeId}
+                vehicleTypeIds={values.vehicleTypeIds}
+                isDropoffAcceptEdit={isDropoffAcceptEdit}
+                setFieldValue={setFieldValue}
+                setFieldTouched={setFieldTouched}
+                vehicleTypeIdsError={errors.vehicleTypeIds}
+                vehicleTypeIdsTouched={Boolean(touched.vehicleTypeIds)}
+                className="mt-0"
+              />
 
-            <div className="bg-gray-50 p-6 rounded-lg mt-6 space-y-4">
+            {/* Estimate & submit */}
+            <div className="bg-gray-50 p-6 rounded-lg space-y-4">
               <h2 className="text-lg font-medium mb-4">Complete order</h2>
 
               {!isDropoffAcceptEdit && (
@@ -2194,6 +2199,7 @@ export default function OrderForm() {
                 </div>
               )}
             </div>
+            </div> {/* end Vehicle+Complete grid */}
           </Form>
         )}
       </Formik>
