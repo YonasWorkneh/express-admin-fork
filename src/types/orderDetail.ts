@@ -44,6 +44,31 @@ export interface OrderDetailPerson {
   phone?: string | null;
 }
 
+export interface OrderPriceLog {
+  id: string;
+  orderId: string;
+  weight?: number | null;
+  distance?: number | null;
+  baseRate?: number | null;
+  appliedRate?: number | null;
+  surcharges?: number | null;
+  discounts?: number | null;
+  miscFees?: number | null;
+  profit?: number | null;
+  airportFee?: number | null;
+  finalPrice: number;
+  currency?: string | null;
+  createdAt: string;
+  createdBy?: string | null;
+  vat?: number | null;
+  amountToPay?: number | null;
+  walletUsed?: number | null;
+  pickupDistance?: number | null;
+  dropoffDistance?: number | null;
+  pickupPrice?: number | null;
+  dropoffPrice?: number | null;
+}
+
 export interface OrderDetailApi {
   id: string;
   trackingCode: string;
@@ -88,4 +113,5 @@ export interface OrderDetailApi {
   deliveryDriverId?: string | null;
   pickupDriver?: { id: string; name?: string } | null;
   deliveryDriver?: { id: string; name?: string } | null;
+  priceLogs?: OrderPriceLog | OrderPriceLog[] | null;
 }

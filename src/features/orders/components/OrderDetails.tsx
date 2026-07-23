@@ -40,7 +40,7 @@ import {
   fetchFleetVehicleTypeById,
   type FleetVehicleTypeListItem,
 } from "@/lib/api/fleet";
-import type { OrderDetailApi } from "@/types/orderDetail";
+import type { OrderDetailApi, OrderPriceLog } from "@/types/orderDetail";
 
 function getServiceTypeLabel(st: OrderDetailApi["serviceType"]): string {
   if (st == null) return "";
@@ -54,8 +54,7 @@ function sortTrackingEntries(
   entries: NonNullable<OrderDetailApi["orderTracking"]>,
 ) {
   return [...entries].sort(
-    (a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 }
 
@@ -74,15 +73,36 @@ function formatOrderDateTime(iso?: string | null): string {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString();
 }
 
+function getLatestPriceLog(
+  priceLogs: OrderDetailApi["priceLogs"],
+): OrderPriceLog | null {
+  if (!priceLogs) return null;
+  if (Array.isArray(priceLogs)) {
+    if (priceLogs.length === 0) return null;
+    return [...priceLogs].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )[0];
+  }
+  return priceLogs;
+}
+
+function formatMoney(value?: number | null, currency?: string | null): string {
+  if (value == null) return "—";
+  return `${value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} ${currency ?? "ETB"}`;
+}
+
 export default function OrderDetails() {
   const { id: routeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [order, setOrder] = useState<OrderDetailApi | null>(null);
+  console.log(order);
   const [loadingOrder, setLoadingOrder] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [vehicleType, setVehicleType] = useState<FleetVehicleTypeListItem | null>(
-    null,
-  );
+  const [vehicleType, setVehicleType] =
+    useState<FleetVehicleTypeListItem | null>(null);
   const [loadingVehicleType, setLoadingVehicleType] = useState(false);
 
   useEffect(() => {
@@ -151,6 +171,11 @@ export default function OrderDetails() {
     if (!order?.orderTracking?.length) return [];
     return sortTrackingEntries(order.orderTracking);
   }, [order?.orderTracking]);
+
+  const priceLog = useMemo(
+    () => getLatestPriceLog(order?.priceLogs),
+    [order?.priceLogs],
+  );
 
   const initialValues = useMemo(
     () => ({
@@ -372,8 +397,7 @@ export default function OrderDetails() {
                           Total
                         </Label>
                         <p className="text-lg font-semibold">
-                          {order.finalPrice}{" "}
-                          {order.currency ?? "ETB"}
+                          {order.finalPrice} {order.currency ?? "ETB"}
                         </p>
                       </div>
                       <div>
@@ -427,11 +451,11 @@ export default function OrderDetails() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                          <SelectItem value="TOWN">TOWN</SelectItem>
-                      <SelectItem value="REGIONAL">REGIONAL</SelectItem>
-                      <SelectItem value="INTERNATIONAL">
-                        INTERNATIONAL
-                      </SelectItem>
+                            <SelectItem value="TOWN">TOWN</SelectItem>
+                            <SelectItem value="REGIONAL">REGIONAL</SelectItem>
+                            <SelectItem value="INTERNATIONAL">
+                              INTERNATIONAL
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -441,7 +465,6 @@ export default function OrderDetails() {
                         <Select
                           value={values.serviceType}
                           disabled
-
                           onValueChange={(val) =>
                             setFieldValue("serviceType", val)
                           }
@@ -450,10 +473,10 @@ export default function OrderDetails() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                          <SelectItem value="STANDARD">STANDARD</SelectItem>
-                    <SelectItem value="EXPRESS">EXPRESS</SelectItem>
-                    <SelectItem value="SAME_DAY">SAME DAY</SelectItem>
-                    <SelectItem value="OVERNIGHT">OVERNIGHT</SelectItem>
+                            <SelectItem value="STANDARD">STANDARD</SelectItem>
+                            <SelectItem value="EXPRESS">EXPRESS</SelectItem>
+                            <SelectItem value="SAME_DAY">SAME DAY</SelectItem>
+                            <SelectItem value="OVERNIGHT">OVERNIGHT</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -462,7 +485,7 @@ export default function OrderDetails() {
                     <div className="flex gap-2">
                       <Badge
                         className={getFulfillmentColor(
-                          values.fulfillmentDestination
+                          values.fulfillmentDestination,
                         )}
                       >
                         {values.fulfillmentDestination}
@@ -494,8 +517,8 @@ export default function OrderDetails() {
                               Loading…
                             </span>
                           ) : (
-                            vehicleType?.name ??
-                            (order.vehicleTypeId ? "—" : "Not assigned")
+                            (vehicleType?.name ??
+                            (order.vehicleTypeId ? "—" : "Not assigned"))
                           )}
                         </p>
                         {vehicleType?.description ? (
@@ -511,13 +534,17 @@ export default function OrderDetails() {
                         </p>
                       </div>
                       <div>
-                        <Label className="text-gray-600">Scheduled delivery</Label>
+                        <Label className="text-gray-600">
+                          Scheduled delivery
+                        </Label>
                         <p className="font-medium mt-1">
                           {formatOrderDateTime(order.deliveryDate)}
                         </p>
                       </div>
                       <div>
-                        <Label className="text-gray-600">Estimated delivery</Label>
+                        <Label className="text-gray-600">
+                          Estimated delivery
+                        </Label>
                         <p className="font-medium mt-1">
                           {formatOrderDateTime(order.estimatedDeliveryAt)}
                         </p>
@@ -526,7 +553,8 @@ export default function OrderDetails() {
                         <Label className="text-gray-600">Distance</Label>
                         <p className="font-medium mt-1">
                           {order.distance ?? order.estimatedDistance ?? "—"}
-                          {order.distance != null || order.estimatedDistance != null
+                          {order.distance != null ||
+                          order.estimatedDistance != null
                             ? " km"
                             : ""}
                         </p>
@@ -604,17 +632,27 @@ export default function OrderDetails() {
                         <Table>
                           <TableHeader>
                             <TableRow className="bg-gray-50">
-                              <TableHead className="text-gray-600 font-medium">Status</TableHead>
-                              <TableHead className="text-gray-600 font-medium">Location</TableHead>
-                              <TableHead className="text-gray-600 font-medium">Notes</TableHead>
-                              <TableHead className="text-gray-600 font-medium">Date & Time</TableHead>
+                              <TableHead className="text-gray-600 font-medium">
+                                Status
+                              </TableHead>
+                              <TableHead className="text-gray-600 font-medium">
+                                Location
+                              </TableHead>
+                              <TableHead className="text-gray-600 font-medium">
+                                Notes
+                              </TableHead>
+                              <TableHead className="text-gray-600 font-medium">
+                                Date & Time
+                              </TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {orderLogs.map((log, index) => (
-                              <TableRow 
-                                key={log.id} 
-                                className={index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}
+                              <TableRow
+                                key={log.id}
+                                className={
+                                  index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                                }
                               >
                                 <TableCell>
                                   <Badge className={getStatusColor(log.status)}>
@@ -694,7 +732,6 @@ export default function OrderDetails() {
                     </div>
                   </CardContent>
                 </Card>
-
               </div>
 
               {/* Sidebar */}
@@ -866,6 +903,168 @@ export default function OrderDetails() {
                     </div>
                   </CardContent>
                 </Card> */}
+
+                {/* Price Breakdown */}
+                {priceLog ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Price Breakdown</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">
+                          Base rate:
+                        </span>
+                        <span className="text-sm font-medium">
+                          {formatMoney(priceLog.baseRate, priceLog.currency)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">
+                          Applied rate:
+                        </span>
+                        <span className="text-sm font-medium">
+                          {formatMoney(
+                            priceLog.appliedRate,
+                            priceLog.currency,
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">
+                          Pickup distance:
+                        </span>
+                        <span className="text-sm font-medium">
+                          {priceLog.pickupDistance ?? "—"}
+                          {priceLog.pickupDistance != null ? " km" : ""}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">
+                          Pickup price:
+                        </span>
+                        <span className="text-sm font-medium">
+                          {formatMoney(
+                            priceLog.pickupPrice,
+                            priceLog.currency,
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">
+                          Dropoff distance:
+                        </span>
+                        <span className="text-sm font-medium">
+                          {priceLog.dropoffDistance ?? "—"}
+                          {priceLog.dropoffDistance != null ? " km" : ""}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">
+                          Dropoff price:
+                        </span>
+                        <span className="text-sm font-medium">
+                          {formatMoney(
+                            priceLog.dropoffPrice,
+                            priceLog.currency,
+                          )}
+                        </span>
+                      </div>
+                      {priceLog.airportFee != null ? (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">
+                            Airport fee:
+                          </span>
+                          <span className="text-sm font-medium">
+                            {formatMoney(
+                              priceLog.airportFee,
+                              priceLog.currency,
+                            )}
+                          </span>
+                        </div>
+                      ) : null}
+                      {priceLog.surcharges != null ? (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">
+                            Surcharges:
+                          </span>
+                          <span className="text-sm font-medium">
+                            {formatMoney(
+                              priceLog.surcharges,
+                              priceLog.currency,
+                            )}
+                          </span>
+                        </div>
+                      ) : null}
+                      {priceLog.discounts != null ? (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">
+                            Discounts:
+                          </span>
+                          <span className="text-sm font-medium">
+                            -
+                            {formatMoney(
+                              priceLog.discounts,
+                              priceLog.currency,
+                            )}
+                          </span>
+                        </div>
+                      ) : null}
+                      {priceLog.miscFees != null ? (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">
+                            Misc fees:
+                          </span>
+                          <span className="text-sm font-medium">
+                            {formatMoney(
+                              priceLog.miscFees,
+                              priceLog.currency,
+                            )}
+                          </span>
+                        </div>
+                      ) : null}
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">VAT:</span>
+                        <span className="text-sm font-medium">
+                          {formatMoney(priceLog.vat, priceLog.currency)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">
+                          Wallet used:
+                        </span>
+                        <span className="text-sm font-medium">
+                          {formatMoney(
+                            priceLog.walletUsed,
+                            priceLog.currency,
+                          )}
+                        </span>
+                      </div>
+                      <div className="border-t pt-2 mt-2">
+                        <div className="flex justify-between">
+                          <span className="font-medium">Amount to pay:</span>
+                          <span className="font-bold">
+                            {formatMoney(
+                              priceLog.amountToPay,
+                              priceLog.currency,
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex justify-between mt-1">
+                          <span className="text-sm text-gray-600">
+                            Final price:
+                          </span>
+                          <span className="text-sm font-medium">
+                            {formatMoney(
+                              priceLog.finalPrice,
+                              priceLog.currency,
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
 
                 {/* Order Summary */}
                 <Card>

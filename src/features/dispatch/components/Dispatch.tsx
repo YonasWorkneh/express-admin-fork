@@ -1110,9 +1110,13 @@ const [loading] = useState<boolean>(true);
                             //     Assign Cargo Officer
                             //   </Button>
                             // )
-                             : ((order.fulfillmentType == "PICKUP" || order.fulfillmentType == "DROPOFF") &&
+                             : (((order.fulfillmentType == "PICKUP" || order.fulfillmentType == "DROPOFF") &&
                                 order.status == "APPROVED" &&
-                                order?.shippingScope == "TOWN") ? (
+                                order?.shippingScope == "TOWN") ||
+                                (order.fulfillmentType == "PICKUP" &&
+                                order.status == "APPROVED" &&
+                                (order?.shippingScope == "REGIONAL" ||
+                                  order?.shippingScope == "INTERNATIONAL"))) ? (
                               <Button
                                 variant="ghost"
                                 size="sm"
