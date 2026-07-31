@@ -1,8 +1,7 @@
 // Role-based access control configuration
 
 export const RoleName = {
-  SUPER_ADMIN: "SuperAdmin",
-  // SuperAdmin: "SuperAdmin",
+  SUPER_ADMIN: "SUPER_ADMIN",
   OPERATIONAL_MANAGER: "OPERATIONAL_MANAGER",
   HR_MANAGER: "HR_MANAGER",
   CUSTOMER_MANAGER: "CUSTOMER_MANAGER",
