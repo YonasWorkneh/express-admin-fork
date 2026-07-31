@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(lsof -i :5173 -sTCP:LISTEN)",
+      "Bash(lsof -i :3000 -sTCP:LISTEN)",
+      "Bash(command -v chromium-cli)",
+      "Bash(node -e \"console.log\\(require.resolve\\('playwright'\\)\\)\")"
+    ]
+  }
+}

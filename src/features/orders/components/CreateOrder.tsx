@@ -15,8 +15,9 @@ import Button from "@/components/common/Button";
 import MapAddressSelector from "@/components/common/MapAddressSelector";
 import SuccessModal from "@/components/common/SuccessModal";
 import { IoArrowBack, IoLogoDropbox } from "react-icons/io5";
+import { MdAccountBalance } from "react-icons/md";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import * as Yup from "yup";
 import api from "@/lib/api/api";
@@ -92,6 +93,9 @@ function createEmptyFormValues() {
     vehicleTypeIds: [] as string[],
     validatedNotes: "",
     finalPrice: 0,
+    paymentType: "",
+    bankName: "",
+    transactionId: "",
   };
 }
 
@@ -200,6 +204,17 @@ const OrderValidationSchema = Yup.object().shape({
       schema.required("Phone is required when no customer is selected"),
     otherwise: (schema) => schema.notRequired(),
   }),
+  paymentType: Yup.string().required("Select a payment method"),
+  bankName: Yup.string().when("paymentType", {
+    is: "bank_transfer",
+    then: (schema) => schema.required("Bank name is required"),
+    otherwise: (schema) => schema.notRequired(),
+  }),
+  transactionId: Yup.string().when("paymentType", {
+    is: "bank_transfer",
+    then: (schema) => schema.required("Transaction ID is required"),
+    otherwise: (schema) => schema.notRequired(),
+  }),
 });
 
 interface ConvertedShipment {
@@ -248,6 +263,154 @@ interface ConvertedShipment {
   /** From pricing summary vehicle row — required with selected vehicle for submit. */
   sessionId?: string;
   vehicleTypeIds?: string[];
+
+  // Payment
+  paymentType?: string;
+  bankName?: string;
+  transactionId?: string;
+}
+
+type PaymentMethodId = "cbe" | "telebirr" | "bank_transfer";
+
+const PAYMENT_METHODS: {
+  id: PaymentMethodId;
+  label: string;
+  icon: (className: string) => ReactNode;
+}[] = [
+  {
+    id: "cbe",
+    label: "CBE Birr",
+    icon: (c) => (
+      <img src="/images/cbe.png" alt="CBE" className={cn(c, "object-contain")} />
+    ),
+  },
+  {
+    id: "telebirr",
+    label: "telebirr",
+    icon: (c) => (
+      <img
+        src="/images/telebirr.png"
+        alt="telebirr"
+        className={cn(c, "object-contain")}
+      />
+    ),
+  },
+  {
+    id: "bank_transfer",
+    label: "Direct bank transfer",
+    icon: (c) => <MdAccountBalance className={cn(c, "text-[#EE1E21]")} />,
+  },
+];
+
+function PaymentMethodSection({
+  values,
+  errors,
+  touched,
+  setFieldValue,
+  setFieldTouched,
+}: {
+  values: { paymentType: string; bankName: string; transactionId: string };
+  errors: Record<string, unknown>;
+  touched: Record<string, unknown>;
+  setFieldValue: (field: string, value: unknown) => void;
+  setFieldTouched: (field: string, touched?: boolean) => void;
+}) {
+  return (
+    <div className="space-y-4 pt-2 border-t border-gray-200">
+      <div>
+        <h3 className="text-sm font-semibold text-gray-800">Payment method</h3>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Choose how the customer will pay for this order.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {PAYMENT_METHODS.map((method) => {
+          const selected = values.paymentType === method.id;
+          const showError =
+            !selected && Boolean(errors.paymentType) && Boolean(touched.paymentType);
+          return (
+            <button
+              key={method.id}
+              type="button"
+              onClick={() => {
+                setFieldValue("paymentType", method.id);
+                setFieldTouched("paymentType", true);
+                if (method.id !== "bank_transfer") {
+                  setFieldValue("bankName", "");
+                  setFieldValue("transactionId", "");
+                }
+              }}
+              className={cn(
+                "flex flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors cursor-pointer",
+                selected
+                  ? "border-[#EE1E21] bg-[#EE1E21]/5 ring-2 ring-[#EE1E21]"
+                  : showError
+                    ? "border-red-500 bg-white"
+                    : "border-gray-200 bg-white hover:border-gray-300",
+              )}
+            >
+              {method.icon("h-10 w-auto max-w-[100px] shrink-0")}
+              <span className="text-sm font-medium text-gray-900">
+                {method.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {(values.paymentType === "cbe" || values.paymentType === "telebirr") && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {values.paymentType === "cbe" ? "CBE Birr" : "telebirr"} payments
+          are coming soon. Please choose direct bank transfer for now.
+        </div>
+      )}
+
+      {values.paymentType === "bank_transfer" && (
+        <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
+          <div>
+            <Label className="mb-1">Bank name</Label>
+            <Field
+              as={Input}
+              name="bankName"
+              placeholder="e.g. Commercial Bank of Ethiopia"
+              className={`py-7 ${
+                errors.bankName && touched.bankName ? "border-red-500" : ""
+              }`}
+            />
+            {Boolean(errors.bankName) && Boolean(touched.bankName) && (
+              <p className="text-red-500 text-sm mt-1">
+                {String(errors.bankName)}
+              </p>
+            )}
+          </div>
+          <div>
+            <Label className="mb-1">Transaction ID</Label>
+            <Field
+              as={Input}
+              name="transactionId"
+              placeholder="e.g. TXN-1234567890"
+              className={`py-7 ${
+                errors.transactionId && touched.transactionId
+                  ? "border-red-500"
+                  : ""
+              }`}
+            />
+            {Boolean(errors.transactionId) &&
+              Boolean(touched.transactionId) && (
+                <p className="text-red-500 text-sm mt-1">
+                  {String(errors.transactionId)}
+                </p>
+              )}
+          </div>
+        </div>
+      )}
+
+      {touched.paymentType && !values.paymentType && (
+        <p className="text-red-500 text-sm">Select a payment method.</p>
+      )}
+    </div>
+  );
 }
 
 interface OrderSummaryBreakdown {
@@ -838,6 +1001,12 @@ export default function OrderForm() {
       );
       return;
     }
+    if (_values.paymentType !== "bank_transfer") {
+      toast.error(
+        "This payment method is coming soon. Please choose direct bank transfer for now.",
+      );
+      return;
+    }
     console.log(
       "-----------------------------------------: ========: ",
       _values,
@@ -924,6 +1093,11 @@ export default function OrderForm() {
       converted.height = _values?.height;
       converted.length = _values?.length;
     }
+
+    converted.paymentType = "bank_transfer";
+    converted.bankName = _values.bankName.trim();
+    converted.transactionId = _values.transactionId.trim();
+
     try {
       setLoading(true);
 
@@ -2014,6 +2188,14 @@ export default function OrderForm() {
                       })}
                     </div>
                   </div>
+
+                  <PaymentMethodSection
+                    values={values}
+                    errors={errors}
+                    touched={touched}
+                    setFieldValue={setFieldValue}
+                    setFieldTouched={setFieldTouched}
+                  />
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                     <Button
