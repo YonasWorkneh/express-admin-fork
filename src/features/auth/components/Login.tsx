@@ -160,13 +160,13 @@ const Login = () => {
         data.message ||
           (identity.type === "phone"
             ? "We sent a verification code to your phone. Enter the 6 characters below with your new password."
-            : "We sent a verification code to your email. Enter the 6 characters below with your new password."),
+            : "We sent a temporary password to your email. Enter it below with your new password."),
       );
       toast.success(
         data.message ||
           (identity.type === "phone"
             ? "Check your phone for the verification code."
-            : "Check your email for the verification code."),
+            : "Check your email for your temporary password."),
       );
       return;
     }
@@ -225,15 +225,17 @@ const Login = () => {
   const { mutate: verifyStaffEmailMutate, isPending: verifyStaffEmailPending } =
     useStaffVerifyEmail(onConfirmSuccess, onError);
 
-  const { mutate: resendVerificationMutate, isPending: resendVerificationPending } =
-    useStaffResendVerification(
-      (res) => {
-        toast.success(res.message);
-      },
-      (err) => {
-        toast.error(err.message);
-      },
-    );
+  const {
+    mutate: resendVerificationMutate,
+    isPending: resendVerificationPending,
+  } = useStaffResendVerification(
+    (res) => {
+      toast.success(res.message);
+    },
+    (err) => {
+      toast.error(err.message);
+    },
+  );
 
   const {
     register: registerCredentials,
@@ -254,7 +256,11 @@ const Login = () => {
     formState: { errors: confirmErrors, touchedFields: confirmTouched },
     reset: resetConfirmForm,
   } = useForm<PasswordChangeConfirmValues>({
-    resolver: yupResolver(PasswordChangeConfirmSchema),
+    resolver: yupResolver(
+      PasswordChangeConfirmSchema(
+        pendingPasswordIdentity?.type === "email" ? "email" : "phone",
+      ),
+    ),
     defaultValues: {
       code: "",
       newPassword: "",
@@ -479,7 +485,9 @@ const Login = () => {
               transition={{ duration: 0.6, ease: "easeOut", delay: 0.3 }}
             >
               {authStep === "confirmEmail" && pendingPasswordIdentity
-                ? `Enter the 6-character code sent to ${pendingPasswordIdentity.value} and choose your new password.`
+                ? pendingPasswordIdentity.type === "email"
+                  ? `Enter the temporary password sent to ${pendingPasswordIdentity.value} and choose your new password.`
+                  : `Enter the 6-character code sent to ${pendingPasswordIdentity.value} and choose your new password.`
                 : "Sign in to your account to continue"}
             </motion.p>
           </motion.div>
@@ -664,7 +672,11 @@ const Login = () => {
                     transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
                   >
                     <div className="flex items-center">
-                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} transition={{ duration: 0.2 }}>
+                      <motion.div
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        transition={{ duration: 0.2 }}
+                      >
                         <Checkbox id="remember-me" name="remember-me" />
                       </motion.div>
                       <label
@@ -848,8 +860,15 @@ const Login = () => {
                     transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
                   >
                     <div className="flex items-center">
-                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} transition={{ duration: 0.2 }}>
-                        <Checkbox id="remember-me-phone" name="remember-me-phone" />
+                      <motion.div
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <Checkbox
+                          id="remember-me-phone"
+                          name="remember-me-phone"
+                        />
                       </motion.div>
                       <label
                         htmlFor="remember-me-phone"
@@ -922,7 +941,9 @@ const Login = () => {
                   htmlFor="verification-code"
                   className="block text-sm font-medium text-gray-700 mb-2"
                 >
-                  Verification code (6 characters)
+                  {pendingPasswordIdentity?.type === "email"
+                    ? "Temporary password"
+                    : "Verification code (6 characters)"}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -932,27 +953,42 @@ const Login = () => {
                     id="verification-code"
                     type="text"
                     autoComplete="one-time-code"
-                    maxLength={6}
+                    maxLength={
+                      pendingPasswordIdentity?.type === "email" ? undefined : 6
+                    }
                     aria-describedby="verification-code-hint"
-                    placeholder="000000"
+                    placeholder={
+                      pendingPasswordIdentity?.type === "email"
+                        ? "Enter temporary password"
+                        : "000000"
+                    }
                     {...verificationCodeRegister}
                     onChange={(e) => {
-                      const next = takeFirstSixChars(e.target.value);
-                      e.target.value = next;
+                      if (pendingPasswordIdentity?.type !== "email") {
+                        e.target.value = takeFirstSixChars(e.target.value);
+                      }
                       verificationCodeRegister.onChange(e);
                     }}
-                    onPaste={(e) => {
-                      e.preventDefault();
-                      const text =
-                        e.clipboardData.getData("text/plain") || "";
-                      const next = takeFirstSixChars(text);
-                      setConfirmFieldValue("code", next, {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                        shouldTouch: true,
-                      });
-                    }}
-                    className={`w-full pl-10 pr-3 py-3 border rounded-lg tracking-[0.35em] font-mono text-center text-lg focus:outline-none focus:ring-1 focus:ring-[#EE1E21] focus:border-transparent ${
+                    onPaste={
+                      pendingPasswordIdentity?.type === "email"
+                        ? undefined
+                        : (e) => {
+                            e.preventDefault();
+                            const text =
+                              e.clipboardData.getData("text/plain") || "";
+                            const next = takeFirstSixChars(text);
+                            setConfirmFieldValue("code", next, {
+                              shouldValidate: true,
+                              shouldDirty: true,
+                              shouldTouch: true,
+                            });
+                          }
+                    }
+                    className={`w-full pl-10 pr-3 py-3 border rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-[#EE1E21] focus:border-transparent ${
+                      pendingPasswordIdentity?.type === "email"
+                        ? "text-left text-base placeholder:text-sm"
+                        : "text-center text-lg tracking-[0.35em]"
+                    } ${
                       confirmErrors.code && confirmTouched.code
                         ? "border-red-500 focus:ring-red-500"
                         : "border-gray-300"
@@ -966,16 +1002,15 @@ const Login = () => {
                     id="verification-code-hint"
                     className="text-xs text-gray-500"
                   >
-                    You can paste the code.
+                    {pendingPasswordIdentity?.type === "email"
+                      ? "You can paste the temporary password."
+                      : "You can paste the code."}
                   </p>
                   {pendingPasswordIdentity?.type === "email" && (
                     <button
                       type="button"
                       onClick={handleResendVerificationCode}
-                      disabled={
-                        busyConfirming ||
-                        resendVerificationPending
-                      }
+                      disabled={busyConfirming || resendVerificationPending}
                       className="text-sm font-medium text-[#EE1E21] hover:text-[#cc1a1c] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-left sm:text-right shrink-0"
                     >
                       {resendVerificationPending ? "Sending…" : "Resend code"}
