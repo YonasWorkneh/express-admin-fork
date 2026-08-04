@@ -193,6 +193,38 @@ export async function staffResendVerification(
   };
 }
 
+/** First-login forced password change: user submits their temp/old password plus a new one. */
+export async function firstLoginChangePassword(args: {
+  email: string;
+  oldPassword: string;
+  newPassword: string;
+}): Promise<LoginResponse> {
+  const response = await fetch(`${BASE_URL}/auth/first-login/change-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email: args.email.trim(),
+      oldPassword: args.oldPassword,
+      newPassword: args.newPassword,
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.message || "Failed to change password");
+  }
+  if (!data.success) {
+    throw new Error(
+      data?.message || "Could not change password. Check your temporary password and try again.",
+    );
+  }
+
+  return normalizeLoginResponse(data as LoginResponse);
+}
+
 /** Confirm staff email / set password via token from email (non–digit-safe token). */
 export async function staffVerifyEmail(args: {
   token: string;

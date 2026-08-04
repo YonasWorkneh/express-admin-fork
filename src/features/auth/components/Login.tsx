@@ -21,7 +21,7 @@ import { useNavigate } from "react-router-dom";
 import {
   useLogin,
   useConfirmMobileLoginPasswordChange,
-  useStaffVerifyEmail,
+  useFirstLoginChangePassword,
   useStaffResendVerification,
   type LoginMutationVariables,
 } from "@/hooks/useAuth";
@@ -206,6 +206,22 @@ const Login = () => {
       return;
     }
 
+    // Password was changed but no session tokens were issued — send the user back to sign in.
+    if (normalized.success) {
+      setAuthStep("signIn");
+      setPendingPasswordIdentity(null);
+      resetConfirmForm();
+      resetPhoneForm();
+      setStatus("success");
+      setMessage(
+        normalized.message || "Password changed successfully. Please log in again.",
+      );
+      toast.success(
+        normalized.message || "Password changed successfully. Please log in again.",
+      );
+      return;
+    }
+
     toast.error(normalized.message || "Could not finish sign-in.");
     setStatus("error");
     setMessage(normalized.message ?? null);
@@ -222,8 +238,10 @@ const Login = () => {
   const { mutate: confirmPasswordChangeMutate, isPending: confirmPending } =
     useConfirmMobileLoginPasswordChange(onConfirmSuccess, onError);
 
-  const { mutate: verifyStaffEmailMutate, isPending: verifyStaffEmailPending } =
-    useStaffVerifyEmail(onConfirmSuccess, onError);
+  const {
+    mutate: firstLoginChangePasswordMutate,
+    isPending: firstLoginChangePasswordPending,
+  } = useFirstLoginChangePassword(onConfirmSuccess, onError);
 
   const {
     mutate: resendVerificationMutate,
@@ -307,9 +325,10 @@ const Login = () => {
     setStatus("submitting");
     setMessage(null);
     if (pendingPasswordIdentity.type === "email") {
-      verifyStaffEmailMutate({
-        token: values.code.trim(),
-        password: values.newPassword,
+      firstLoginChangePasswordMutate({
+        email: pendingPasswordIdentity.value,
+        oldPassword: values.code.trim(),
+        newPassword: values.newPassword,
       });
       return;
     }
@@ -333,7 +352,9 @@ const Login = () => {
     authStep === "signIn" && (status === "submitting" || isPending);
   const busyConfirming =
     authStep === "confirmEmail" &&
-    (status === "submitting" || confirmPending || verifyStaffEmailPending);
+    (status === "submitting" ||
+      confirmPending ||
+      firstLoginChangePasswordPending);
 
   const handleResendVerificationCode = () => {
     if (pendingPasswordIdentity?.type !== "email") return;
