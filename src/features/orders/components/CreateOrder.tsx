@@ -406,7 +406,7 @@ function PaymentMethodSection({
         </div>
       )}
 
-      {touched.paymentType && !values.paymentType && (
+      {Boolean(touched.paymentType) && !values.paymentType && (
         <p className="text-red-500 text-sm">Select a payment method.</p>
       )}
     </div>
