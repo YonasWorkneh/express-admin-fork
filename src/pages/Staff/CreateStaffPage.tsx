@@ -24,6 +24,23 @@ import type {
 } from "@/types/types";
 import { Spinner } from "@/utils/spinner";
 
+const ETHIO_COUNTRY_CODE = "+251";
+
+/** Only digits; first digit must be 7 or 9; max 9 digits total. */
+function normalizeEthioMobileLocalInput(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  let out = "";
+  for (let i = 0; i < digits.length && out.length < 9; i++) {
+    const ch = digits[i]!;
+    if (out.length === 0) {
+      if (ch === "7" || ch === "9") out += ch;
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
 const CreateStaffPage = () => {
   const [status] = useState<"idle" | "submitting" | "success" | "error">(
     "idle"
@@ -34,7 +51,7 @@ const CreateStaffPage = () => {
     name: "",
     email: "",
     branchId: "",
-    phone: "",
+    phone: ETHIO_COUNTRY_CODE,
     role: "",
     emergencyContactName: "",
     emergencyContactPhone: "",
@@ -165,7 +182,7 @@ navigate("/staff")
         onSubmit={handleSubmit}
         enableReinitialize={true}
       >
-        {({ values, setFieldValue, errors, touched }) => (
+        {({ values, setFieldValue, setFieldTouched, errors, touched }) => (
           <Form>
             {/* Header */}
             <header className="relative">
@@ -238,15 +255,33 @@ navigate("/staff")
                 </div>
                 <div>
                   <Label className="mb-1">Phone Number *</Label>
-                  <Field
-                    as={Input}
-                    type="tel"
-                    name="phone"
-                    placeholder="+251 911 234 567"
-                    className={`py-7 ${
-                      errors.phone && touched.phone ? "border-red-500" : ""
+                  <div
+                    className={`flex rounded-md border overflow-hidden bg-white ${
+                      errors.phone && touched.phone
+                        ? "border-red-500"
+                        : "border-input"
                     }`}
-                  />
+                  >
+                    <span className="flex shrink-0 items-center px-3 text-sm font-medium text-gray-700 bg-gray-100 border-r border-gray-200">
+                      {ETHIO_COUNTRY_CODE}
+                    </span>
+                    <Input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={9}
+                      placeholder="912345678"
+                      value={values.phone.replace(ETHIO_COUNTRY_CODE, "")}
+                      onChange={(e) =>
+                        setFieldValue(
+                          "phone",
+                          ETHIO_COUNTRY_CODE +
+                            normalizeEthioMobileLocalInput(e.target.value)
+                        )
+                      }
+                      onBlur={() => setFieldTouched("phone", true)}
+                      className="py-7 border-0 rounded-none focus-visible:ring-0"
+                    />
+                  </div>
                   {errors.phone && touched.phone && (
                     <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
                   )}

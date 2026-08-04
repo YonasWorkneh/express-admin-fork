@@ -2,7 +2,7 @@ import * as yup from "yup";
 
 const emailRegex: RegExp = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
-const phoneRegex: RegExp = /^(\+?\d{9,15})$/;
+const phoneRegex: RegExp = /^\+251[79]\d{8}$/;
 
 export const CreateStaffSchema = yup.object().shape({
   name: yup.string().trim().required("Name is required"),
@@ -18,7 +18,10 @@ export const CreateStaffSchema = yup.object().shape({
   branchId: yup.string().optional().nullable(),
   phone: yup
     .string()
-    .matches(phoneRegex, "Please enter a valid phone number")
+    .matches(
+      phoneRegex,
+      "Phone must be +251 followed by 9 digits, starting with 9 or 7"
+    )
     .required("Phone is required"),
 });
 

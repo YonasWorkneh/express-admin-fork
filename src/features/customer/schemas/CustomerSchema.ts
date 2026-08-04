@@ -10,8 +10,8 @@ export const CustomerSchema = Yup.object().shape({
   phone: Yup.string()
     .required("Phone number is required")
     .matches(
-      /^(?:\+251|251|0)?[79]\d{8}$/,
-      "Phone number must be a valid Ethiopian number"
+      /^\+251[79]\d{8}$/,
+      "Phone must be +251 followed by 9 digits, starting with 9 or 7"
     ),
   customerType: Yup.string().required("Customer type is required"),
 
