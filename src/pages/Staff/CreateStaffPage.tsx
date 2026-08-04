@@ -143,7 +143,7 @@ navigate("/staff")
   ) => {
     setFieldValue("branchId", branch.id);
     setFieldValue("branchName", branch.name);
-    setBranchSearch(`${branch.name} (${branch.id})`);
+    setBranchSearch(branch.name);
     setShowBranchDropdown(false);
   };
 
@@ -332,9 +332,6 @@ navigate("/staff")
                           >
                             <div className="font-medium text-gray-900">
                               {branch.name}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              ID: {branch.id}
                             </div>
                             <div className="text-sm text-gray-500">
                               {branch.location}
