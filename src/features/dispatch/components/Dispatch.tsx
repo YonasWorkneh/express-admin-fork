@@ -1125,7 +1125,9 @@ export default function Dispatch() {
                                 Waiting for request
                               </Button>
                             ) : (order.fulfillmentType == "PICKUP" ||
-                                order.fulfillmentType == "DROPOFF") &&
+                                (order.fulfillmentType == "DROPOFF" &&
+                                  order?.shippingScope != "REGIONAL" &&
+                                  order?.shippingScope != "INTERNATIONAL")) &&
                               order.status == "PENDING_APPROVAL" ? (
                               <div className="flex flex-row gap-2">
                                 <Button

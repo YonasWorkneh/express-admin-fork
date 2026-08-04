@@ -1052,14 +1052,13 @@ export default function OrdersPage() {
                             );
                           }
                           // 3. STATUS: DROPPED_OFF, fulfillmentType: PICKUP
+                          // REGIONAL/INTERNATIONAL orders fall through to "No Action" below.
                           if (
                             status === "DROPPED_OFF" &&
-                            (scope === "TOWN" ||
-                              scope === "REGIONAL" ||
-                              scope === "INTERNATIONAL") &&
+                            scope === "TOWN" &&
                             fulfillmentType === "PICKUP"
                           ) {
-                            // 7/8. Status: DROPPED_OFF, all scopes, fulfillmentType: PICKUP => Action Validate/request approval
+                            // 7. Status: DROPPED_OFF, scope: TOWN, fulfillmentType: PICKUP => Action Validate/request approval
                             return (
                               <div className="flex flex-row gap-2">
                                 <Button
