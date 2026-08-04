@@ -17,6 +17,7 @@ import { IoArrowBack, IoPersonAdd, IoBusiness } from "react-icons/io5";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import api from "@/lib/api/api";
+import type { RoleWithPermissionsListResponse } from "@/types/types";
 
 const CreateCustomer = () => {
   const [status, setStatus] = useState<
@@ -24,28 +25,62 @@ const CreateCustomer = () => {
   >("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [initialValues] = useState({
+  const [customerRoleId, setCustomerRoleId] = useState("");
+  const [loadingRole, setLoadingRole] = useState(false);
+
+  const initialValues = {
     name: "",
     email: "",
     phone: "",
-    role:"cmgzw1bdm0000f73oogrss9bh",
-    customerType:"",
-    companyName:"",
-    taxId:"",
-    contactPerson:"",
-    contactPhone:"",
-    contactEmail:"",
-   
+    role: customerRoleId,
+    customerType: "",
+    companyName: "",
+    taxId: "",
+    contactPerson: "",
+    contactPhone: "",
+    contactEmail: "",
     notes: "",
-    
-    
-   
-  });
+  };
 
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = !!id;
 console.log(setMessage,setStatus)
+
+  // Fetch the CUSTOMER role id — sent as the role for every new customer
+  useEffect(() => {
+    const fetchCustomerRole = async () => {
+      try {
+        setLoadingRole(true);
+        const response = await api.get<RoleWithPermissionsListResponse>(
+          "/access-control/roles?page=1&pageSize=100",
+        );
+        const customerRole =
+          response.data.data.find(
+            (role) => role.name.toUpperCase() === "CUSTOMER",
+          ) ??
+          response.data.data.find(
+            (role) =>
+              role.name.toLowerCase().includes("customer") &&
+              !role.name.toLowerCase().includes("manager"),
+          );
+        if (customerRole) {
+          setCustomerRoleId(customerRole.id);
+        } else {
+          toast.error("Customer role not found. Please contact administrator.");
+        }
+      } catch (error: any) {
+        const message =
+          error?.response?.data?.message || "Failed to load roles.";
+        toast.error(message);
+      } finally {
+        setLoadingRole(false);
+      }
+    };
+
+    fetchCustomerRole();
+  }, []);
+
   // Fetch customer data if in edit mode
   useEffect(() => {
     const fetchCustomerData = async () => {
@@ -375,9 +410,9 @@ navigate("/customer")
                 </Button>
                 <Button
                   type="submit"
-                  disabled={status === "submitting"}
+                  disabled={status === "submitting" || loadingRole}
                   className={`flex-1 cursor-pointer hover:bg-[#cc1a1c] ${
-                    status === "submitting"
+                    status === "submitting" || loadingRole
                       ? "disabled:opacity-70 disabled:cursor-not-allowed"
                       : ""
                   }`}
