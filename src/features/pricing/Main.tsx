@@ -10,6 +10,7 @@ import {
   MapPin as LocationIcon,
   Percent,
 } from "lucide-react";
+import { MdEdit, MdDelete } from "react-icons/md";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +23,7 @@ import api from "@/lib/api/api";
 import type { Pagination } from "@/types/types";
 import toast from "react-hot-toast";
 import TablePagination from "@/components/common/TablePagination";
+import ConfirmDialog from "@/components/common/DeleteModal";
 
 interface PricingParameters {
   title: string;
@@ -129,6 +131,9 @@ export default function PricingMain() {
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [fleetLogs,setFleetLogs] =useState<any>([])
   const [activatingId, setActivatingId] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedTariff, setSelectedTariff] = useState<any>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const featchFleetLogs = async (page=1,limit=10) => {
     try {
@@ -194,6 +199,24 @@ export default function PricingMain() {
       console.error(error);
     } finally {
       setActivatingId(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedTariff?.id) return;
+    try {
+      setDeleteLoading(true);
+      const res = await api.delete(`/pricing/tariff/${selectedTariff.id}`);
+      toast.success(res.data?.message || "Tariff deleted successfully");
+      setIsDeleteDialogOpen(false);
+      await featchFleetLogs(currentPage, pageSize);
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message || "Failed to delete tariff";
+      toast.error(message);
+      console.error(error);
+    } finally {
+      setDeleteLoading(false);
     }
   };
   return (
@@ -478,6 +501,30 @@ export default function PricingMain() {
                               )}
                             </Button>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const tid = String(log?.id ?? "").replace(/^#/, "");
+                              if (tid) navigate(`/pricing/tariff/${tid}`);
+                            }}
+                          >
+                            <MdEdit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-2 text-red-400 bg-red-50 cursor-pointer opacity-60 hover:bg-red-100 hover:text-red-700"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTariff(log);
+                              setIsDeleteDialogOpen(true);
+                            }}
+                          >
+                            <MdDelete className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -628,6 +675,15 @@ export default function PricingMain() {
           </Card>
         </div> */}
       </main>
+
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        setIsOpen={setIsDeleteDialogOpen}
+        title="Delete Tariff"
+        description="Are you sure you want to delete this tariff? This action cannot be undone."
+        onConfirm={handleDelete}
+        loading={deleteLoading}
+      />
     </div>
   );
 }
