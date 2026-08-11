@@ -14,7 +14,15 @@ import {
 import Button from "@/components/common/Button";
 import MapAddressSelector from "@/components/common/MapAddressSelector";
 import SuccessModal from "@/components/common/SuccessModal";
-import { IoArrowBack, IoLogoDropbox } from "react-icons/io5";
+import type { WaybillData } from "@/components/common/WaybillDocument";
+import { useAuthState } from "@/hooks/useAuthState";
+import { IoArrowBack, IoCall, IoLocationSharp, IoLogoDropbox } from "react-icons/io5";
+import {
+  COMPANY_ADDRESS,
+  COMPANY_LOGO_SRC,
+  COMPANY_NAME,
+  COMPANY_PHONE,
+} from "@/constants/company";
 import { MdAccountBalance } from "react-icons/md";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -50,6 +58,24 @@ function isoToDatetimeLocal(iso?: string | null): string {
   return format(d, "yyyy-MM-dd'T'HH:mm");
 }
 
+const ETHIO_COUNTRY_CODE = "+251";
+const phoneRegex = /^\+251[79]\d{8}$/;
+
+/** Only digits; first digit must be 7 or 9; max 9 digits total. */
+function normalizeEthioMobileLocalInput(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  let out = "";
+  for (let i = 0; i < digits.length && out.length < 9; i++) {
+    const ch = digits[i]!;
+    if (out.length === 0) {
+      if (ch === "7" || ch === "9") out += ch;
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
 function createEmptyFormValues() {
   return {
     serviceTypeId: "",
@@ -57,7 +83,7 @@ function createEmptyFormValues() {
     isDelivery: false,
     name: "",
     email: "",
-    phone: "",
+    phone: ETHIO_COUNTRY_CODE,
     customerId: "",
     weight: 0,
     quantity: 0,
@@ -78,7 +104,7 @@ function createEmptyFormValues() {
     unusualReason: "",
     receiverName: "",
     receiverEmail: "",
-    receiverPhone: "",
+    receiverPhone: ETHIO_COUNTRY_CODE,
     receiverAddress: "",
     receiverLatitude: 0,
     receiverLongitude: 0,
@@ -119,7 +145,7 @@ function mapOrderDetailToFormValues(o: OrderDetailApi) {
     fulfillmentType: (o.fulfillmentType as string) || "DROPOFF",
     receiverName: o.receiver?.name ?? "",
     receiverEmail: o.receiver?.email ?? "",
-    receiverPhone: o.receiver?.phone ?? "",
+    receiverPhone: o.receiver?.phone || ETHIO_COUNTRY_CODE,
     receiverAddress: addrParts.join(", ") || "",
     receiverLatitude: lat,
     receiverLongitude: lng,
@@ -144,7 +170,7 @@ function mapOrderDetailToFormValues(o: OrderDetailApi) {
     customerId: o.customer?.id ?? "",
     name: o.customer?.name ?? "",
     email: o.customer?.email ?? "",
-    phone: o.customer?.phone ?? "",
+    phone: o.customer?.phone || ETHIO_COUNTRY_CODE,
     originCity: o.originCityRaw ?? "",
     destinationCity: o.destinationCityRaw ?? "",
     selectedVehicleTypeId: "",
@@ -161,7 +187,9 @@ const OrderValidationSchema = Yup.object().shape({
   receiverEmail: Yup.string()
     .email("Invalid email")
     .required("Receiver email is required"),
-  receiverPhone: Yup.string().required("Receiver phone is required"),
+  receiverPhone: Yup.string()
+    .matches(phoneRegex, "Phone must be +251 followed by 9 digits, starting with 9 or 7")
+    .required("Receiver phone is required"),
   receiverAddress: Yup.string().required("Delivery address is required"),
   pickupAddress: Yup.string().when("fulfillmentType", {
     is: "PICKUP",
@@ -201,7 +229,9 @@ const OrderValidationSchema = Yup.object().shape({
   phone: Yup.string().when("customerId", {
     is: (val: unknown) => !hasSelectedCustomer(val),
     then: (schema) =>
-      schema.required("Phone is required when no customer is selected"),
+      schema
+        .matches(phoneRegex, "Phone must be +251 followed by 9 digits, starting with 9 or 7")
+        .required("Phone is required when no customer is selected"),
     otherwise: (schema) => schema.notRequired(),
   }),
   paymentType: Yup.string().required("Select a payment method"),
@@ -268,6 +298,55 @@ interface ConvertedShipment {
   paymentType?: string;
   bankName?: string;
   transactionId?: string;
+}
+
+/** Borderless input styling so fields sit flush inside a `FieldCell`, table-style */
+const tableInputClass =
+  "border-0 rounded-none shadow-none px-0 py-0 h-auto bg-transparent focus-visible:ring-0 text-sm font-semibold text-gray-900 placeholder:font-normal placeholder:text-gray-400";
+const tableTriggerClass =
+  "border-0 rounded-none shadow-none px-0 py-0 h-auto !bg-transparent focus-visible:ring-0 text-sm font-semibold text-gray-900 justify-start";
+
+/** A single waybill-style table cell: small uppercase label above a flush value/input */
+function FieldCell({
+  label,
+  error,
+  className,
+  children,
+}: {
+  label: string;
+  error?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn("bg-white p-3", className)}>
+      <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
+        {label}
+      </p>
+      {children}
+      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+    </div>
+  );
+}
+
+/** Wraps `FieldCell`s in a bordered grid so shared 1px lines read as a table */
+function FieldTable({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-2 gap-px bg-gray-200 border border-gray-200 rounded-lg overflow-hidden",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 type PaymentMethodId = "cbe" | "telebirr" | "bank_transfer";
@@ -686,7 +765,9 @@ export default function OrderForm() {
   );
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState("");
+  const [waybillData, setWaybillData] = useState<WaybillData | null>(null);
   const [loading, setLoading] = useState(false);
+  const { user } = useAuthState();
 
   const [managerSearch, setManagerSearch] = useState("");
   // const [branchSearch, setBranchSearch] = useState("");
@@ -982,6 +1063,60 @@ export default function OrderForm() {
     }
   };
 
+  const buildWaybillData = (trackingCode: string, v: any): WaybillData => {
+    const categoryName = orderItemCategories.find(
+      (c) => c.id === v.categoryId,
+    )?.name;
+    const serviceTypeName = serviceTypes?.find(
+      (s) => s.id === v.serviceTypeId,
+    )?.name;
+    const selectedVehicle = orderSummary?.vehicles.find(
+      (veh) =>
+        veh.vehicleTypeId === v.selectedVehicleTypeId &&
+        (veh.sessionId?.trim() ?? "") === (String(v.sessionId ?? "").trim()),
+    );
+    const paymentMethodLabel = PAYMENT_METHODS.find(
+      (m) => m.id === v.paymentType,
+    )?.label;
+
+    const shipperCompanyLine =
+      v.fulfillmentType === "PICKUP" && v.pickupAddress
+        ? v.pickupAddress
+        : v.originCity || "";
+
+    return {
+      trackingCode,
+      shipper: {
+        name: v.name || managerSearch,
+        phone: v.phone || selectedCustomerForSender?.phone || "",
+        companyLine: shipperCompanyLine || undefined,
+      },
+      consignee: {
+        name: v.receiverName,
+        phone: v.receiverPhone,
+        companyLine: v.receiverAddress || undefined,
+      },
+      weightKg: v.weight !== "" && v.weight != null ? Number(v.weight) : undefined,
+      dimensions:
+        v.shipmentType === "PARCEL"
+          ? {
+              length: Number(v.length) || 0,
+              width: Number(v.width) || 0,
+              height: Number(v.height) || 0,
+            }
+          : undefined,
+      goods: categoryName
+        ? { categoryName, quantity: Number(v.quantity) || 0 }
+        : undefined,
+      amount: selectedVehicle?.totalPrice,
+      currency: orderSummary?.currency,
+      paymentMethodLabel,
+      serviceTypeName,
+      receivedBy: user?.name || undefined,
+      createdAt: new Date(),
+    };
+  };
+
   const handleSubmit = async (
     _values: any,
     { resetForm }: { resetForm: () => void },
@@ -1105,7 +1240,9 @@ export default function OrderForm() {
       console.log("res of create order: ", res.data);
       toast.success(res.data?.message);
       // const tracking = generateTrackingNumber();
-      setTrackingNumber(res.data.data?.trackingCode);
+      const trackingCode = res.data.data?.trackingCode ?? "";
+      setTrackingNumber(trackingCode);
+      setWaybillData(buildWaybillData(trackingCode, _values));
       setIsSuccessModalOpen(true);
       resetForm();
       setOrderSummary(null);
@@ -1131,6 +1268,7 @@ export default function OrderForm() {
   const handleCloseModal = () => {
     setIsSuccessModalOpen(false);
     setTrackingNumber("");
+    setWaybillData(null);
   };
 
   const clearManager = (
@@ -1159,7 +1297,7 @@ export default function OrderForm() {
     if (!selectedCustomerForSender || !canPrefillSender) return;
     setFieldValue("name", selectedCustomerForSender.name ?? "");
     setFieldValue("email", selectedCustomerForSender.email ?? "");
-    setFieldValue("phone", selectedCustomerForSender.phone ?? "");
+    setFieldValue("phone", selectedCustomerForSender.phone || ETHIO_COUNTRY_CODE);
   };
 
   const clearBranch = (
@@ -1272,7 +1410,7 @@ export default function OrderForm() {
               <div className="flex gap-5 items-center justify-center mb-6">
                 <div className="flex gap-4 items-center">
                   <IoLogoDropbox className="text-4xl text-[#EE1E21]" />
-                  <h1 className="text-3xl font-medium text-gray-700">
+                  <h1 className="text-2xl font-medium text-gray-700">
                     {isDropoffAcceptEdit
                       ? "Accept drop-off"
                       : "Place New Order"}
@@ -1281,10 +1419,33 @@ export default function OrderForm() {
               </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+            {/* Waybill document: banner + Shipper/Consignee + Shipment + Service Info + Vehicle Types + Complete Order, all one table */}
+            <div className="rounded-lg overflow-hidden border border-gray-200 mb-6 bg-white">
+              {/* Company banner header row */}
+              <div className="bg-gradient-to-r from-[#FADF4B] to-[#f2c94c] px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+                <img
+                  src={COMPANY_LOGO_SRC}
+                  alt={COMPANY_NAME}
+                  className="h-20 w-auto"
+                />
+                <div className="text-right text-[#8a1a1c]">
+                  <p className="flex items-center justify-end gap-1 font-semibold text-xs sm:text-sm">
+                    <IoCall className="shrink-0" /> {COMPANY_PHONE}
+                  </p>
+                  <p className="flex items-center justify-end gap-1 text-xs mt-1 max-w-md">
+                    <IoLocationSharp className="shrink-0" /> {COMPANY_ADDRESS}
+                  </p>
+                </div>
+              </div>
+              <div className="h-1 bg-[#EE1E21]" />
+
+              {/* Shipper / Consignee row */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-200 border-b border-gray-200">
               {/* Customer Info */}
-              <div className="bg-gray-50 p-6 rounded-lg space-y-4">
-                <h2 className="text-lg font-medium mb-4">Sender Info</h2>
+              <div className="space-y-4 p-4">
+                <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide pb-2 border-b border-gray-200">
+                  Shipper Details
+                </h2>
                 <div className="bg-gray-50  rounded-lg space-y-4">
                   <div className="relative">
                     <Label className="mb-2">
@@ -1374,134 +1535,131 @@ export default function OrderForm() {
                     >
                       Prefill from selected customer
                     </Button>
-                    <div>
-                      <Label className="mb-1">
-                        Name{" "}
-                        <span className="text-gray-500 font-normal">
-                          (required without customer)
-                        </span>
-                      </Label>
-                      <Field
-                        as={Input}
-                        name="name"
-                        placeholder="Sender name"
-                        className={`py-7 ${
-                          errors.name && touched.name ? "border-red-500" : ""
-                        }`}
-                      />
-                      {errors.name && touched.name && (
-                        <p className="text-red-500 text-sm mt-1">
-                          {errors.name}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <Label className="mb-1">
-                        Email{" "}
-                        <span className="text-gray-500 font-normal">
-                          (required without customer)
-                        </span>
-                      </Label>
-                      <Field
-                        as={Input}
-                        type="email"
-                        name="email"
-                        placeholder="Sender email"
-                        className={`py-7 ${
-                          errors.email && touched.email ? "border-red-500" : ""
-                        }`}
-                      />
-                      {errors.email && touched.email && (
-                        <p className="text-red-500 text-sm mt-1">
-                          {errors.email}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <Label className="mb-1">
-                        Phone{" "}
-                        <span className="text-gray-500 font-normal">
-                          (required without customer)
-                        </span>
-                      </Label>
-                      <Field
-                        as={Input}
-                        type="tel"
-                        name="phone"
-                        placeholder="Sender phone"
-                        className={`py-7 ${
-                          errors.phone && touched.phone ? "border-red-500" : ""
-                        }`}
-                      />
-                      {errors.phone && touched.phone && (
-                        <p className="text-red-500 text-sm mt-1">
-                          {errors.phone}
-                        </p>
-                      )}
-                    </div>
+                    <FieldTable>
+                      <FieldCell
+                        label="Name of Sender (required without customer)"
+                        error={errors.name && touched.name ? String(errors.name) : undefined}
+                      >
+                        <Field
+                          as={Input}
+                          name="name"
+                          placeholder="Sender name"
+                          className={tableInputClass}
+                        />
+                      </FieldCell>
+                      <FieldCell
+                        label="Phone (required without customer)"
+                        error={errors.phone && touched.phone ? String(errors.phone) : undefined}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm font-semibold text-gray-900 shrink-0">
+                            {ETHIO_COUNTRY_CODE}
+                          </span>
+                          <Input
+                            type="tel"
+                            inputMode="numeric"
+                            maxLength={9}
+                            placeholder="912345678"
+                            value={values.phone.replace(ETHIO_COUNTRY_CODE, "")}
+                            onChange={(e) =>
+                              setFieldValue(
+                                "phone",
+                                ETHIO_COUNTRY_CODE +
+                                  normalizeEthioMobileLocalInput(e.target.value),
+                              )
+                            }
+                            onBlur={() => setFieldTouched("phone", true)}
+                            className={tableInputClass}
+                          />
+                        </div>
+                      </FieldCell>
+                      <FieldCell
+                        label="Email (required without customer)"
+                        className="col-span-2"
+                        error={errors.email && touched.email ? String(errors.email) : undefined}
+                      >
+                        <Field
+                          as={Input}
+                          type="email"
+                          name="email"
+                          placeholder="Sender email"
+                          className={tableInputClass}
+                        />
+                      </FieldCell>
+                    </FieldTable>
                   </div>
                 </div>
               </div>
 
               {/* Receiver Info */}
-              <div className="bg-gray-50 p-6 rounded-lg space-y-4">
-                <h2 className="text-lg font-medium mb-4">Receiver Info</h2>
-                <div>
-                  <Label className="mb-1">Name</Label>
-                  <Field
-                    as={Input}
-                    name="receiverName"
-                    placeholder="Receiver name"
-                    className={`py-7 ${
+              <div className="space-y-4 p-4">
+                <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide pb-2 border-b border-gray-200">
+                  Consignee Details
+                </h2>
+                <FieldTable>
+                  <FieldCell
+                    label="Contact Person"
+                    error={
                       errors.receiverName && touched.receiverName
-                        ? "border-red-500"
-                        : ""
-                    }`}
-                  />
-                  {errors.receiverName && touched.receiverName && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.receiverName}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label className="mb-1">Email</Label>
-                  <Field
-                    as={Input}
-                    type="email"
-                    name="receiverEmail"
-                    placeholder="Receiver email"
-                    className={`py-7 ${
-                      errors.receiverEmail && touched.receiverEmail
-                        ? "border-red-500"
-                        : ""
-                    }`}
-                  />
-                  {errors.receiverEmail && touched.receiverEmail && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.receiverEmail}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label className="mb-1">Phone</Label>
-                  <Field
-                    as={Input}
-                    type="tel"
-                    name="receiverPhone"
-                    placeholder="Receiver phone"
-                    className={`py-7 ${
+                        ? String(errors.receiverName)
+                        : undefined
+                    }
+                  >
+                    <Field
+                      as={Input}
+                      name="receiverName"
+                      placeholder="Receiver name"
+                      className={tableInputClass}
+                    />
+                  </FieldCell>
+                  <FieldCell
+                    label="Phone"
+                    error={
                       errors.receiverPhone && touched.receiverPhone
-                        ? "border-red-500"
-                        : ""
-                    }`}
-                  />
-                  {errors.receiverPhone && touched.receiverPhone && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.receiverPhone}
-                    </p>
-                  )}
-                </div>
+                        ? String(errors.receiverPhone)
+                        : undefined
+                    }
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-semibold text-gray-900 shrink-0">
+                        {ETHIO_COUNTRY_CODE}
+                      </span>
+                      <Input
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={9}
+                        placeholder="912345678"
+                        value={values.receiverPhone.replace(ETHIO_COUNTRY_CODE, "")}
+                        onChange={(e) =>
+                          setFieldValue(
+                            "receiverPhone",
+                            ETHIO_COUNTRY_CODE +
+                              normalizeEthioMobileLocalInput(e.target.value),
+                          )
+                        }
+                        onBlur={() => setFieldTouched("receiverPhone", true)}
+                        className={tableInputClass}
+                      />
+                    </div>
+                  </FieldCell>
+                  <FieldCell
+                    label="Email"
+                    className="col-span-2"
+                    error={
+                      errors.receiverEmail && touched.receiverEmail
+                        ? String(errors.receiverEmail)
+                        : undefined
+                    }
+                  >
+                    <Field
+                      as={Input}
+                      type="email"
+                      name="receiverEmail"
+                      placeholder="Receiver email"
+                      className={tableInputClass}
+                    />
+                  </FieldCell>
+                </FieldTable>
                 {!isDropoffAcceptEdit && (
                   <div>
                     <Label className="mb-1">Delivery Address</Label>
@@ -1527,9 +1685,224 @@ export default function OrderForm() {
                   </div>
                 )}
               </div>
-            {/* Service Info */}
-            <div className="bg-gray-50 p-6 rounded-lg space-y-4">
-              <h2 className="text-lg font-medium mb-4">Service Info</h2>
+              </div>
+
+              {/* Shipment Details row */}
+              <div className="p-4">
+                <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide pb-2 mb-4 border-b border-gray-200">
+                  Shipment Details
+                </h2>
+
+                <FieldTable>
+                  <FieldCell label="Shipment Type">
+                    <Select
+                      value={String(values.shipmentType)}
+                      onValueChange={(val) => setFieldValue("shipmentType", val)}
+                    >
+                      <SelectTrigger className={cn(tableTriggerClass, "!w-full")}>
+                        <SelectValue placeholder="Select shipment type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PARCEL">PARCEL</SelectItem>
+                        <SelectItem value="CARRIER">CARRIER</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FieldCell>
+
+                  <FieldCell label="Quantity">
+                    <Field
+                      as={Input}
+                      type="number"
+                      step="0.1"
+                      name="quantity"
+                      className={tableInputClass}
+                    />
+                  </FieldCell>
+
+                  <FieldCell
+                    label="Actual Weight of Shipment (kg)"
+                    error={errors.weight && touched.weight ? String(errors.weight) : undefined}
+                  >
+                    <Field
+                      as={Input}
+                      type="number"
+                      step="0.1"
+                      name="weight"
+                      className={tableInputClass}
+                    />
+                  </FieldCell>
+                  {values.shipmentType === "PARCEL" ? (
+                    <>
+                      <FieldCell label="Length">
+                        <Field
+                          as={Input}
+                          type="number"
+                          step="0.1"
+                          name="length"
+                          className={tableInputClass}
+                        />
+                      </FieldCell>
+                      <FieldCell label="Width">
+                        <Field
+                          as={Input}
+                          type="number"
+                          step="0.1"
+                          name="width"
+                          className={tableInputClass}
+                        />
+                      </FieldCell>
+                      <FieldCell label="Height">
+                        <Field
+                          as={Input}
+                          type="number"
+                          step="0.1"
+                          name="height"
+                          className={tableInputClass}
+                        />
+                      </FieldCell>
+                    </>
+                  ) : (
+                    <></>
+                  )}
+                  <FieldCell label="Description of Goods">
+                    {loadingOrderItemCategories && (
+                      <div className="flex items-center gap-2 py-1 text-xs text-gray-600">
+                        <Spinner className="h-4 w-4 text-[#EE1E21]" />
+                        Loading categories…
+                      </div>
+                    )}
+                    {orderItemCategoriesError && (
+                      <p className="text-red-600 text-xs py-1">
+                        Could not load item categories.
+                      </p>
+                    )}
+                    {!loadingOrderItemCategories &&
+                      !orderItemCategoriesError &&
+                      orderItemCategories.length === 0 && (
+                        <p className="text-amber-700 text-xs py-1">
+                          No item categories configured. Add them under Orders →
+                          Item categories.
+                        </p>
+                      )}
+                    <Style2
+                      allowClear
+                      variant="borderless"
+                      placeholder="Select category"
+                      value={values.categoryId || undefined}
+                      onChange={(val) => setFieldValue("categoryId", val ?? "")}
+                      disabled={
+                        loadingOrderItemCategories ||
+                        orderItemCategories.length === 0
+                      }
+                      className="!p-0 [&_.ant-select-selector]:!p-0"
+                      style={{ width: "100%" }}
+                    >
+                      {orderItemCategories.map((cat) => (
+                        <Style2.Option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </Style2.Option>
+                      ))}
+                    </Style2>
+                  </FieldCell>
+                  <FieldCell label="Fragile">
+                    <Select
+                      value={String(values.isFragile)}
+                      onValueChange={(val) =>
+                        setFieldValue("isFragile", val === "true" ? true : false)
+                      }
+                    >
+                      <SelectTrigger className={cn(tableTriggerClass, "!w-full")}>
+                        <SelectValue placeholder="Fragile ?" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">YES</SelectItem>
+                        <SelectItem value="false">NO</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FieldCell>
+                  <FieldCell label="Unusual Item">
+                    <Select
+                      value={String(values.isUnusual)}
+                      onValueChange={(val) =>
+                        setFieldValue("isUnusual", val === "true" ? true : false)
+                      }
+                    >
+                      <SelectTrigger className={cn(tableTriggerClass, "!w-full")}>
+                        <SelectValue placeholder="Is Unusual ?" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">YES</SelectItem>
+                        <SelectItem value="false">NO</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FieldCell>
+                  {values.unusualReason ? (
+                    <FieldCell label="Unusuality Reason" className="col-span-2">
+                      <Field
+                        as={Textarea}
+                        cols={15}
+                        name="unusualReason"
+                        placeholder="Reason for being unusual"
+                        className="border-0 shadow-none px-0 py-0 min-h-[60px] bg-transparent focus-visible:ring-0 text-sm font-semibold text-gray-900"
+                      />
+                    </FieldCell>
+                  ) : (
+                    <></>
+                  )}
+                  <FieldCell
+                    label="Destination"
+                    error={
+                      errors.destination && touched.destination
+                        ? String(errors.destination)
+                        : undefined
+                    }
+                  >
+                    <Select
+                      value={String(values.destination)}
+                      onValueChange={(val) => setFieldValue("destination", val)}
+                    >
+                      <SelectTrigger className={cn(tableTriggerClass, "!w-full")}>
+                        <SelectValue placeholder="Select destination" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="TOWN">TOWN</SelectItem>
+                        <SelectItem value="REGIONAL">REGIONAL</SelectItem>
+                        <SelectItem value="INTERNATIONAL">
+                          INTERNATIONAL
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FieldCell>
+                  {/* Origin and Destination City - only for REGIONAL/INTERNATIONAL */}
+                  {(values.destination === "REGIONAL" ||
+                    values.destination === "INTERNATIONAL") && (
+                    <>
+                      <FieldCell label="Origin City">
+                        <Field
+                          as={Input}
+                          name="originCity"
+                          placeholder="Origin city (ex: Addis Ababa)"
+                          className={tableInputClass}
+                        />
+                      </FieldCell>
+                      <FieldCell label="Destination City">
+                        <Field
+                          as={Input}
+                          name="destinationCity"
+                          placeholder="Destination city (ex: Mekelle)"
+                          className={tableInputClass}
+                        />
+                      </FieldCell>
+                    </>
+                  )}
+                </FieldTable>
+              </div>
+
+              {/* Service Info row */}
+              <div className="p-4 space-y-4 border-t border-gray-200">
+              <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide pb-2 mb-4 border-b border-gray-200">
+                Service Info
+              </h2>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1770,238 +2143,9 @@ export default function OrderForm() {
                 </Select>
               </div> */}
             </div>
-            </div>
 
-            {/* Row 2: Shipment · Vehicle Types · Complete Order */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Shipment Info */}
-            <div className="bg-gray-50 p-6 rounded-lg space-y-4">
-              <h2 className="text-lg font-medium mb-4">Shipment Info</h2>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="mb-1">Shipment Type</Label>
-                  <Select
-                    value={String(values.shipmentType)}
-                    onValueChange={(val) => setFieldValue("shipmentType", val)}
-                  >
-                    <SelectTrigger className="py-7 !w-full">
-                      <SelectValue placeholder="Select shipment type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PARCEL">PARCEL</SelectItem>
-                      <SelectItem value="CARRIER">CARRIER</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="mb-1">Quantity</Label>
-                  <Field
-                    as={Input}
-                    type="number"
-                    step="0.1"
-                    name="quantity"
-                    className={`py-7`}
-                  />
-                </div>
-
-                <div>
-                  <Label className="mb-1">Weight (kg)</Label>
-                  <Field
-                    as={Input}
-                    type="number"
-                    step="0.1"
-                    name="weight"
-                    className={`py-7 ${
-                      errors.weight && touched.weight ? "border-red-500" : ""
-                    }`}
-                  />
-                  {errors.weight && touched.weight && (
-                    <p className="text-red-500 text-sm mt-1">{errors.weight}</p>
-                  )}
-                </div>
-                {values.shipmentType === "PARCEL" ? (
-                  <>
-                    <div>
-                      <Label className="mb-1">Length</Label>
-                      <Field
-                        as={Input}
-                        type="number"
-                        step="0.1"
-                        name="length"
-                        className={`py-7`}
-                      />
-                    </div>
-                    <div>
-                      <Label className="mb-1">Width</Label>
-                      <Field
-                        as={Input}
-                        type="number"
-                        step="0.1"
-                        name="width"
-                        className={`py-7`}
-                      />
-                    </div>
-                    <div>
-                      <Label className="mb-1">Height</Label>
-                      <Field
-                        as={Input}
-                        type="number"
-                        step="0.1"
-                        name="height"
-                        className={`py-7`}
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <></>
-                )}
-                <div>
-                  <Label className="mb-1">Category</Label>
-                  {loadingOrderItemCategories && (
-                    <div className="flex items-center gap-2 py-2 text-sm text-gray-600">
-                      <Spinner className="h-5 w-5 text-[#EE1E21]" />
-                      Loading categories…
-                    </div>
-                  )}
-                  {orderItemCategoriesError && (
-                    <p className="text-red-600 text-sm py-2">
-                      Could not load item categories.
-                    </p>
-                  )}
-                  {!loadingOrderItemCategories &&
-                    !orderItemCategoriesError &&
-                    orderItemCategories.length === 0 && (
-                      <p className="text-amber-700 text-sm py-2">
-                        No item categories configured. Add them under Orders →
-                        Item categories.
-                      </p>
-                    )}
-                  <Style2
-                    allowClear
-                    placeholder="Select category"
-                    value={values.categoryId || undefined}
-                    onChange={(val) => setFieldValue("categoryId", val ?? "")}
-                    disabled={
-                      loadingOrderItemCategories ||
-                      orderItemCategories.length === 0
-                    }
-                    style={{
-                      width: "100%",
-                      height: 56,
-                    }}
-                  >
-                    {orderItemCategories.map((cat) => (
-                      <Style2.Option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </Style2.Option>
-                    ))}
-                  </Style2>
-                </div>
-                <div>
-                  <Label className="mb-1">Fragile</Label>
-                  <Select
-                    value={String(values.isFragile)}
-                    onValueChange={(val) =>
-                      setFieldValue("isFragile", val === "true" ? true : false)
-                    }
-                  >
-                    <SelectTrigger className="!w-full py-7">
-                      <SelectValue placeholder="Fragile ?" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="true">YES</SelectItem>
-                      <SelectItem value="false">NO</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="mb-1">Unusual Item</Label>
-                  <Select
-                    value={String(values.isUnusual)}
-                    onValueChange={(val) =>
-                      setFieldValue("isUnusual", val === "true" ? true : false)
-                    }
-                  >
-                    <SelectTrigger className="!w-full py-7">
-                      <SelectValue placeholder="Is Unusual ?" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="true">YES</SelectItem>
-                      <SelectItem value="false">NO</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {values.unusualReason ? (
-                  <div className="col-span-2">
-                    <Label className="mb-1">Unusuality Reason</Label>
-                    <Field
-                      as={Textarea}
-                      cols={15}
-                      name="unusualReason"
-                      placeholder="Reason for being unusual"
-                      className={`py-4 min-h-[80px]`}
-                    />
-                  </div>
-                ) : (
-                  <></>
-                )}
-                <div>
-                  <Label className="mb-1">Destination</Label>
-                  <Select
-                    value={String(values.destination)}
-                    onValueChange={(val) => setFieldValue("destination", val)}
-                  >
-                    <SelectTrigger
-                      className={`!w-full py-7 ${
-                        errors.destination && touched.destination
-                          ? "border-red-500"
-                          : ""
-                      }`}
-                    >
-                      <SelectValue placeholder="Select destination" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TOWN">TOWN</SelectItem>
-                      <SelectItem value="REGIONAL">REGIONAL</SelectItem>
-                      <SelectItem value="INTERNATIONAL">
-                        INTERNATIONAL
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.destination && touched.destination && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.destination}
-                    </p>
-                  )}
-                </div>
-                {/* Origin and Destination City - only for REGIONAL/INTERNATIONAL */}
-                {(values.destination === "REGIONAL" ||
-                  values.destination === "INTERNATIONAL") && (
-                  <>
-                    <div>
-                      <Label className="mb-1">Origin City</Label>
-                      <Field
-                        as={Input}
-                        name="originCity"
-                        placeholder="Origin city (ex: Addis Ababa)"
-                        className="py-7"
-                      />
-                    </div>
-                    <div>
-                      <Label className="mb-1">Destination City</Label>
-                      <Field
-                        as={Input}
-                        name="destinationCity"
-                        placeholder="Destination city (ex: Mekelle)"
-                        className="py-7"
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+            {/* Row 2: Vehicle Types · Complete Order */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-200 border-t border-gray-200">
             <OrderVehicleTypesSection
                 serviceTypeId={values.serviceTypeId}
                 vehicleTypeIds={values.vehicleTypeIds}
@@ -2010,12 +2154,14 @@ export default function OrderForm() {
                 setFieldTouched={setFieldTouched}
                 vehicleTypeIdsError={errors.vehicleTypeIds}
                 vehicleTypeIdsTouched={Boolean(touched.vehicleTypeIds)}
-                className="mt-0"
+                className="bg-transparent p-4 rounded-none border-0 shadow-none mt-0"
               />
 
             {/* Estimate & submit */}
-            <div className="bg-gray-50 p-6 rounded-lg space-y-4">
-              <h2 className="text-lg font-medium mb-4">Complete order</h2>
+            <div className="p-4 space-y-4">
+              <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide pb-2 mb-4 border-b border-gray-200">
+                Complete Order
+              </h2>
 
               {!isDropoffAcceptEdit && (
                 <div className="flex items-center gap-2">
@@ -2382,6 +2528,7 @@ export default function OrderForm() {
               )}
             </div>
             </div> {/* end Vehicle+Complete grid */}
+            </div> {/* end waybill document */}
           </Form>
         )}
       </Formik>
@@ -2391,6 +2538,7 @@ export default function OrderForm() {
         isOpen={isSuccessModalOpen}
         onClose={handleCloseModal}
         trackingNumber={trackingNumber}
+        waybill={waybillData ?? undefined}
       />
     </div>
   );

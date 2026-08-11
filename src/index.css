@@ -166,3 +166,21 @@ html::-webkit-scrollbar-thumb:hover {
     max-width: 100vw;
   }
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .waybill-print,
+  .waybill-print * {
+    visibility: visible;
+  }
+  .waybill-print {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    margin: 0;
+    box-shadow: none;
+    border: none;
+  }
+}
