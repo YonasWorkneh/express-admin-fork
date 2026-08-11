@@ -54,7 +54,7 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
         <p className="text-sm text-[#EE1E21]">
           Revenue: <span className="ml-2">${payload[0].value}</span>
         </p>
-        <p className="text-sm text-indigo-400">
+        <p className="text-sm text-[#FADF4B]">
           Profit: <span className="ml-2">${payload[1].value}</span>
         </p>
       </div>
@@ -161,13 +161,13 @@ const Revenue = () => {
           <AreaChart data={data} margin={{ right: 20, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                <stop offset="5%" stopColor="#EE1E21" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="#EE1E21" stopOpacity={0} />
               </linearGradient>
 
               <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                <stop offset="5%" stopColor="#f2c94c" stopOpacity={0.5} />
+                <stop offset="95%" stopColor="#f2c94c" stopOpacity={0} />
               </linearGradient>
             </defs>
 
@@ -184,7 +184,7 @@ const Revenue = () => {
             <Area
               type="monotone"
               dataKey="revenue"
-              stroke="#3b82f6"
+              stroke="#EE1E21"
               fillOpacity={1}
               fill="url(#colorRevenue)"
               strokeWidth={2}
@@ -193,7 +193,7 @@ const Revenue = () => {
             <Area
               type="monotone"
               dataKey="profit"
-              stroke="#8b5cf6"
+              stroke="#f2c94c"
               fillOpacity={1}
               fill="url(#colorProfit)"
               strokeWidth={2}
