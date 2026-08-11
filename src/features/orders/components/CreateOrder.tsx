@@ -16,7 +16,13 @@ import MapAddressSelector from "@/components/common/MapAddressSelector";
 import SuccessModal from "@/components/common/SuccessModal";
 import type { WaybillData } from "@/components/common/WaybillDocument";
 import { useAuthState } from "@/hooks/useAuthState";
-import { IoArrowBack, IoCall, IoLocationSharp, IoLogoDropbox } from "react-icons/io5";
+import {
+  IoArrowBack,
+  IoCall,
+  IoLocationSharp,
+  IoMailOutline,
+  IoCubeOutline,
+} from "react-icons/io5";
 import {
   COMPANY_ADDRESS,
   COMPANY_LOGO_SRC,
@@ -80,7 +86,6 @@ function createEmptyFormValues() {
   return {
     serviceTypeId: "",
     fulfillmentType: "DROPOFF",
-    isDelivery: false,
     name: "",
     email: "",
     phone: ETHIO_COUNTRY_CODE,
@@ -204,7 +209,11 @@ const OrderValidationSchema = Yup.object().shape({
   destination: Yup.string().required("Destination is required"),
   vehicleTypeIds: Yup.array()
     .of(Yup.string())
-    .min(1, "Select at least one vehicle type"),
+    .when("fulfillmentType", {
+      is: "PICKUP",
+      then: (schema) => schema.min(1, "Select at least one vehicle type"),
+      otherwise: (schema) => schema,
+    }),
   /** When no customer is selected from search, sender name / email / phone are required */
   name: Yup.string().when("customerId", {
     is: (val: unknown) => !hasSelectedCustomer(val),
@@ -913,6 +922,7 @@ export default function OrderForm() {
         return;
       }
     }
+    const isPickupEstimate = _values.fulfillmentType === "PICKUP";
     setPriceLoading(true);
     setOrderSummary(null);
     if (!isDropoffAcceptEdit) {
@@ -928,7 +938,7 @@ export default function OrderForm() {
       // service
       serviceTypeId: _values.serviceTypeId,
       fulfillmentType: _values.fulfillmentType,
-      isDelivery: Boolean(_values.isDelivery),
+      isDelivery: isPickupEstimate,
 
       // package details
       weight: _values.weight,
@@ -1042,7 +1052,7 @@ export default function OrderForm() {
             ? payload.result.currency
             : undefined;
 
-      if (vehicles.length === 0) {
+      if (vehicles.length === 0 && (isDropoffAcceptEdit || isPickupEstimate)) {
         toast.error("Estimate returned no vehicles to choose from.");
         setOrderSummary(null);
       } else {
@@ -1124,17 +1134,20 @@ export default function OrderForm() {
     if (isDropoffAcceptEdit) {
       return;
     }
-    if (!_values.selectedVehicleTypeId?.trim()) {
-      toast.error(
-        "Generate an estimate and select a vehicle before submitting.",
-      );
-      return;
-    }
-    if (!_values.sessionId?.trim()) {
-      toast.error(
-        "Generate an estimate and select a vehicle so the pricing session is included.",
-      );
-      return;
+    const isPickupSubmit = _values.fulfillmentType === "PICKUP";
+    if (isPickupSubmit) {
+      if (!_values.selectedVehicleTypeId?.trim()) {
+        toast.error(
+          "Generate an estimate and select a vehicle before submitting.",
+        );
+        return;
+      }
+      if (!_values.sessionId?.trim()) {
+        toast.error(
+          "Generate an estimate and select a vehicle so the pricing session is included.",
+        );
+        return;
+      }
     }
     if (_values.paymentType !== "bank_transfer") {
       toast.error(
@@ -1155,7 +1168,7 @@ export default function OrderForm() {
       // service
       serviceTypeId: _values.serviceTypeId,
       fulfillmentType: _values.fulfillmentType,
-      isDelivery: Boolean(_values.isDelivery),
+      isDelivery: isPickupSubmit,
 
       // package details
       weight: _values.weight,
@@ -1394,20 +1407,23 @@ export default function OrderForm() {
         validationSchema={OrderValidationSchema}
         onSubmit={handleSubmit}
       >
-        {({ values, setFieldValue, errors, touched, setFieldTouched }) => (
+        {({ values, setFieldValue, errors, touched, setFieldTouched }) => {
+          const isPickup = values.fulfillmentType === "PICKUP";
+          const showVehicleTypes = isDropoffAcceptEdit || isPickup;
+          return (
           <Form>
             {/* Header */}
             <header className="relative">
-              <div className="absolute h-full top-0 left-0 flex items-center">
+              <div className=" h-full top-0 left-0 flex items-center mb-5">
                 <Button
                   type="button"
-                  className="!text-[#FADF4B] !size-[40px] bg-[#EE1E21] hover:bg-[#EE1E21] !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer"
+                  className="!text-[#FADF4B] !size-[40px] bg-[#EE1E21] hover:bg-[#EE1E21] !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer "
                   onClick={() => navigate(-1)}
                 >
                   <IoArrowBack className="text-[#FADF4B] text-lg" />
                 </Button>
               </div>
-              <div className="flex gap-5 items-center justify-center mb-6">
+              {/* <div className="flex gap-5 items-center justify-center mb-6">
                 <div className="flex gap-4 items-center">
                   <IoLogoDropbox className="text-4xl text-[#EE1E21]" />
                   <h1 className="text-2xl font-medium text-gray-700">
@@ -1416,7 +1432,7 @@ export default function OrderForm() {
                       : "Place New Order"}
                   </h1>
                 </div>
-              </div>
+              </div> */}
             </header>
 
             {/* Waybill document: banner + Shipper/Consignee + Shipment + Service Info + Vehicle Types + Complete Order, all one table */}
@@ -1703,8 +1719,14 @@ export default function OrderForm() {
                         <SelectValue placeholder="Select shipment type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="PARCEL">PARCEL</SelectItem>
-                        <SelectItem value="CARRIER">CARRIER</SelectItem>
+                        <SelectItem value="CARRIER">
+                          <IoMailOutline className="text-[#EE1E21]" />
+                          Parcel-Envelope
+                        </SelectItem>
+                        <SelectItem value="PARCEL">
+                          <IoCubeOutline className="text-[#EE1E21]" />
+                          Parcel-Box
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </FieldCell>
@@ -1996,23 +2018,6 @@ export default function OrderForm() {
                 </div>
               )}
 
-              <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
-                <Checkbox
-                  id="is-delivery"
-                  checked={values.isDelivery}
-                  onCheckedChange={(c) =>
-                    setFieldValue("isDelivery", c === true)
-                  }
-                  className="border-gray-300 data-[state=checked]:bg-[#EE1E21] data-[state=checked]:border-[#EE1E21] data-[state=checked]:text-[#FADF4B]"
-                />
-                <Label
-                  htmlFor="is-delivery"
-                  className="cursor-pointer text-sm font-medium leading-none"
-                >
-                  Is delivery (ship to receiver address)
-                </Label>
-              </div>
-
               {/* Branch — sent on estimate & create whenever selected (PICKUP or DROPOFF) */}
               <div className="relative space-y-3">
                 <Label className="mb-2">Branch *</Label>
@@ -2145,8 +2150,14 @@ export default function OrderForm() {
             </div>
 
             {/* Row 2: Vehicle Types · Complete Order */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-200 border-t border-gray-200">
-            <OrderVehicleTypesSection
+            <div
+              className={cn(
+                "grid grid-cols-1 divide-y lg:divide-y-0 divide-gray-200 border-t border-gray-200",
+                showVehicleTypes && "lg:grid-cols-2 lg:divide-x",
+              )}
+            >
+            {showVehicleTypes && (
+              <OrderVehicleTypesSection
                 serviceTypeId={values.serviceTypeId}
                 vehicleTypeIds={values.vehicleTypeIds}
                 isDropoffAcceptEdit={isDropoffAcceptEdit}
@@ -2156,6 +2167,7 @@ export default function OrderForm() {
                 vehicleTypeIdsTouched={Boolean(touched.vehicleTypeIds)}
                 className="bg-transparent p-4 rounded-none border-0 shadow-none mt-0"
               />
+            )}
 
             {/* Estimate & submit */}
             <div className="p-4 space-y-4">
@@ -2258,82 +2270,84 @@ export default function OrderForm() {
                     </div>
                   )}
 
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-800 mb-2">
-                      Choose a vehicle
-                    </h3>
-                    <p className="text-xs text-gray-500 mb-3">
-                      Select one option below. Submit sends{" "}
-                      <code className="text-xs bg-gray-100 px-1 rounded">
-                        selectedVehicleTypeId
-                      </code>{" "}
-                      and{" "}
-                      <code className="text-xs bg-gray-100 px-1 rounded">
-                        sessionId
-                      </code>{" "}
-                      from this estimate.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {orderSummary.vehicles.map((v) => {
-                        const selected =
-                          values.selectedVehicleTypeId === v.vehicleTypeId &&
-                          values.sessionId === (v.sessionId?.trim() ?? "");
-                        return (
-                          <button
-                            key={`${v.sessionId ?? ""}-${v.vehicleTypeId}`}
-                            type="button"
-                            onClick={() => {
-                              setFieldValue(
-                                "selectedVehicleTypeId",
-                                v.vehicleTypeId,
-                              );
-                              setFieldValue(
-                                "sessionId",
-                                v.sessionId?.trim() ?? "",
-                              );
-                              setFieldTouched("selectedVehicleTypeId", true);
-                            }}
-                            className={cn(
-                              "flex gap-3 p-3 rounded-lg border text-left transition-colors",
-                              selected
-                                ? "border-[#EE1E21] bg-[#EE1E21]/5 ring-2 ring-[#EE1E21]"
-                                : "border-gray-200 bg-white hover:border-gray-300",
-                            )}
-                          >
-                            {v.imageUrl ? (
-                              <img
-                                src={v.imageUrl}
-                                alt=""
-                                className="h-16 w-16 shrink-0 rounded object-contain bg-gray-50"
-                              />
-                            ) : (
-                              <div className="h-16 w-16 shrink-0 rounded bg-gray-100" />
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <div className="font-medium text-gray-900 truncate">
-                                {v.vehicleName ?? v.vehicleTypeId}
+                  {isPickup && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-800 mb-2">
+                        Choose a vehicle
+                      </h3>
+                      <p className="text-xs text-gray-500 mb-3">
+                        Select one option below. Submit sends{" "}
+                        <code className="text-xs bg-gray-100 px-1 rounded">
+                          selectedVehicleTypeId
+                        </code>{" "}
+                        and{" "}
+                        <code className="text-xs bg-gray-100 px-1 rounded">
+                          sessionId
+                        </code>{" "}
+                        from this estimate.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {orderSummary.vehicles.map((v) => {
+                          const selected =
+                            values.selectedVehicleTypeId === v.vehicleTypeId &&
+                            values.sessionId === (v.sessionId?.trim() ?? "");
+                          return (
+                            <button
+                              key={`${v.sessionId ?? ""}-${v.vehicleTypeId}`}
+                              type="button"
+                              onClick={() => {
+                                setFieldValue(
+                                  "selectedVehicleTypeId",
+                                  v.vehicleTypeId,
+                                );
+                                setFieldValue(
+                                  "sessionId",
+                                  v.sessionId?.trim() ?? "",
+                                );
+                                setFieldTouched("selectedVehicleTypeId", true);
+                              }}
+                              className={cn(
+                                "flex gap-3 p-3 rounded-lg border text-left transition-colors",
+                                selected
+                                  ? "border-[#EE1E21] bg-[#EE1E21]/5 ring-2 ring-[#EE1E21]"
+                                  : "border-gray-200 bg-white hover:border-gray-300",
+                              )}
+                            >
+                              {v.imageUrl ? (
+                                <img
+                                  src={v.imageUrl}
+                                  alt=""
+                                  className="h-16 w-16 shrink-0 rounded object-contain bg-gray-50"
+                                />
+                              ) : (
+                                <div className="h-16 w-16 shrink-0 rounded bg-gray-100" />
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium text-gray-900 truncate">
+                                  {v.vehicleName ?? v.vehicleTypeId}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-0.5">
+                                  {v.type ? `${v.type} · ` : ""}
+                                  Commission:{" "}
+                                  {formatOrderMoney(
+                                    v.commission,
+                                    orderSummary.currency,
+                                  )}
+                                </div>
+                                <div className="text-sm font-semibold text-gray-800 mt-1">
+                                  Total:{" "}
+                                  {formatOrderMoney(
+                                    v.totalPrice,
+                                    orderSummary.currency,
+                                  )}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-500 mt-0.5">
-                                {v.type ? `${v.type} · ` : ""}
-                                Commission:{" "}
-                                {formatOrderMoney(
-                                  v.commission,
-                                  orderSummary.currency,
-                                )}
-                              </div>
-                              <div className="text-sm font-semibold text-gray-800 mt-1">
-                                Total:{" "}
-                                {formatOrderMoney(
-                                  v.totalPrice,
-                                  orderSummary.currency,
-                                )}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <PaymentMethodSection
                     values={values}
@@ -2348,8 +2362,9 @@ export default function OrderForm() {
                       type="submit"
                       disabled={
                         loading ||
-                        !values.selectedVehicleTypeId?.trim() ||
-                        !values.sessionId?.trim()
+                        (isPickup &&
+                          (!values.selectedVehicleTypeId?.trim() ||
+                            !values.sessionId?.trim()))
                       }
                       className="flex flex-row justify-center items-center cursor-pointer hover:bg-[#cc1a1c]"
                     >
@@ -2530,7 +2545,8 @@ export default function OrderForm() {
             </div> {/* end Vehicle+Complete grid */}
             </div> {/* end waybill document */}
           </Form>
-        )}
+          );
+        }}
       </Formik>
 
       {/* Success Modal */}
