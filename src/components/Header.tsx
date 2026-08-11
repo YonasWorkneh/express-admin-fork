@@ -8,12 +8,17 @@ import { Drawer, List, Badge, Empty, Button, Spin } from "antd";
 import { BellOutlined, CheckOutlined } from "@ant-design/icons";
 import type { Notification } from "../types/types";
 import { useNotifications } from "@/lib/hooks/useNotifications";
+import { useAuthState } from "@/hooks/useAuthState";
 
 export default function Header() {
   const isCollapsed = useAppSelector((state) => state.sidebar.isCollapsed);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const { user, roleName } = useAuthState();
+  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    user?.name ?? ""
+  )}&background=0B1120&color=fff`;
 
   const { notifications, notificationsQuery, markAsRead } = useNotifications();
 
@@ -88,26 +93,26 @@ export default function Header() {
 
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="text-right hidden sm:block">
-            <p className="text-xs font-medium text-black">Abebe</p>
-            <p className="text-xs text-gray-600">Administrator</p>
+            <p className="text-xs font-medium text-black">{user?.name ?? "—"}</p>
+            <p className="text-xs text-gray-600">{roleName ?? "—"}</p>
           </div>
           <div className="relative group pr-1 sm:pr-2">
             <img
-              src="https://ui-avatars.com/api/?name=Admin&background=0B1120&color=fff"
-              alt="Admin Avatar"
+              src={avatarUrl}
+              alt={`${user?.name ?? "User"} Avatar`}
               className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-gray hover:border-[#EE1E21] transition-colors cursor-pointer"
             />
             <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
               <div className="p-3 border-b border-gray-200 text-black">
-                <p className="text-sm font-medium text-black">Admin</p>
-                <p className="text-xs text-gray-400">admin@horizontech.com</p>
+                <p className="text-sm font-medium text-black">{user?.name ?? "—"}</p>
+                <p className="text-xs text-gray-400">{user?.email ?? "—"}</p>
               </div>
               <div className="p-2">
-                <button className="w-full text-left px-3 py-2 text-xs text-gray-600 hover:bg-gray-100 rounded-md cursor-pointer">
+                <button
+                  className="w-full text-left px-3 py-2 text-xs text-gray-600 hover:bg-gray-100 rounded-md cursor-pointer"
+                  onClick={() => navigate("/profile")}
+                >
                   Profile Settings
-                </button>
-                <button className="w-full text-left px-3 py-2 text-xs text-gray-600 hover:bg-gray-100 rounded-md cursor-pointer">
-                  Account Settings
                 </button>
                 <div className="border-t border-gray-200 my-1"></div>
                 <button

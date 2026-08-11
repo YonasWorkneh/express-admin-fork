@@ -57,6 +57,7 @@ import OrderReportPage from "./pages/Report/OrderReportPage";
 import RevenueReportPage from "./pages/Report/RevenueReportPage";
 import CustomersReportPage from "./pages/Report/CustomersReportPage";
 import BranchOrderReportPage from "./pages/Report/BranchOrderReportPage";
+import ProfilePage from "./pages/Profile/ProfilePage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
 import ProtectedRoutes from "./components/ProtectedRoutes";
@@ -638,6 +639,7 @@ const App = () => {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/profile" element={<ProfilePage />} />
             </Route>
           </Route>
         </Routes>

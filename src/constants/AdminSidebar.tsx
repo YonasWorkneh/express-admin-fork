@@ -9,6 +9,7 @@ import {
   FaShieldAlt,
   FaBoxes,
   FaLayerGroup,
+  FaUserCircle,
 } from "react-icons/fa";
 import { IoPricetags } from "react-icons/io5";
 import { IoDocumentText } from "react-icons/io5";
@@ -114,6 +115,11 @@ const menuItems = [
     path: "/permissions",
     icon: <FaShieldAlt />,
     permission: Permission.ROLE,
+  },
+  {
+    name: "Profile",
+    path: "/profile",
+    icon: <FaUserCircle />,
   },
 
   // {
