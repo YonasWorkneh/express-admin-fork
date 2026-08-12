@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { MdEdit, MdCancel } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
 import TablePagination from "@/components/common/TablePagination";
 import api from "@/lib/api/api";
@@ -184,6 +186,11 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const [isActionLoading, setIsActionLoading] = useState(false);
+
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // const [reason, setReason] = useState("");
 
@@ -491,6 +498,35 @@ export default function OrdersPage() {
           : null) || "Something went wrong!";
       toast.error(msg);
       setIsActionLoading(false);
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!orderToCancel) return;
+    if (!cancelReason.trim()) {
+      toast.error("Please provide a cancellation reason");
+      return;
+    }
+    try {
+      setIsCancelling(true);
+      const res = await api.patch("/order/cancel", {
+        orderId: orderToCancel.id.replace(/^#/, ""),
+        reason: cancelReason.trim(),
+      });
+      toast.success(res.data?.message || "Order cancelled successfully");
+      setIsCancelDialogOpen(false);
+      setOrderToCancel(null);
+      setCancelReason("");
+      fetchOrders(currentPage, pageSize);
+    } catch (error: unknown) {
+      const msg =
+        (error && typeof error === "object" && "response" in error
+          ? (error as { response?: { data?: { message?: string } } }).response
+              ?.data?.message
+          : null) || "Failed to cancel order";
+      toast.error(msg);
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -935,6 +971,7 @@ export default function OrdersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
+                        <div className="flex items-center gap-2">
                         {/* -- ACTION BUTTON LOGIC -- */}
                         {(() => {
                           // Extract values for readability
@@ -1100,6 +1137,34 @@ export default function OrdersPage() {
                             </Button>
                           );
                         })()}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="p-2 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/order/edit/${order.id.replace(/^#/, "")}`);
+                          }}
+                        >
+                          <MdEdit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={["CANCELLED", "DELIVERED", "COMPLETED"].includes(
+                            (order?.status || "").toUpperCase(),
+                          )}
+                          className="p-2 text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOrderToCancel(order);
+                            setCancelReason("");
+                            setIsCancelDialogOpen(true);
+                          }}
+                        >
+                          <MdCancel className="h-4 w-4" />
+                        </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -1277,6 +1342,28 @@ export default function OrdersPage() {
               ) : null}
             </div>
           )}
+        </div>
+      </ConfirmationModal>
+
+      <ConfirmationModal
+        isOpen={isCancelDialogOpen}
+        onClose={() => setIsCancelDialogOpen(false)}
+        title="Cancel Order"
+        description="This will cancel the order. Please provide a reason before confirming."
+        onConfirm={handleCancelOrder}
+        variant="danger"
+        confirmText="Cancel Order"
+        cancelText="Back"
+        isLoading={isCancelling}
+      >
+        <div>
+          <Label className="mb-2">Reason *</Label>
+          <Textarea
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder="e.g. Customer requested cancellation"
+            className="min-h-[100px] py-3"
+          />
         </div>
       </ConfirmationModal>
     </div>

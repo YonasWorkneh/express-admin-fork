@@ -282,6 +282,14 @@ const App = () => {
                 }
               />
               <Route
+                path="/order/edit/:id"
+                element={
+                  <ProtectedRoute requiredPermission={Permission.ORDERS}>
+                    <CreateOrder />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/order/details/:id"
                 element={
                   <ProtectedRoute requiredPermission={Permission.ORDERS}>

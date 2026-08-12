@@ -14,6 +14,7 @@ import { Spinner } from "@/utils/spinner";
 import { Formik, Form } from "formik";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -23,6 +24,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import ConfirmationModal from "@/components/common/ConfirmationModal";
+import api from "@/lib/api/api";
+import toast from "react-hot-toast";
 
 import {
   IoArrowBack,
@@ -104,6 +108,9 @@ export default function OrderDetails() {
   const [vehicleType, setVehicleType] =
     useState<FleetVehicleTypeListItem | null>(null);
   const [loadingVehicleType, setLoadingVehicleType] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,6 +178,41 @@ export default function OrderDetails() {
     if (!order?.orderTracking?.length) return [];
     return sortTrackingEntries(order.orderTracking);
   }, [order?.orderTracking]);
+
+  const handleCancelOrder = async () => {
+    if (!order) return;
+    if (!cancelReason.trim()) {
+      toast.error("Please provide a cancellation reason");
+      return;
+    }
+    try {
+      setIsCancelling(true);
+      const res = await api.patch("/order/cancel", {
+        orderId: order.id.replace(/^#/, ""),
+        reason: cancelReason.trim(),
+      });
+      toast.success(
+        (res.data as { message?: string } | undefined)?.message ||
+          "Order cancelled successfully",
+      );
+      setIsCancelDialogOpen(false);
+      setCancelReason("");
+      const refreshed = await fetchOrderById(order.id.replace(/^#/, ""));
+      setOrder(refreshed);
+    } catch (e: unknown) {
+      const msg =
+        e &&
+        typeof e === "object" &&
+        "response" in e &&
+        (e as { response?: { data?: { message?: string } } }).response?.data
+          ?.message;
+      toast.error(
+        typeof msg === "string" && msg.trim() ? msg : "Failed to cancel order",
+      );
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   const priceLog = useMemo(
     () => getLatestPriceLog(order?.priceLogs),
@@ -314,15 +356,25 @@ export default function OrderDetails() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => navigate("/order")}
+                  disabled={["CANCELLED", "DELIVERED", "COMPLETED"].includes(
+                    (order.status || "").toUpperCase(),
+                  )}
+                  className="cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                  onClick={() => {
+                    setCancelReason("");
+                    setIsCancelDialogOpen(true);
+                  }}
                 >
-                  Cancel
+                  Cancel order
                 </Button>
                 <Button
-                  type="submit"
+                  type="button"
                   className="!cursor-pointer !bg-[#EE1E21] hover:!bg-[#cc1a1c]"
+                  onClick={() =>
+                    navigate(`/order/edit/${order.id.replace(/^#/, "")}`)
+                  }
                 >
-                  Save Changes
+                  Edit
                 </Button>
               </div>
             </div>
@@ -1114,6 +1166,28 @@ export default function OrderDetails() {
           </Form>
         )}
       </Formik>
+
+      <ConfirmationModal
+        isOpen={isCancelDialogOpen}
+        onClose={() => setIsCancelDialogOpen(false)}
+        title="Cancel Order"
+        description="This will cancel the order. Please provide a reason before confirming."
+        onConfirm={handleCancelOrder}
+        variant="danger"
+        confirmText="Cancel Order"
+        cancelText="Back"
+        isLoading={isCancelling}
+      >
+        <div>
+          <Label className="mb-2">Reason *</Label>
+          <Textarea
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder="e.g. Customer requested cancellation"
+            className="min-h-[100px] py-3"
+          />
+        </div>
+      </ConfirmationModal>
     </div>
   );
 }
