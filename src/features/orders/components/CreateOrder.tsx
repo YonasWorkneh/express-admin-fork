@@ -17,7 +17,6 @@ import SuccessModal from "@/components/common/SuccessModal";
 import type { WaybillData } from "@/components/common/WaybillDocument";
 import { useAuthState } from "@/hooks/useAuthState";
 import {
-  IoArrowBack,
   IoCall,
   IoLocationSharp,
   IoMailOutline,
@@ -32,7 +31,6 @@ import {
 import { MdAccountBalance } from "react-icons/md";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Checkbox } from "@/components/ui/checkbox";
 import * as Yup from "yup";
 import api from "@/lib/api/api";
 import toast from "react-hot-toast";
@@ -186,7 +184,7 @@ function mapOrderDetailToFormValues(o: OrderDetailApi) {
   };
 }
 
-const buildOrderValidationSchema = (isGeneralEdit: boolean) =>
+const buildOrderValidationSchema = () =>
   Yup.object().shape({
     receiverName: Yup.string().required("Receiver name is required"),
     receiverEmail: Yup.string()
@@ -857,10 +855,7 @@ export default function OrderForm() {
   /** Full order edit (all create fields editable) reached via /order/edit/:id — PATCHes /order/:id. */
   const isGeneralEdit = Boolean(routeOrderId?.trim()) && !isDropoffAcceptEdit;
   const isEditingOrder = isDropoffAcceptEdit || isGeneralEdit;
-  const orderValidationSchema = useMemo(
-    () => buildOrderValidationSchema(isGeneralEdit),
-    [isGeneralEdit],
-  );
+  const orderValidationSchema = useMemo(() => buildOrderValidationSchema(), []);
 
   const [formInitialValues, setFormInitialValues] = useState(() =>
     createEmptyFormValues(),
