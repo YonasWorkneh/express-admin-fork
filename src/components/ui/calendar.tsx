@@ -48,12 +48,12 @@ function Calendar({
         ),
         button_previous: cn(
           buttonVariants({ variant: "outline" }),
-          "absolute left-1 top-0 z-10 h-7 w-7 shrink-0 bg-transparent p-0 opacity-50 hover:opacity-100 cursor-pointer disabled:pointer-events-none disabled:cursor-not-allowed",
+          "absolute left-3 top-3 z-10 h-7 w-7 shrink-0 bg-transparent p-0 opacity-50 hover:opacity-100 cursor-pointer disabled:pointer-events-none disabled:cursor-not-allowed",
           defaultClassNames.button_previous,
         ),
         button_next: cn(
           buttonVariants({ variant: "outline" }),
-          "absolute right-1 top-0 z-10 h-7 w-7 shrink-0 bg-transparent p-0 opacity-50 hover:opacity-100 cursor-pointer disabled:pointer-events-none disabled:cursor-not-allowed",
+          "absolute right-3 top-3 z-10 h-7 w-7 shrink-0 bg-transparent p-0 opacity-50 hover:opacity-100 cursor-pointer disabled:pointer-events-none disabled:cursor-not-allowed",
           defaultClassNames.button_next,
         ),
         month_grid: cn("w-full border-collapse", defaultClassNames.month_grid),
