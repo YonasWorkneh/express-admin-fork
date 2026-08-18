@@ -36,12 +36,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import * as Yup from "yup";
 import api from "@/lib/api/api";
 import toast from "react-hot-toast";
-import type {
-  Customer,
-  CustomerListResponse,
-  Branch,
-  BranchListResponse,
-} from "@/types/types";
+import type { Branch, BranchListResponse } from "@/types/types";
 import { Spinner } from "@/utils/spinner";
 import { Select as Style2 } from "antd";
 import { useServiceTypes } from "@/hooks/useServiceTypes";
@@ -89,7 +84,6 @@ function createEmptyFormValues() {
     name: "",
     email: "",
     phone: ETHIO_COUNTRY_CODE,
-    customerId: "",
     weight: 0,
     quantity: 0,
     categoryId: "",
@@ -182,7 +176,6 @@ function mapOrderDetailToFormValues(o: OrderDetailApi) {
     finalPrice: typeof o.finalPrice === "number" ? o.finalPrice : 0,
     pickupDate: isoToDatetimeLocal(o.pickupDate),
     deliveryDate: isoToDatetimeLocal(o.deliveryDate),
-    customerId: o.customer?.id ?? "",
     name: o.customer?.name ?? "",
     email: o.customer?.email ?? "",
     phone: o.customer?.phone || ETHIO_COUNTRY_CODE,
@@ -193,93 +186,65 @@ function mapOrderDetailToFormValues(o: OrderDetailApi) {
   };
 }
 
-const hasSelectedCustomer = (customerId: unknown) =>
-  Boolean(String(customerId ?? "").trim());
-
-const OrderValidationSchema = Yup.object().shape({
-  customerId: Yup.string(),
-  receiverName: Yup.string().required("Receiver name is required"),
-  receiverEmail: Yup.string()
-    .email("Invalid email")
-    .required("Receiver email is required"),
-  receiverPhone: Yup.string()
-    .matches(
-      phoneRegex,
-      "Phone must be +251 followed by 9 digits, starting with 9 or 7",
-    )
-    .required("Receiver phone is required"),
-  receiverAddress: Yup.string().required("Delivery address is required"),
-  pickupAddress: Yup.string().when("fulfillmentType", {
-    is: "PICKUP",
-    then: (schema) => schema.required("Pickup address is required"),
-    otherwise: (schema) => schema.notRequired(),
-  }),
-  serviceTypeId: Yup.string().required("Service type is required"),
-  fulfillmentType: Yup.string().required("Fulfillment type is required"),
-  weight: Yup.number()
-    .min(0.1, "Weight must be greater than 0")
-    .required("Weight is required"),
-  destination: Yup.string().required("Destination is required"),
-  unusualReason: Yup.string().when("isUnusual", {
-    is: true,
-    then: (schema) =>
-      schema.required("Reason is required when item is marked unusual"),
-    otherwise: (schema) => schema.notRequired(),
-  }),
-  vehicleTypeIds: Yup.array()
-    .of(Yup.string())
-    .when("fulfillmentType", {
+const buildOrderValidationSchema = (isGeneralEdit: boolean) =>
+  Yup.object().shape({
+    receiverName: Yup.string().required("Receiver name is required"),
+    receiverEmail: Yup.string()
+      .email("Invalid email")
+      .required("Receiver email is required"),
+    receiverPhone: Yup.string()
+      .matches(
+        phoneRegex,
+        "Phone must be +251 followed by 9 digits, starting with 9 or 7",
+      )
+      .required("Receiver phone is required"),
+    receiverAddress: Yup.string().required("Delivery address is required"),
+    pickupAddress: Yup.string().when("fulfillmentType", {
       is: "PICKUP",
-      then: (schema) => schema.min(1, "Select at least one vehicle type"),
-      otherwise: (schema) => schema,
+      then: (schema) => schema.required("Pickup address is required"),
+      otherwise: (schema) => schema.notRequired(),
     }),
-  /** When no customer is selected from search, sender name / email / phone are required */
-  name: Yup.string().when("customerId", {
-    is: (val: unknown) => !hasSelectedCustomer(val),
-    then: (schema) =>
-      schema.required("Name is required when no customer is selected"),
-    otherwise: (schema) => schema.notRequired(),
-  }),
-  email: Yup.string()
-    .transform((v) => (v === "" ? undefined : v))
-    .when("customerId", {
-      is: (val: unknown) => !hasSelectedCustomer(val),
+    serviceTypeId: Yup.string().required("Service type is required"),
+    fulfillmentType: Yup.string().required("Fulfillment type is required"),
+    weight: Yup.number()
+      .min(0.1, "Weight must be greater than 0")
+      .required("Weight is required"),
+    destination: Yup.string().required("Destination is required"),
+    unusualReason: Yup.string().when("isUnusual", {
+      is: true,
       then: (schema) =>
-        schema
-          .required("Email is required when no customer is selected")
-          .email("Invalid email"),
-      otherwise: (schema) =>
-        schema
-          .transform((v) => (v === "" ? undefined : v))
-          .email("Invalid email")
-          .optional(),
+        schema.required("Reason is required when item is marked unusual"),
+      otherwise: (schema) => schema.notRequired(),
     }),
-  phone: Yup.string().when("customerId", {
-    is: (val: unknown) => !hasSelectedCustomer(val),
-    then: (schema) =>
-      schema
-        .matches(
-          phoneRegex,
-          "Phone must be +251 followed by 9 digits, starting with 9 or 7",
-        )
-        .required("Phone is required when no customer is selected"),
-    otherwise: (schema) => schema.notRequired(),
-  }),
-  paymentType: Yup.string().required("Select a payment method"),
-  bankName: Yup.string().when("paymentType", {
-    is: "bank_transfer",
-    then: (schema) => schema.required("Bank name is required"),
-    otherwise: (schema) => schema.notRequired(),
-  }),
-  transactionId: Yup.string().when("paymentType", {
-    is: "bank_transfer",
-    then: (schema) => schema.required("Transaction ID is required"),
-    otherwise: (schema) => schema.notRequired(),
-  }),
-});
+    vehicleTypeIds: Yup.array()
+      .of(Yup.string())
+      .when("fulfillmentType", {
+        is: "PICKUP",
+        then: (schema) => schema.min(1, "Select at least one vehicle type"),
+        otherwise: (schema) => schema,
+      }),
+    name: Yup.string().required("Name is required"),
+    email: Yup.string().email("Invalid email").required("Email is required"),
+    phone: Yup.string()
+      .matches(
+        phoneRegex,
+        "Phone must be +251 followed by 9 digits, starting with 9 or 7",
+      )
+      .required("Phone is required"),
+    paymentType: Yup.string().required("Select a payment method"),
+    bankName: Yup.string().when("paymentType", {
+      is: "bank_transfer",
+      then: (schema) => schema.required("Bank name is required"),
+      otherwise: (schema) => schema.notRequired(),
+    }),
+    transactionId: Yup.string().when("paymentType", {
+      is: "bank_transfer",
+      then: (schema) => schema.required("Transaction ID is required"),
+      otherwise: (schema) => schema.notRequired(),
+    }),
+  });
 
 interface ConvertedShipment {
-  customerId?: any;
   name?: any;
   email?: any;
   phone?: any;
@@ -350,12 +315,12 @@ function FieldCell({
   children: ReactNode;
 }) {
   return (
-    <div className={cn("bg-white p-3", className)}>
-      <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
+    <div className={cn("bg-white px-2 py-1", className)}>
+      <p className="text-[10px] uppercase tracking-wide text-gray-500 leading-tight mb-0.5">
         {label}
       </p>
       {children}
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      {error && <p className="text-red-500 text-xs mt-0.5">{error}</p>}
     </div>
   );
 }
@@ -589,24 +554,116 @@ type PricingSummaryApiData = Partial<PricingData> & {
   vehicles?: unknown[];
 };
 
-/** Sender: either existing `customerId` or manual `name` + `email` + `phone` (validated in schema). */
 function applySenderToShipmentPayload(
   converted: ConvertedShipment,
   values: {
-    customerId?: string;
     name?: string;
     email?: string;
     phone?: string;
   },
 ) {
-  const cid = String(values.customerId ?? "").trim();
-  if (cid) {
-    converted.customerId = cid;
-    return;
-  }
   converted.name = String(values.name ?? "").trim();
   converted.email = String(values.email ?? "").trim();
   converted.phone = String(values.phone ?? "").trim();
+}
+
+/** Builds the API shipment payload from form values; shared so edit-mode can diff against the originally loaded values. */
+function buildConvertedShipment(
+  _values: any,
+  isGeneralEdit: boolean,
+): ConvertedShipment {
+  const isPickupSubmit = _values.fulfillmentType === "PICKUP";
+  const converted: ConvertedShipment = {
+    receiverName: _values.receiverName,
+    receiverEmail: _values.receiverEmail,
+    receiverPhone: _values.receiverPhone,
+
+    serviceTypeId: _values.serviceTypeId,
+    fulfillmentType: _values.fulfillmentType,
+    isDelivery: isPickupSubmit,
+
+    weight: _values.weight,
+    isFragile: _values.isFragile,
+    shipmentType: _values.shipmentType,
+    shippingScope: _values.destination,
+
+    deliveryAddress: {
+      lat: String(_values.receiverLatitude),
+      long: String(_values.receiverLongitude),
+    },
+
+    isUnusual: _values.isUnusual,
+    unusualReason: _values.unusualReason,
+
+    quantity: _values.quantity,
+    deliveryDate: _values.deliveryDate
+      ? new Date(_values.deliveryDate).toISOString()
+      : undefined,
+    vehicleTypeIds: [...(_values.vehicleTypeIds || [])],
+  };
+
+  if (!isGeneralEdit) {
+    converted.selectedVehicleTypeId = _values.selectedVehicleTypeId;
+    converted.sessionId = _values.sessionId?.trim();
+  }
+
+  if (_values.fulfillmentType === "PICKUP") {
+    converted.pickupAddress = {
+      lat: String(_values.pickupLatitude),
+      long: String(_values.pickupLongitude),
+    };
+    if (_values.pickupDate) {
+      converted.pickupDate = new Date(_values.pickupDate).toISOString();
+    }
+  }
+
+  if (
+    _values.destination === "REGIONAL" ||
+    _values.destination === "INTERNATIONAL"
+  ) {
+    converted.originCity = _values.originCity;
+    converted.destinationCity = _values.destinationCity;
+  }
+
+  const branchIdTrim = String(_values.branchId ?? "").trim();
+  if (branchIdTrim) {
+    converted.branchId = branchIdTrim;
+  }
+
+  applySenderToShipmentPayload(converted, _values);
+
+  const categoryIdTrim = String(_values.categoryId ?? "").trim();
+  if (categoryIdTrim) {
+    converted.categoryId = categoryIdTrim;
+  }
+
+  if (_values.shipmentType == "PARCEL") {
+    converted.width = _values?.width;
+    converted.height = _values?.height;
+    converted.length = _values?.length;
+  }
+
+  if (!isGeneralEdit) {
+    converted.paymentType = "bank_transfer";
+    converted.bankName = _values.bankName.trim();
+    converted.transactionId = _values.transactionId.trim();
+  }
+
+  return converted;
+}
+
+/** Shallow key diff (deep-compared via JSON) between the submitted and originally loaded payload, so edit PATCHes only send what changed. */
+function diffShipmentPayload(
+  current: ConvertedShipment,
+  original: ConvertedShipment,
+): Partial<ConvertedShipment> {
+  const changed: Partial<ConvertedShipment> = {};
+  (Object.keys(current) as (keyof ConvertedShipment)[]).forEach((key) => {
+    if (JSON.stringify(current[key]) !== JSON.stringify(original[key])) {
+      (changed as Record<string, unknown>)[key] = current[key];
+    }
+  });
+  return changed;
 }
 
 function formatOrderMoney(
@@ -800,6 +857,10 @@ export default function OrderForm() {
   /** Full order edit (all create fields editable) reached via /order/edit/:id — PATCHes /order/:id. */
   const isGeneralEdit = Boolean(routeOrderId?.trim()) && !isDropoffAcceptEdit;
   const isEditingOrder = isDropoffAcceptEdit || isGeneralEdit;
+  const orderValidationSchema = useMemo(
+    () => buildOrderValidationSchema(isGeneralEdit),
+    [isGeneralEdit],
+  );
 
   const [formInitialValues, setFormInitialValues] = useState(() =>
     createEmptyFormValues(),
@@ -815,33 +876,14 @@ export default function OrderForm() {
   );
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState("");
+  const [createdOrderId, setCreatedOrderId] = useState("");
   const [waybillData, setWaybillData] = useState<WaybillData | null>(null);
   const [loading, setLoading] = useState(false);
   const { user } = useAuthState();
 
-  const [managerSearch, setManagerSearch] = useState("");
-  // const [branchSearch, setBranchSearch] = useState("");
-  const [showManagerDropdown, setShowManagerDropdown] = useState(false);
-  // const [showBranchDropdown, setShowBranchDropdown] = useState(false);
-  // const [pagination, setPagination] = useState<Pagination | null>(null);
-  // const [searchText, setSearchText] = useState("");
-  const [loadingStaff, setLoadingStaff] = useState(false);
-  const [custoemr, setCustomer] = useState<Customer[]>([]);
-  /** Last customer picked in the sender dropdown — used to prefill optional sender contact fields */
-  const [selectedCustomerForSender, setSelectedCustomerForSender] =
-    useState<Customer | null>(null);
-  const canPrefillSender = useMemo(() => {
-    if (!selectedCustomerForSender) return false;
-    const name = selectedCustomerForSender.name?.trim();
-    const email = selectedCustomerForSender.email?.trim();
-    const phone = selectedCustomerForSender.phone?.trim();
-    return Boolean(name || email || phone);
-  }, [selectedCustomerForSender]);
   const [priceLoading, setPriceLoading] = useState(false);
 
   // Branch selection state (for DROPOFF)
-  const [branchSearch, setBranchSearch] = useState("");
-  const [showBranchDropdown, setShowBranchDropdown] = useState(false);
   const [loadingBranch, setLoadingBranch] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const { data: serviceTypes } = useServiceTypes();
@@ -851,38 +893,12 @@ export default function OrderForm() {
     isError: orderItemCategoriesError,
   } = useOrderItemCategories();
 
-  const featchStaffs = async () => {
-    try {
-      setLoadingStaff(true);
-
-      const staffs = await api.get<CustomerListResponse>(
-        `/users/customers?search=all:${managerSearch}&page=${1}&pageSize=${20}`,
-      );
-      setCustomer(staffs.data.data);
-      // setPagination(staffs.data.pagination);
-      // toast.success(staffs.data.message);
-      setLoadingStaff(false);
-    } catch (error: any) {
-      setLoadingStaff(false);
-
-      const message =
-        error?.response?.data?.message ||
-        "Something went wrong. Please try again.";
-      toast.error(message);
-      console.error(error); // optional: log the full error
-    }
-  };
-
-  useEffect(() => {
-    featchStaffs();
-  }, [managerSearch]);
-
   const fetchBranches = async () => {
     try {
       setLoadingBranch(true);
 
       const response = await api.get<BranchListResponse>(
-        `/branch?search=all:${branchSearch}&page=${1}&pageSize=${20}`,
+        `/branch?search=all:&page=${1}&pageSize=${100}`,
       );
       setBranches(response.data.data);
       setLoadingBranch(false);
@@ -899,7 +915,7 @@ export default function OrderForm() {
 
   useEffect(() => {
     fetchBranches();
-  }, [branchSearch]);
+  }, []);
 
   useEffect(() => {
     if (!isEditingOrder || !editOrderId) {
@@ -924,12 +940,6 @@ export default function OrderForm() {
               ? Number(fpRaw)
               : NaN;
         setOriginalDropoffPrice(Number.isFinite(fpNum) ? fpNum : null);
-        if (order.customer?.name) {
-          setManagerSearch(order.customer.name);
-        }
-        if (order.branch?.name) {
-          setBranchSearch(order.branch.name);
-        }
       } catch (e: unknown) {
         const msg =
           e &&
@@ -1139,8 +1149,8 @@ export default function OrderForm() {
     return {
       trackingCode,
       shipper: {
-        name: v.name || managerSearch,
-        phone: v.phone || selectedCustomerForSender?.phone || "",
+        name: v.name || "",
+        phone: v.phone || "",
         companyLine: shipperCompanyLine || undefined,
       },
       consignee: {
@@ -1178,7 +1188,7 @@ export default function OrderForm() {
       return;
     }
     const isPickupSubmit = _values.fulfillmentType === "PICKUP";
-    if (isPickupSubmit) {
+    if (!isGeneralEdit && isPickupSubmit) {
       if (!_values.selectedVehicleTypeId?.trim()) {
         toast.error(
           "Generate an estimate and select a vehicle before submitting.",
@@ -1192,108 +1202,27 @@ export default function OrderForm() {
         return;
       }
     }
-    if (_values.paymentType !== "bank_transfer") {
+    if (!isGeneralEdit && _values.paymentType !== "bank_transfer") {
       toast.error(
         "This payment method is coming soon. Please choose direct bank transfer for now.",
       );
       return;
     }
-    console.log(
-      "-----------------------------------------: ========: ",
-      _values,
-    );
-    const converted: ConvertedShipment = {
-      // receiver info
-      receiverName: _values.receiverName,
-      receiverEmail: _values.receiverEmail,
-      receiverPhone: _values.receiverPhone,
-
-      // service
-      serviceTypeId: _values.serviceTypeId,
-      fulfillmentType: _values.fulfillmentType,
-      isDelivery: isPickupSubmit,
-
-      // package details
-      weight: _values.weight,
-      isFragile: _values.isFragile,
-      shipmentType: _values.shipmentType,
-      shippingScope: _values.destination,
-      // length: _values.length,
-      // width: _values.width,
-      // height: _values.height,
-
-      deliveryAddress: {
-        lat: String(_values.receiverLatitude),
-        long: String(_values.receiverLongitude),
-      },
-
-      // unusual item fields
-      isUnusual: _values.isUnusual,
-      unusualReason: _values.unusualReason,
-
-      // extra from your input (since they exist)
-      quantity: _values.quantity,
-      // pickupAddressText: _values.pickupAddress,
-      // deliveryAddressText: _values.receiverAddress,
-      // name / email / phone — sender contact
-      // senderEntity: _values.senderEntity,
-      // shippingScope: _values.destination,
-      // cost: _values.cost,
-      deliveryDate: _values.deliveryDate
-        ? new Date(_values.deliveryDate).toISOString()
-        : undefined,
-      selectedVehicleTypeId: _values.selectedVehicleTypeId,
-      sessionId: _values.sessionId?.trim(),
-      vehicleTypeIds: [...(_values.vehicleTypeIds || [])],
-    };
-
-    if (_values.fulfillmentType === "PICKUP") {
-      converted.pickupAddress = {
-        lat: String(_values.pickupLatitude),
-        long: String(_values.pickupLongitude),
-      };
-      if (_values.pickupDate) {
-        converted.pickupDate = new Date(_values.pickupDate).toISOString();
-      }
-    }
-
-    if (
-      _values.destination === "REGIONAL" ||
-      _values.destination === "INTERNATIONAL"
-    ) {
-      converted.originCity = _values.originCity;
-      converted.destinationCity = _values.destinationCity;
-    }
-
-    const branchIdTrimSubmit = String(_values.branchId ?? "").trim();
-    console.log("branchIdTrimSubmit: ", branchIdTrimSubmit);
-    if (branchIdTrimSubmit) {
-      converted.branchId = branchIdTrimSubmit;
-    }
-
-    applySenderToShipmentPayload(converted, _values);
-
-    const categoryIdTrimSubmit = String(_values.categoryId ?? "").trim();
-    if (categoryIdTrimSubmit) {
-      converted.categoryId = categoryIdTrimSubmit;
-    }
-
-    console.log("values: ", converted);
-    if (_values.shipmentType == "PARCEL") {
-      converted.width = _values?.width;
-      converted.height = _values?.height;
-      converted.length = _values?.length;
-    }
-
-    converted.paymentType = "bank_transfer";
-    converted.bankName = _values.bankName.trim();
-    converted.transactionId = _values.transactionId.trim();
+    const converted = buildConvertedShipment(_values, isGeneralEdit);
 
     try {
       setLoading(true);
 
       if (isGeneralEdit) {
-        const res = await api.patch(`/order/${editOrderId}`, converted);
+        const original = buildConvertedShipment(formInitialValues, true);
+        const changedFields = diffShipmentPayload(converted, original);
+        if (Object.keys(changedFields).length === 0) {
+          toast.success("No changes to save");
+          navigate(`/order/details/${editOrderId}`);
+          setLoading(false);
+          return;
+        }
+        const res = await api.patch(`/order/${editOrderId}`, changedFields);
         toast.success(res.data?.message || "Order updated successfully");
         navigate(`/order/details/${editOrderId}`);
         setLoading(false);
@@ -1306,13 +1235,11 @@ export default function OrderForm() {
       // const tracking = generateTrackingNumber();
       const trackingCode = res.data.data?.trackingCode ?? "";
       setTrackingNumber(trackingCode);
+      setCreatedOrderId(res.data.data?.id ?? "");
       setWaybillData(buildWaybillData(trackingCode, _values));
       setIsSuccessModalOpen(true);
       resetForm();
       setOrderSummary(null);
-
-      setManagerSearch("");
-      setBranchSearch("");
     } catch (error: any) {
       console.log(error.response?.data);
       toast.error(error?.response?.data?.message || "Somethign went wrong!");
@@ -1332,46 +1259,8 @@ export default function OrderForm() {
   const handleCloseModal = () => {
     setIsSuccessModalOpen(false);
     setTrackingNumber("");
+    setCreatedOrderId("");
     setWaybillData(null);
-  };
-
-  const clearManager = (
-    setFieldValue: (field: string, value: string) => void,
-  ) => {
-    setFieldValue("customerId", "");
-    setFieldValue("managerName", "");
-    setManagerSearch("");
-    setSelectedCustomerForSender(null);
-  };
-
-  const selectManager = (
-    manager: Customer,
-    setFieldValue: (field: string, value: string | unknown) => void,
-  ) => {
-    setFieldValue("customerId", manager.id);
-    setFieldValue("managerName", manager.name);
-    setManagerSearch(manager.name);
-    setSelectedCustomerForSender(manager);
-    setShowManagerDropdown(false);
-  };
-
-  const prefillSenderFromSelectedCustomer = (
-    setFieldValue: (field: string, value: unknown) => void,
-  ) => {
-    if (!selectedCustomerForSender || !canPrefillSender) return;
-    setFieldValue("name", selectedCustomerForSender.name ?? "");
-    setFieldValue("email", selectedCustomerForSender.email ?? "");
-    setFieldValue(
-      "phone",
-      selectedCustomerForSender.phone || ETHIO_COUNTRY_CODE,
-    );
-  };
-
-  const clearBranch = (
-    setFieldValue: (field: string, value: string) => void,
-  ) => {
-    setFieldValue("branchId", "");
-    setBranchSearch("");
   };
 
   const clearPickupFields = (
@@ -1381,15 +1270,6 @@ export default function OrderForm() {
     setFieldValue("pickupLatitude", 0);
     setFieldValue("pickupLongitude", 0);
     setFieldValue("pickupDate", "");
-  };
-
-  const selectBranch = (
-    branch: { id: string; name: string },
-    setFieldValue: (field: string, value: string) => void,
-  ) => {
-    setFieldValue("branchId", branch.id);
-    setBranchSearch(branch.name);
-    setShowBranchDropdown(false);
   };
 
   const handleDropoffConfirmUpdate = async (
@@ -1451,7 +1331,7 @@ export default function OrderForm() {
   };
 
   return (
-    <div className="p-6 bg-white relative">
+    <div className="px-6 py-2 bg-white relative">
       {loadingEditOrder && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 rounded-lg">
           <Spinner className="h-10 w-10 text-[#EE1E21]" />
@@ -1460,7 +1340,7 @@ export default function OrderForm() {
       <Formik
         initialValues={formInitialValues}
         enableReinitialize
-        validationSchema={OrderValidationSchema}
+        validationSchema={orderValidationSchema}
         onSubmit={handleSubmit}
       >
         {({ values, setFieldValue, errors, touched, setFieldTouched }) => {
@@ -1470,13 +1350,13 @@ export default function OrderForm() {
             <Form>
               {/* Header */}
               <header className="relative">
-                <div className="h-full top-0 left-0 flex items-center gap-3 mb-5">
+                <div className="h-full top-0 left-0 flex items-center gap-3 mb-2">
                   <Button
                     type="button"
-                    className="!text-[#FADF4B] !size-[40px] bg-[#EE1E21] hover:bg-[#EE1E21] !rounded-full !p-0 !py-0 flex items-center justify-center !cursor-pointer "
+                    className="!text-[#FADF4B] bg-[#EE1E21] hover:bg-[#EE1E21] !rounded-lg !p-0 !py-0 flex items-center justify-center !cursor-pointer !w-[60px]"
                     onClick={() => navigate(-1)}
                   >
-                    <IoArrowBack className="text-[#FADF4B] text-lg" />
+                    Back
                   </Button>
                   {isGeneralEdit ? (
                     <h1 className="text-xl font-medium text-gray-700">
@@ -1522,101 +1402,10 @@ export default function OrderForm() {
                       Shipper Details
                     </h2>
                     <div className="bg-gray-50  rounded-lg space-y-4">
-                      <div className="relative">
-                        <Label className="mb-2">
-                          Customer (optional if sender details below)
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            // type="text"
-                            placeholder="Search customer "
-                            value={managerSearch}
-                            onChange={(e) => {
-                              console.log(e.target.value);
-                              setManagerSearch(e.target.value);
-                              setShowManagerDropdown(true);
-                              if (!e.target.value) {
-                                clearManager(setFieldValue);
-                              }
-                            }}
-                            onFocus={() => setShowManagerDropdown(true)}
-                            onBlur={() =>
-                              setTimeout(
-                                () => setShowManagerDropdown(false),
-                                200,
-                              )
-                            }
-                            className="py-7"
-                          />
-                          {values.customerId && (
-                            <button
-                              type="button"
-                              onClick={() => clearManager(setFieldValue)}
-                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </div>
-
-                        {showManagerDropdown && (
-                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                            {loadingStaff && (
-                              <div className="flex justify-center items-center py-8">
-                                <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
-                              </div>
-                            )}
-                            {custoemr.length > 0 ? (
-                              custoemr.map((manager) => (
-                                <div
-                                  key={manager.id}
-                                  onClick={() =>
-                                    selectManager(manager, setFieldValue)
-                                  }
-                                  className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                                >
-                                  <div className="font-medium text-gray-900">
-                                    {manager.name}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    {manager.email}
-                                  </div>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="px-4 py-3 text-gray-500 text-center">
-                                No managers found
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-3 pt-2 border-t border-gray-200">
-                        <p className="text-sm text-gray-600">
-                          If you did not pick a customer above, enter sender
-                          name, email, and phone (all required). Otherwise only{" "}
-                          <span className="font-medium">customerId</span> is
-                          sent.
-                        </p>
-                        <Button
-                          type="button"
-                          disabled={!canPrefillSender}
-                          className={cn(
-                            "!w-full text-sm border transition-colors",
-                            canPrefillSender
-                              ? "!bg-[#EE1E21] hover:!bg-[#cc1a1c] !text-[#FADF4B] border-[#EE1E21] cursor-pointer"
-                              : "!bg-gray-100 !text-gray-400 border-gray-200 cursor-not-allowed opacity-80",
-                          )}
-                          onClick={() =>
-                            prefillSenderFromSelectedCustomer(setFieldValue)
-                          }
-                        >
-                          Prefill from selected customer
-                        </Button>
+                      <div className="space-y-3">
                         <FieldTable>
                           <FieldCell
-                            label="Name of Sender (required without customer)"
+                            label="Name of Sender"
                             error={
                               errors.name && touched.name
                                 ? String(errors.name)
@@ -1631,7 +1420,7 @@ export default function OrderForm() {
                             />
                           </FieldCell>
                           <FieldCell
-                            label="Phone (required without customer)"
+                            label="Phone"
                             error={
                               errors.phone && touched.phone
                                 ? String(errors.phone)
@@ -1666,7 +1455,7 @@ export default function OrderForm() {
                             </div>
                           </FieldCell>
                           <FieldCell
-                            label="Email (required without customer)"
+                            label="Email"
                             className="col-span-2"
                             error={
                               errors.email && touched.email
@@ -1795,437 +1584,304 @@ export default function OrderForm() {
                     )}
                   </div>
                 </div>
-                {/* Shipment Details row */}
-                <div className="p-4">
-                  <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide pb-2 mb-4 border-b border-gray-200">
-                    Shipment Details
-                  </h2>
+                {/* Shipment Details · Service Info row */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-200 border-b border-gray-200">
+                  <div className="p-4">
+                    <h2 className="text-xs font-semibold text-gray-800 uppercase tracking-wide pb-2 mb-3 border-b border-gray-200">
+                      Shipment Details
+                    </h2>
 
-                  <FieldTable>
-                    <FieldCell label="Shipment Type">
-                      <Select
-                        value={String(values.shipmentType)}
-                        onValueChange={(val) =>
-                          setFieldValue("shipmentType", val)
-                        }
-                      >
-                        <SelectTrigger
-                          className={cn(tableTriggerClass, "!w-full")}
+                    <FieldTable>
+                      <FieldCell label="Shipment Type">
+                        <Select
+                          value={String(values.shipmentType)}
+                          onValueChange={(val) =>
+                            setFieldValue("shipmentType", val)
+                          }
                         >
-                          <SelectValue placeholder="Select shipment type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="CARRIER">
-                            <IoMailOutline className="text-[#EE1E21]" />
-                            Parcel-Envelope
-                          </SelectItem>
-                          <SelectItem value="PARCEL">
-                            <IoCubeOutline className="text-[#EE1E21]" />
-                            Parcel-Box
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FieldCell>
+                          <SelectTrigger
+                            className={cn(tableTriggerClass, "!w-full")}
+                          >
+                            <SelectValue placeholder="Select shipment type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="CARRIER">
+                              <IoMailOutline className="text-[#EE1E21]" />
+                              Parcel-Envelope
+                            </SelectItem>
+                            <SelectItem value="PARCEL">
+                              <IoCubeOutline className="text-[#EE1E21]" />
+                              Parcel-Box
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FieldCell>
 
-                    <FieldCell label="Quantity">
-                      <Field
-                        as={Input}
-                        type="number"
-                        step="0.1"
-                        name="quantity"
-                        className={tableInputClass}
-                      />
-                    </FieldCell>
+                      <FieldCell label="Quantity">
+                        <Field
+                          as={Input}
+                          type="number"
+                          step="0.1"
+                          name="quantity"
+                          className={tableInputClass}
+                        />
+                      </FieldCell>
 
-                    <FieldCell
-                      label="Actual Weight of Shipment (kg)"
-                      error={
-                        errors.weight && touched.weight
-                          ? String(errors.weight)
-                          : undefined
-                      }
-                    >
-                      <Field
-                        as={Input}
-                        type="number"
-                        step="0.1"
-                        name="weight"
-                        className={tableInputClass}
-                      />
-                    </FieldCell>
-                    {values.shipmentType === "PARCEL" ? (
-                      <>
-                        <FieldCell label="Length">
-                          <Field
-                            as={Input}
-                            type="number"
-                            step="0.1"
-                            name="length"
-                            className={tableInputClass}
-                          />
-                        </FieldCell>
-                        <FieldCell label="Width">
-                          <Field
-                            as={Input}
-                            type="number"
-                            step="0.1"
-                            name="width"
-                            className={tableInputClass}
-                          />
-                        </FieldCell>
-                        <FieldCell label="Height">
-                          <Field
-                            as={Input}
-                            type="number"
-                            step="0.1"
-                            name="height"
-                            className={tableInputClass}
-                          />
-                        </FieldCell>
-                      </>
-                    ) : (
-                      <></>
-                    )}
-                    <FieldCell label="Description of Goods">
-                      {loadingOrderItemCategories && (
-                        <div className="flex items-center gap-2 py-1 text-xs text-gray-600">
-                          <Spinner className="h-4 w-4 text-[#EE1E21]" />
-                          Loading categories…
-                        </div>
-                      )}
-                      {orderItemCategoriesError && (
-                        <p className="text-red-600 text-xs py-1">
-                          Could not load item categories.
-                        </p>
-                      )}
-                      {!loadingOrderItemCategories &&
-                        !orderItemCategoriesError &&
-                        orderItemCategories.length === 0 && (
-                          <p className="text-amber-700 text-xs py-1">
-                            No item categories configured. Add them under Orders
-                            → Item categories.
-                          </p>
-                        )}
-                      <Style2
-                        allowClear
-                        variant="borderless"
-                        placeholder="Select category"
-                        value={values.categoryId || undefined}
-                        onChange={(val) =>
-                          setFieldValue("categoryId", val ?? "")
-                        }
-                        disabled={
-                          loadingOrderItemCategories ||
-                          orderItemCategories.length === 0
-                        }
-                        className="!p-0 [&_.ant-select-selector]:!p-0"
-                        style={{ width: "100%" }}
-                      >
-                        {orderItemCategories.map((cat) => (
-                          <Style2.Option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </Style2.Option>
-                        ))}
-                      </Style2>
-                    </FieldCell>
-                    <FieldCell label="Fragile">
-                      <Select
-                        value={String(values.isFragile)}
-                        onValueChange={(val) =>
-                          setFieldValue(
-                            "isFragile",
-                            val === "true" ? true : false,
-                          )
-                        }
-                      >
-                        <SelectTrigger
-                          className={cn(tableTriggerClass, "!w-full")}
-                        >
-                          <SelectValue placeholder="Fragile ?" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="true">YES</SelectItem>
-                          <SelectItem value="false">NO</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FieldCell>
-                    <FieldCell label="Unusual Item">
-                      <Select
-                        value={String(values.isUnusual)}
-                        onValueChange={(val) =>
-                          setFieldValue(
-                            "isUnusual",
-                            val === "true" ? true : false,
-                          )
-                        }
-                      >
-                        <SelectTrigger
-                          className={cn(tableTriggerClass, "!w-full")}
-                        >
-                          <SelectValue placeholder="Is Unusual ?" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="true">YES</SelectItem>
-                          <SelectItem value="false">NO</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FieldCell>
-                    {values.isUnusual ? (
                       <FieldCell
-                        label="Unusuality Reason"
+                        label="Actual Weight of Shipment (kg)"
                         error={
-                          errors.unusualReason && touched.unusualReason
-                            ? String(errors.unusualReason)
+                          errors.weight && touched.weight
+                            ? String(errors.weight)
                             : undefined
                         }
                       >
                         <Field
-                          as={Textarea}
-                          cols={15}
-                          name="unusualReason"
-                          placeholder="Reason for being unusual"
-                          className="border-0 shadow-none px-0 py-0 min-h-[60px] bg-transparent focus-visible:ring-0 text-sm font-semibold text-gray-900"
+                          as={Input}
+                          type="number"
+                          step="0.1"
+                          name="weight"
+                          className={tableInputClass}
                         />
                       </FieldCell>
-                    ) : (
-                      <></>
-                    )}
-                    <FieldCell
-                      label="Destination"
-                      error={
-                        errors.destination && touched.destination
-                          ? String(errors.destination)
-                          : undefined
-                      }
-                    >
-                      <Select
-                        value={String(values.destination)}
-                        onValueChange={(val) =>
-                          setFieldValue("destination", val)
-                        }
-                      >
-                        <SelectTrigger
-                          className={cn(tableTriggerClass, "!w-full")}
-                        >
-                          <SelectValue placeholder="Select destination" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="TOWN">TOWN</SelectItem>
-                          <SelectItem value="REGIONAL">REGIONAL</SelectItem>
-                          <SelectItem value="INTERNATIONAL">
-                            INTERNATIONAL
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FieldCell>
-                    {/* Origin and Destination City - only for REGIONAL/INTERNATIONAL */}
-                    {(values.destination === "REGIONAL" ||
-                      values.destination === "INTERNATIONAL") && (
-                      <>
-                        <FieldCell label="Origin City">
-                          <Field
-                            as={Input}
-                            name="originCity"
-                            placeholder="Origin city (ex: Addis Ababa)"
-                            className={tableInputClass}
-                          />
-                        </FieldCell>
-                        <FieldCell label="Destination City">
-                          <Field
-                            as={Input}
-                            name="destinationCity"
-                            placeholder="Destination city (ex: Mekelle)"
-                            className={tableInputClass}
-                          />
-                        </FieldCell>
-                      </>
-                    )}
-                  </FieldTable>
-                </div>
-                {/* Service Info row */}
-                <div className="p-4 space-y-4 border-t border-gray-200">
-                  <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide pb-2 mb-4 border-b border-gray-200">
-                    Service Info
-                  </h2>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="mb-1">Service Type</Label>
-                      <Select
-                        value={values.serviceTypeId || undefined}
-                        onValueChange={(val) => {
-                          setFieldValue("serviceTypeId", val);
-                          setFieldValue("vehicleTypeIds", []);
-                          setFieldValue("selectedVehicleTypeId", "");
-                          setFieldValue("sessionId", "");
-                          setOrderSummary(null);
-                        }}
-                      >
-                        <SelectTrigger
-                          className={`py-7 !w-full bg-none border ${
-                            errors.serviceTypeId && touched.serviceTypeId
-                              ? "border-red-500"
-                              : ""
-                          }`}
-                        >
-                          <SelectValue placeholder="Select service" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {serviceTypes?.map((serviceType) => (
-                            <SelectItem
-                              key={serviceType.id}
-                              value={serviceType.id}
-                            >
-                              {serviceType.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {errors.serviceTypeId && touched.serviceTypeId && (
-                        <p className="text-red-500 text-sm mt-1">
-                          {errors.serviceTypeId}
-                        </p>
+                      {values.shipmentType === "PARCEL" ? (
+                        <>
+                          <FieldCell label="Length">
+                            <Field
+                              as={Input}
+                              type="number"
+                              step="0.1"
+                              name="length"
+                              className={tableInputClass}
+                            />
+                          </FieldCell>
+                          <FieldCell label="Width">
+                            <Field
+                              as={Input}
+                              type="number"
+                              step="0.1"
+                              name="width"
+                              className={tableInputClass}
+                            />
+                          </FieldCell>
+                          <FieldCell label="Height">
+                            <Field
+                              as={Input}
+                              type="number"
+                              step="0.1"
+                              name="height"
+                              className={tableInputClass}
+                            />
+                          </FieldCell>
+                        </>
+                      ) : (
+                        <></>
                       )}
-                    </div>
-
-                    <div>
-                      <Label className="mb-1">Collection Type</Label>
-                      <Select
-                        value={values.fulfillmentType}
-                        onValueChange={(val) => {
-                          setFieldValue("fulfillmentType", val);
-                          if (val === "DROPOFF") {
-                            clearPickupFields(setFieldValue);
-                          }
-                        }}
-                      >
-                        <SelectTrigger
-                          className={`bg-none py-7 !w-full ${
-                            errors.fulfillmentType && touched.fulfillmentType
-                              ? "border-red-500"
-                              : ""
-                          }`}
-                        >
-                          <SelectValue placeholder="Select fulfillment" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="PICKUP">PICKUP</SelectItem>
-                          <SelectItem value="DROPOFF">DROPOFF</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {errors.fulfillmentType && touched.fulfillmentType && (
-                        <p className="text-red-500 text-sm mt-1">
-                          {errors.fulfillmentType}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {values.fulfillmentType === "PICKUP" && (
-                    <div>
-                      <Label className="mb-1">Pickup Address</Label>
-                      <MapAddressSelector
-                        onAddressSelect={(addressData) => {
-                          setFieldValue("pickupAddress", addressData.address);
-                          setFieldValue("pickupLatitude", addressData.latitude);
-                          setFieldValue(
-                            "pickupLongitude",
-                            addressData.longitude,
-                          );
-                        }}
-                        initialAddress={values.pickupAddress}
-                        initialLat={values.pickupLatitude}
-                        initialLng={values.pickupLongitude}
-                        height="300px"
-                      />
-                      {errors.pickupAddress && touched.pickupAddress && (
-                        <p className="text-red-500 text-sm mt-1">
-                          {errors.pickupAddress}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Branch — sent on estimate & create whenever selected (PICKUP or DROPOFF) */}
-                  <div className="relative space-y-3">
-                    <Label className="mb-2">Branch *</Label>
-                    <p className="text-sm text-gray-600">
-                      Search and select the branch for the order.
-                    </p>
-                    <div className="relative">
-                      <Input
-                        placeholder="Search branch"
-                        value={branchSearch}
-                        onChange={(e) => {
-                          setBranchSearch(e.target.value);
-                          setShowBranchDropdown(true);
-                          if (!e.target.value) {
-                            clearBranch(setFieldValue);
-                          }
-                        }}
-                        onFocus={() => setShowBranchDropdown(true)}
-                        onBlur={() =>
-                          setTimeout(() => setShowBranchDropdown(false), 200)
-                        }
-                        className="py-7"
-                      />
-                      {values.branchId && (
-                        <button
-                          type="button"
-                          onClick={() => clearBranch(setFieldValue)}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-
-                    {showBranchDropdown && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                        {loadingBranch && (
-                          <div className="flex justify-center items-center py-8">
-                            <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
+                      <FieldCell label="Description of Goods">
+                        {loadingOrderItemCategories && (
+                          <div className="flex items-center gap-2 py-1 text-xs text-gray-600">
+                            <Spinner className="h-4 w-4 text-[#EE1E21]" />
+                            Loading categories…
                           </div>
                         )}
-                        {branches.length > 0 ? (
-                          branches.map((branch) => (
-                            <div
-                              key={branch.id}
-                              onClick={() =>
-                                selectBranch(branch, setFieldValue)
-                              }
-                              className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                            >
-                              <div className="font-medium text-gray-900">
-                                {branch.name}
-                              </div>
-                              {branch.location && (
-                                <div className="text-sm text-gray-500">
-                                  {branch.location}
-                                </div>
-                              )}
-                            </div>
-                          ))
-                        ) : !loadingBranch ? (
-                          <div className="px-4 py-3 text-gray-500 text-center">
-                            No branches found
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
-                    {!values.branchId && (
-                      <p className="text-red-500 text-sm mt-1">
-                        Branch is required for the order
-                      </p>
-                    )}
+                        {orderItemCategoriesError && (
+                          <p className="text-red-600 text-xs py-1">
+                            Could not load item categories.
+                          </p>
+                        )}
+                        {!loadingOrderItemCategories &&
+                          !orderItemCategoriesError &&
+                          orderItemCategories.length === 0 && (
+                            <p className="text-amber-700 text-xs py-1">
+                              No item categories configured. Add them under
+                              Orders → Item categories.
+                            </p>
+                          )}
+                        <Style2
+                          allowClear
+                          variant="borderless"
+                          placeholder="Select category"
+                          value={values.categoryId || undefined}
+                          onChange={(val) =>
+                            setFieldValue("categoryId", val ?? "")
+                          }
+                          disabled={
+                            loadingOrderItemCategories ||
+                            orderItemCategories.length === 0
+                          }
+                          className="!p-0 [&_.ant-select-selector]:!p-0"
+                          style={{ width: "100%" }}
+                        >
+                          {orderItemCategories.map((cat) => (
+                            <Style2.Option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </Style2.Option>
+                          ))}
+                        </Style2>
+                      </FieldCell>
+                      <FieldCell
+                        label="Destination"
+                        error={
+                          errors.destination && touched.destination
+                            ? String(errors.destination)
+                            : undefined
+                        }
+                      >
+                        <Select
+                          value={String(values.destination)}
+                          onValueChange={(val) =>
+                            setFieldValue("destination", val)
+                          }
+                        >
+                          <SelectTrigger
+                            className={cn(tableTriggerClass, "!w-full")}
+                          >
+                            <SelectValue placeholder="Select destination" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="TOWN">TOWN</SelectItem>
+                            <SelectItem value="REGIONAL">REGIONAL</SelectItem>
+                            <SelectItem value="INTERNATIONAL">
+                              INTERNATIONAL
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FieldCell>
+                      {/* Origin and Destination City - only for REGIONAL/INTERNATIONAL */}
+                      {(values.destination === "REGIONAL" ||
+                        values.destination === "INTERNATIONAL") && (
+                        <>
+                          <FieldCell label="Origin City">
+                            <Field
+                              as={Input}
+                              name="originCity"
+                              placeholder="Origin city (ex: Addis Ababa)"
+                              className={tableInputClass}
+                            />
+                          </FieldCell>
+                          <FieldCell label="Destination City">
+                            <Field
+                              as={Input}
+                              name="destinationCity"
+                              placeholder="Destination city (ex: Mekelle)"
+                              className={tableInputClass}
+                            />
+                          </FieldCell>
+                        </>
+                      )}
+                    </FieldTable>
                   </div>
+                  <div className="p-4 space-y-3">
+                    <h2 className="text-xs font-semibold text-gray-800 uppercase tracking-wide pb-2 mb-3 border-b border-gray-200">
+                      Service Info
+                    </h2>
 
-                  <div
-                    className={`grid grid-cols-1 gap-4 ${values.fulfillmentType === "PICKUP" ? "md:grid-cols-2" : ""}`}
-                  >
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="mb-1 text-xs">Service Type</Label>
+                        <Select
+                          value={values.serviceTypeId || undefined}
+                          onValueChange={(val) => {
+                            setFieldValue("serviceTypeId", val);
+                            setFieldValue("vehicleTypeIds", []);
+                            setFieldValue("selectedVehicleTypeId", "");
+                            setFieldValue("sessionId", "");
+                            setOrderSummary(null);
+                          }}
+                        >
+                          <SelectTrigger
+                            className={`py-2 !w-full text-xs bg-none border ${
+                              errors.serviceTypeId && touched.serviceTypeId
+                                ? "border-red-500"
+                                : ""
+                            }`}
+                          >
+                            <SelectValue placeholder="Select service" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {serviceTypes?.map((serviceType) => (
+                              <SelectItem
+                                key={serviceType.id}
+                                value={serviceType.id}
+                              >
+                                {serviceType.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {errors.serviceTypeId && touched.serviceTypeId && (
+                          <p className="text-red-500 text-xs mt-1">
+                            {errors.serviceTypeId}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label className="mb-1 text-xs">Collection Type</Label>
+                        <Select
+                          value={values.fulfillmentType}
+                          onValueChange={(val) => {
+                            setFieldValue("fulfillmentType", val);
+                            if (val === "DROPOFF") {
+                              clearPickupFields(setFieldValue);
+                            }
+                          }}
+                        >
+                          <SelectTrigger
+                            className={`bg-none py-2 !w-full text-xs ${
+                              errors.fulfillmentType && touched.fulfillmentType
+                                ? "border-red-500"
+                                : ""
+                            }`}
+                          >
+                            <SelectValue placeholder="Select fulfillment" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="PICKUP">PICKUP</SelectItem>
+                            <SelectItem value="DROPOFF">DROPOFF</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {errors.fulfillmentType && touched.fulfillmentType && (
+                          <p className="text-red-500 text-xs mt-1">
+                            {errors.fulfillmentType}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
                     {values.fulfillmentType === "PICKUP" && (
                       <div>
-                        <Label className="mb-1" htmlFor="order-pickup-datetime">
+                        <Label className="mb-1 text-xs">Pickup Address</Label>
+                        <MapAddressSelector
+                          onAddressSelect={(addressData) => {
+                            setFieldValue("pickupAddress", addressData.address);
+                            setFieldValue(
+                              "pickupLatitude",
+                              addressData.latitude,
+                            );
+                            setFieldValue(
+                              "pickupLongitude",
+                              addressData.longitude,
+                            );
+                          }}
+                          initialAddress={values.pickupAddress}
+                          initialLat={values.pickupLatitude}
+                          initialLng={values.pickupLongitude}
+                          height="200px"
+                        />
+                        {errors.pickupAddress && touched.pickupAddress && (
+                          <p className="text-red-500 text-xs mt-1">
+                            {errors.pickupAddress}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {values.fulfillmentType === "PICKUP" && (
+                      <div>
+                        <Label
+                          className="mb-1 text-xs"
+                          htmlFor="order-pickup-datetime"
+                        >
                           Pickup Date
                         </Label>
                         <DateTimePicker
@@ -2239,14 +1895,57 @@ export default function OrderForm() {
                           )}
                         />
                         {errors.pickupDate && touched.pickupDate && (
-                          <p className="text-red-500 text-sm mt-1">
+                          <p className="text-red-500 text-xs mt-1">
                             {errors.pickupDate}
                           </p>
                         )}
                       </div>
                     )}
+
+                    {/* Branch + Delivery Date side by side */}
+                    <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="mb-1" htmlFor="order-delivery-datetime">
+                      <Label className="mb-1 text-xs">Branch *</Label>
+                      <Select
+                        value={values.branchId || undefined}
+                        onValueChange={(val) =>
+                          setFieldValue("branchId", val)
+                        }
+                        disabled={loadingBranch}
+                      >
+                        <SelectTrigger
+                          className={`py-2 !w-full text-xs bg-none border ${
+                            !values.branchId ? "border-red-500" : ""
+                          }`}
+                        >
+                          <SelectValue
+                            placeholder={
+                              loadingBranch
+                                ? "Loading branches..."
+                                : "Select branch"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {branches.map((branch) => (
+                            <SelectItem key={branch.id} value={branch.id}>
+                              {branch.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {!values.branchId && (
+                        <p className="text-red-500 text-xs mt-1">
+                          Branch is required for the order
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label
+                        className="mb-1 text-xs"
+                        htmlFor="order-delivery-datetime"
+                      >
                         Delivery Date
                       </Label>
                       <DateTimePicker
@@ -2260,13 +1959,13 @@ export default function OrderForm() {
                         )}
                       />
                       {errors.deliveryDate && touched.deliveryDate && (
-                        <p className="text-red-500 text-sm mt-1">
+                        <p className="text-red-500 text-xs mt-1">
                           {errors.deliveryDate}
                         </p>
                       )}
                     </div>
-                  </div>
-                  {/* <div>
+                    </div>
+                    {/* <div>
                 <Label className="mb-1">Sender Entity</Label>
                 <Select
                   value={String(values.senderEntity)}
@@ -2281,6 +1980,7 @@ export default function OrderForm() {
                   </SelectContent>
                 </Select>
               </div> */}
+                  </div>
                 </div>
                 {/* Row 2: Vehicle Types · Complete Order */}
                 <div
@@ -2308,18 +2008,6 @@ export default function OrderForm() {
                       Complete Order
                     </h2>
 
-                    {!isDropoffAcceptEdit && (
-                      <div className="flex items-center gap-2">
-                        <Label
-                          className="mb-1 text-lg font-medium"
-                          htmlFor="requirement"
-                        >
-                          Requirement Checklist
-                        </Label>
-                        <Checkbox className="border-gray-300 ml-2 data-[state=checked]:bg-[#EE1E21] data-[state=checked]:border-[#EE1E21] data-[state=checked]:text-[#FADF4B]" />
-                      </div>
-                    )}
-
                     {isDropoffAcceptEdit && !orderSummary && (
                       <div className="flex flex-col sm:flex-row gap-3 w-full border-t border-gray-200 pt-4">
                         <Button
@@ -2344,11 +2032,21 @@ export default function OrderForm() {
                       </div>
                     )}
 
-                    {!isDropoffAcceptEdit && (
-                      <div className="flex flex-col sm:flex-row gap-3">
+                    {!isDropoffAcceptEdit && !isGeneralEdit && (
+                      <div className="flex flex-row gap-3">
+                        {!orderSummary && (
+                          <Button
+                            type="button"
+                            disabled={priceLoading}
+                            onClick={() => navigate(-1)}
+                            className="flex-1 bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300"
+                          >
+                            Cancel
+                          </Button>
+                        )}
                         <Button
                           type="button"
-                          className="flex flex-row justify-center items-center cursor-pointer hover:bg-[#cc1a1c] sm:flex-1"
+                          className="flex flex-1 flex-row justify-center items-center cursor-pointer hover:bg-[#cc1a1c]"
                           onClick={() => onEstimate(values, setFieldValue)}
                         >
                           {priceLoading ? (
@@ -2360,7 +2058,37 @@ export default function OrderForm() {
                       </div>
                     )}
 
-                    {orderSummary && !isDropoffAcceptEdit && (
+                    {isGeneralEdit && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                        <Button
+                          type="button"
+                          disabled={loading}
+                          onClick={() =>
+                            handleSubmit(values, { resetForm: () => {} })
+                          }
+                          className="flex flex-row justify-center items-center cursor-pointer hover:bg-[#cc1a1c]"
+                        >
+                          {loading ? (
+                            <span className="flex items-center justify-center w-full">
+                              <Spinner className="h-6 w-6 text-[#FADF4B] mr-2" />
+                              <span>Updating...</span>
+                            </span>
+                          ) : (
+                            "Update order"
+                          )}
+                        </Button>
+                        <Button
+                          disabled={loading}
+                          type="button"
+                          onClick={() => navigate(-1)}
+                          className="bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300 !w-full"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
+
+                    {orderSummary && !isDropoffAcceptEdit && !isGeneralEdit && (
                       <div className="space-y-4 pt-2 border-t border-gray-200">
                         {orderSummary.breakdown && (
                           <div>
@@ -2506,14 +2234,8 @@ export default function OrderForm() {
                             {loading ? (
                               <span className="flex items-center justify-center w-full">
                                 <Spinner className="h-6 w-6 text-[#FADF4B] mr-2" />
-                                <span>
-                                  {isGeneralEdit
-                                    ? "Updating..."
-                                    : "Submitting..."}
-                                </span>
+                                <span>Submitting...</span>
                               </span>
-                            ) : isGeneralEdit ? (
-                              "Update order"
                             ) : (
                               "Submit order"
                             )}
@@ -2679,19 +2401,6 @@ export default function OrderForm() {
                         </div>
                       </div>
                     )}
-
-                    {!orderSummary && !isDropoffAcceptEdit && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                        <Button
-                          disabled={loading}
-                          type="button"
-                          onClick={() => navigate(-1)}
-                          className="bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300 !w-full sm:col-span-2"
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    )}
                   </div>
                 </div>{" "}
                 {/* end Vehicle+Complete grid */}
@@ -2708,6 +2417,7 @@ export default function OrderForm() {
         onClose={handleCloseModal}
         trackingNumber={trackingNumber}
         waybill={waybillData ?? undefined}
+        orderId={createdOrderId || undefined}
       />
     </div>
   );

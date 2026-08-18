@@ -30,3 +30,15 @@ export async function fetchOrderById(id: string): Promise<OrderDetailApi> {
   }
   return order;
 }
+
+/** POST /print — placeholder path/shape until the real print endpoint is defined. */
+export async function printOrderWaybill(
+  orderId: string,
+  withPromotion: boolean,
+): Promise<void> {
+  const clean = orderId.replace(/^#/, "").trim();
+  if (!clean) {
+    throw new Error("Invalid order id");
+  }
+  await api.post("/print", { orderId: clean, withPromotion });
+}

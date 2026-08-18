@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MdEdit, MdCancel } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
 import TablePagination from "@/components/common/TablePagination";
+import PrintWaybillButton from "@/components/common/PrintWaybillButton";
 import api from "@/lib/api/api";
 import toast from "react-hot-toast";
 import type {
@@ -1164,6 +1165,10 @@ export default function OrdersPage() {
                         >
                           <MdCancel className="h-4 w-4" />
                         </Button>
+                        <PrintWaybillButton
+                          orderId={order.id.replace(/^#/, "")}
+                          iconOnly
+                        />
                         </div>
                       </TableCell>
                     </TableRow>

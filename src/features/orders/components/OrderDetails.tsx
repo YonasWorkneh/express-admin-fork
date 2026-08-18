@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ConfirmationModal from "@/components/common/ConfirmationModal";
+import PrintWaybillButton from "@/components/common/PrintWaybillButton";
 import api from "@/lib/api/api";
 import toast from "react-hot-toast";
 
@@ -353,6 +354,10 @@ export default function OrderDetails() {
                 </div>
               </div>
               <div className="flex gap-3">
+                <PrintWaybillButton
+                  orderId={order.id.replace(/^#/, "")}
+                  className="border border-gray-300"
+                />
                 <Button
                   type="button"
                   variant="outline"

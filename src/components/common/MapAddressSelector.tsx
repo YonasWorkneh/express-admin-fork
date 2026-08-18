@@ -109,6 +109,7 @@ export default function MapAddressSelector({
           latitude: lat,
           longitude: lng,
         });
+        setIsMapVisible(false);
       }
     } catch (error) {
       console.error("Error reverse geocoding:", error);
@@ -154,6 +155,7 @@ export default function MapAddressSelector({
     setSelectedPosition([lat, lng]);
     setSearchQuery(address);
     setShowSearchResults(false);
+    setIsMapVisible(false);
     onAddressSelect({
       address,
       latitude: lat,
@@ -215,6 +217,47 @@ export default function MapAddressSelector({
           </Button>
         </div>
 
+        {/* Map Container — overlays below the input instead of pushing the page layout down */}
+        {isMapVisible && (
+          <Card className="absolute z-40 w-full mt-1 shadow-lg">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                  <IoLocation className="h-4 w-4" />
+                  Select Location on Map
+                </CardTitle>
+                <button
+                  type="button"
+                  onClick={() => setIsMapVisible(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                  aria-label="Close map"
+                >
+                  <IoClose className="h-4 w-4" />
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div style={{ height, width: "100%" }}>
+                <MapContainer
+                  center={selectedPosition || defaultCenter}
+                  zoom={13}
+                  style={{ height: "100%", width: "100%" }}
+                  className="rounded-lg"
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <LocationMarker
+                    position={selectedPosition}
+                    onPositionChange={handleMapClick}
+                  />
+                </MapContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Search Results Dropdown */}
         {showSearchResults && searchResults.length > 0 && (
           <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -255,37 +298,6 @@ export default function MapAddressSelector({
           </div>
         )}
       </div>
-
-      {/* Map Container */}
-      {isMapVisible && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
-              <IoLocation className="h-4 w-4" />
-              Select Location on Map
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div style={{ height, width: "100%" }}>
-              <MapContainer
-                center={selectedPosition || defaultCenter}
-                zoom={13}
-                style={{ height: "100%", width: "100%" }}
-                className="rounded-lg"
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <LocationMarker
-                  position={selectedPosition}
-                  onPositionChange={handleMapClick}
-                />
-              </MapContainer>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Loading Indicator */}
       {isLoading && (

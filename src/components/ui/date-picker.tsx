@@ -113,7 +113,7 @@ export function DateTimePicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "w-full min-h-[56px] h-auto cursor-pointer justify-start py-7 px-3 text-left font-normal rounded-md border shadow-xs disabled:cursor-not-allowed",
+            "w-full h-auto cursor-pointer justify-start py-1.5 px-3 text-left font-normal rounded-md border shadow-xs disabled:cursor-not-allowed",
             !selected && "text-gray-500",
             error && "border-red-500",
             className,

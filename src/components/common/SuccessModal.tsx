@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IoCheckmarkCircle, IoClose, IoCopy, IoQrCode } from "react-icons/io5";
 import QRCode from "qrcode";
 import WaybillDocument, { type WaybillData } from "./WaybillDocument";
+import PrintWaybillButton from "./PrintWaybillButton";
 
 interface SuccessModalProps {
   isOpen: boolean;
@@ -17,6 +18,8 @@ interface SuccessModalProps {
   qrCodeLabel?: string;
   /** When provided, renders a printable waybill instead of the plain tracking/QR card */
   waybill?: WaybillData;
+  /** When provided, shows a "Print Waybill" button that calls the print endpoint. */
+  orderId?: string;
 }
 
 export default function SuccessModal({
@@ -28,6 +31,7 @@ export default function SuccessModal({
   trackingLabel = "Tracking Number",
   qrCodeLabel = "Scan this QR code to track your order",
   waybill,
+  orderId,
 }: SuccessModalProps) {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
   const [copied, setCopied] = useState(false);
@@ -276,17 +280,9 @@ export default function SuccessModal({
               >
                 Close
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  window.print();
-                }}
-                className="flex-1"
-                tabIndex={0}
-                aria-label="Print details"
-              >
-                Print Details
-              </Button>
+              {orderId && (
+                <PrintWaybillButton orderId={orderId} className="flex-1 border" />
+              )}
             </div>
           </CardContent>
         </Card>
