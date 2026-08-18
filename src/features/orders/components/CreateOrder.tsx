@@ -1373,7 +1373,7 @@ export default function OrderForm() {
               {/* Waybill document: banner + Shipper/Consignee + Shipment + Service Info + Vehicle Types + Complete Order, all one table */}
               <div className="rounded-lg overflow-hidden border border-gray-200 mb-6 bg-white">
                 {/* Company banner header row */}
-                <div className="bg-gradient-to-r from-[#FADF4B] to-[#f2c94c] px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="bg-[#FADF4B] px-6 py-4 flex flex-wrap items-center justify-between gap-3">
                   <img
                     src={COMPANY_LOGO_SRC}
                     alt={COMPANY_NAME}
