@@ -187,9 +187,7 @@ function mapOrderDetailToFormValues(o: OrderDetailApi) {
 const buildOrderValidationSchema = () =>
   Yup.object().shape({
     receiverName: Yup.string().required("Receiver name is required"),
-    receiverEmail: Yup.string()
-      .email("Invalid email")
-      .required("Receiver email is required"),
+    receiverEmail: Yup.string().email("Invalid email"),
     receiverPhone: Yup.string()
       .matches(
         phoneRegex,
@@ -222,7 +220,7 @@ const buildOrderValidationSchema = () =>
         otherwise: (schema) => schema,
       }),
     name: Yup.string().required("Name is required"),
-    email: Yup.string().email("Invalid email").required("Email is required"),
+    email: Yup.string().email("Invalid email"),
     phone: Yup.string()
       .matches(
         phoneRegex,
@@ -294,11 +292,11 @@ interface ConvertedShipment {
   transactionId?: string;
 }
 
-/** Borderless input styling so fields sit flush inside a `FieldCell`, table-style */
+/** Input styling that reads clearly as an editable field inside a `FieldCell` */
 const tableInputClass =
-  "border-0 rounded-none shadow-none px-0 py-0 h-auto bg-transparent focus-visible:ring-0 text-sm font-semibold text-gray-900 placeholder:font-normal placeholder:text-gray-400";
+  "rounded-md border border-gray-300 bg-gray-50 shadow-none h-9 px-2.5 py-1.5 text-sm font-semibold text-gray-900 placeholder:font-normal placeholder:text-gray-400 transition-colors hover:border-primary/50 hover:bg-white focus-visible:border-primary focus-visible:bg-white focus-visible:ring-primary/20 focus-visible:ring-[3px]";
 const tableTriggerClass =
-  "border-0 rounded-none shadow-none px-0 py-0 h-auto !bg-transparent focus-visible:ring-0 text-sm font-semibold text-gray-900 justify-start";
+  "rounded-md border border-gray-300 bg-gray-50 shadow-none h-9 px-2.5 py-1.5 !bg-gray-50 text-sm font-semibold text-gray-900 justify-between transition-colors hover:border-primary/50 hover:!bg-white data-[state=open]:border-primary data-[state=open]:!bg-white focus-visible:ring-primary/20 focus-visible:ring-[3px]";
 
 /** A single waybill-style table cell: small uppercase label above a flush value/input */
 function FieldCell({
@@ -314,7 +312,7 @@ function FieldCell({
 }) {
   return (
     <div className={cn("bg-white px-2 py-1", className)}>
-      <p className="text-[10px] uppercase tracking-wide text-gray-500 leading-tight mb-0.5">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 leading-tight mb-0.5">
         {label}
       </p>
       {children}
@@ -334,7 +332,7 @@ function FieldTable({
   return (
     <div
       className={cn(
-        "grid grid-cols-2 gap-px bg-gray-200 border border-gray-200 rounded-lg overflow-hidden",
+        "grid grid-cols-2 gap-px bg-primary/20 border border-primary/20 rounded-lg overflow-hidden",
         className,
       )}
     >
@@ -393,7 +391,7 @@ function PaymentMethodSection({
   setFieldTouched: (field: string, touched?: boolean) => void;
 }) {
   return (
-    <div className="space-y-4 pt-2 border-t border-gray-200">
+    <div className="space-y-4 pt-2 border-t border-primary">
       <div>
         <h3 className="text-sm font-semibold text-gray-800">Payment method</h3>
         <p className="text-xs text-gray-500 mt-0.5">
@@ -426,7 +424,7 @@ function PaymentMethodSection({
                   ? "border-[#EE1E21] bg-[#EE1E21]/5 ring-2 ring-[#EE1E21]"
                   : showError
                     ? "border-red-500 bg-white"
-                    : "border-gray-200 bg-white hover:border-gray-300",
+                    : "border-primary bg-white hover:border-primary/40",
               )}
             >
               {method.icon("h-10 w-auto max-w-[100px] shrink-0")}
@@ -446,9 +444,9 @@ function PaymentMethodSection({
       )}
 
       {values.paymentType === "bank_transfer" && (
-        <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
+        <div className="rounded-lg border border-primary bg-white p-4 space-y-3">
           <div>
-            <Label className="mb-1">Bank name</Label>
+            <Label className="mb-1 font-bold">Bank name</Label>
             <Field
               as={Input}
               name="bankName"
@@ -464,7 +462,7 @@ function PaymentMethodSection({
             )}
           </div>
           <div>
-            <Label className="mb-1">Transaction ID</Label>
+            <Label className="mb-1 font-bold">Transaction ID</Label>
             <Field
               as={Input}
               name="transactionId"
@@ -705,7 +703,7 @@ function VehicleTypeTile({
         "border rounded-lg p-3 flex flex-col items-center gap-2 transition-colors text-center cursor-pointer",
         selected
           ? "border-[#EE1E21] bg-[#EE1E21]/5 ring-2 ring-[#EE1E21]"
-          : "border-gray-200 hover:border-gray-300 bg-white",
+          : "border-primary hover:border-primary/40 bg-white",
       )}
     >
       <VehicleTypeThumbnail
@@ -749,7 +747,7 @@ function OrderVehicleTypesSection({
   return (
     <div
       className={cn(
-        "bg-gray-50 p-6 rounded-lg border border-gray-200 shadow-sm mt-6 space-y-4",
+        "bg-gray-50 p-6 rounded-lg border border-primary shadow-sm mt-6 space-y-4",
         className,
       )}
     >
@@ -763,7 +761,7 @@ function OrderVehicleTypesSection({
       </div>
 
       <div>
-        <Label className="mb-2">Selection *</Label>
+        <Label className="mb-2 font-bold">Selection *</Label>
         {!trimmedServiceTypeId && (
           <p className="text-sm text-amber-800 py-2">
             Select a service type above to load available vehicle categories.
@@ -1371,7 +1369,7 @@ export default function OrderForm() {
               </div> */}
               </header>
               {/* Waybill document: banner + Shipper/Consignee + Shipment + Service Info + Vehicle Types + Complete Order, all one table */}
-              <div className="rounded-lg overflow-hidden border border-gray-200 mb-6 bg-white">
+              <div className="rounded-lg overflow-hidden border border-primary mb-6 bg-white">
                 {/* Company banner header row */}
                 <div className="bg-[#FADF4B] px-6 py-4 flex flex-wrap items-center justify-between gap-3">
                   <img
@@ -1390,10 +1388,10 @@ export default function OrderForm() {
                 </div>
                 <div className="h-1 bg-[#EE1E21]" />
                 {/* Shipper / Consignee row */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-200 border-b border-gray-200">
+                <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-primary border-b border-primary">
                   {/* Customer Info */}
                   <div className="space-y-4 p-4">
-                    <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide pb-2 border-b border-gray-200">
+                    <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide pb-2 border-b border-primary">
                       Shipper Details
                     </h2>
                     <div className="bg-gray-50  rounded-lg space-y-4">
@@ -1473,7 +1471,7 @@ export default function OrderForm() {
 
                   {/* Receiver Info */}
                   <div className="space-y-4 p-4">
-                    <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide pb-2 border-b border-gray-200">
+                    <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide pb-2 border-b border-primary">
                       Consignee Details
                     </h2>
                     <FieldTable>
@@ -1549,7 +1547,7 @@ export default function OrderForm() {
                     </FieldTable>
                     {!isDropoffAcceptEdit && (
                       <div>
-                        <Label className="mb-1">Delivery Address</Label>
+                        <Label className="mb-1 font-bold">Delivery Address</Label>
                         <MapAddressSelector
                           onAddressSelect={(addressData) => {
                             setFieldValue(
@@ -1580,9 +1578,9 @@ export default function OrderForm() {
                   </div>
                 </div>
                 {/* Shipment Details · Service Info row */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-200 border-b border-gray-200">
+                <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-primary border-b border-primary">
                   <div className="p-4">
-                    <h2 className="text-xs font-semibold text-gray-800 uppercase tracking-wide pb-2 mb-3 border-b border-gray-200">
+                    <h2 className="text-xs font-semibold text-gray-800 uppercase tracking-wide pb-2 mb-3 border-b border-primary">
                       Shipment Details
                     </h2>
 
@@ -1766,13 +1764,13 @@ export default function OrderForm() {
                     </FieldTable>
                   </div>
                   <div className="p-4 space-y-3">
-                    <h2 className="text-xs font-semibold text-gray-800 uppercase tracking-wide pb-2 mb-3 border-b border-gray-200">
+                    <h2 className="text-xs font-semibold text-gray-800 uppercase tracking-wide pb-2 mb-3 border-b border-primary">
                       Service Info
                     </h2>
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label className="mb-1 text-xs">Service Type</Label>
+                        <Label className="mb-1 text-xs font-bold">Service Type</Label>
                         <Select
                           value={values.serviceTypeId || undefined}
                           onValueChange={(val) => {
@@ -1811,7 +1809,7 @@ export default function OrderForm() {
                       </div>
 
                       <div>
-                        <Label className="mb-1 text-xs">Collection Type</Label>
+                        <Label className="mb-1 text-xs font-bold">Collection Type</Label>
                         <Select
                           value={values.fulfillmentType}
                           onValueChange={(val) => {
@@ -1845,7 +1843,7 @@ export default function OrderForm() {
 
                     {values.fulfillmentType === "PICKUP" && (
                       <div>
-                        <Label className="mb-1 text-xs">Pickup Address</Label>
+                        <Label className="mb-1 text-xs font-bold">Pickup Address</Label>
                         <MapAddressSelector
                           onAddressSelect={(addressData) => {
                             setFieldValue("pickupAddress", addressData.address);
@@ -1874,7 +1872,7 @@ export default function OrderForm() {
                     {values.fulfillmentType === "PICKUP" && (
                       <div>
                         <Label
-                          className="mb-1 text-xs"
+                          className="mb-1 text-xs font-bold"
                           htmlFor="order-pickup-datetime"
                         >
                           Pickup Date
@@ -1899,69 +1897,69 @@ export default function OrderForm() {
 
                     {/* Branch + Delivery Date side by side */}
                     <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="mb-1 text-xs">Branch *</Label>
-                      <Select
-                        value={values.branchId || undefined}
-                        onValueChange={(val) =>
-                          setFieldValue("branchId", val)
-                        }
-                        disabled={loadingBranch}
-                      >
-                        <SelectTrigger
-                          className={`py-2 !w-full text-xs bg-none border ${
-                            !values.branchId ? "border-red-500" : ""
-                          }`}
+                      <div>
+                        <Label className="mb-1 text-xs font-bold">Branch *</Label>
+                        <Select
+                          value={values.branchId || undefined}
+                          onValueChange={(val) =>
+                            setFieldValue("branchId", val)
+                          }
+                          disabled={loadingBranch}
                         >
-                          <SelectValue
-                            placeholder={
-                              loadingBranch
-                                ? "Loading branches..."
-                                : "Select branch"
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {branches.map((branch) => (
-                            <SelectItem key={branch.id} value={branch.id}>
-                              {branch.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {!values.branchId && (
-                        <p className="text-red-500 text-xs mt-1">
-                          Branch is required for the order
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <Label
-                        className="mb-1 text-xs"
-                        htmlFor="order-delivery-datetime"
-                      >
-                        Delivery Date
-                      </Label>
-                      <DateTimePicker
-                        id="order-delivery-datetime"
-                        value={values.deliveryDate}
-                        onChange={(v) => setFieldValue("deliveryDate", v)}
-                        onBlur={() => setFieldTouched("deliveryDate", true)}
-                        placeholder="Pick date and time"
-                        error={Boolean(
-                          errors.deliveryDate && touched.deliveryDate,
+                          <SelectTrigger
+                            className={`py-2 !w-full text-xs bg-none border ${
+                              !values.branchId ? "border-red-500" : ""
+                            }`}
+                          >
+                            <SelectValue
+                              placeholder={
+                                loadingBranch
+                                  ? "Loading branches..."
+                                  : "Select branch"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {branches.map((branch) => (
+                              <SelectItem key={branch.id} value={branch.id}>
+                                {branch.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {!values.branchId && (
+                          <p className="text-red-500 text-xs mt-1">
+                            Branch is required for the order
+                          </p>
                         )}
-                      />
-                      {errors.deliveryDate && touched.deliveryDate && (
-                        <p className="text-red-500 text-xs mt-1">
-                          {errors.deliveryDate}
-                        </p>
-                      )}
-                    </div>
+                      </div>
+
+                      <div>
+                        <Label
+                          className="mb-1 text-xs font-bold"
+                          htmlFor="order-delivery-datetime"
+                        >
+                          Delivery Date
+                        </Label>
+                        <DateTimePicker
+                          id="order-delivery-datetime"
+                          value={values.deliveryDate}
+                          onChange={(v) => setFieldValue("deliveryDate", v)}
+                          onBlur={() => setFieldTouched("deliveryDate", true)}
+                          placeholder="Pick date and time"
+                          error={Boolean(
+                            errors.deliveryDate && touched.deliveryDate,
+                          )}
+                        />
+                        {errors.deliveryDate && touched.deliveryDate && (
+                          <p className="text-red-500 text-xs mt-1">
+                            {errors.deliveryDate}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     {/* <div>
-                <Label className="mb-1">Sender Entity</Label>
+                <Label className="mb-1 font-bold">Sender Entity</Label>
                 <Select
                   value={String(values.senderEntity)}
                   onValueChange={(val) => setFieldValue("senderEntity", val)}
@@ -1980,7 +1978,7 @@ export default function OrderForm() {
                 {/* Row 2: Vehicle Types · Complete Order */}
                 <div
                   className={cn(
-                    "grid grid-cols-1 divide-y lg:divide-y-0 divide-gray-200 border-t border-gray-200",
+                    "grid grid-cols-1 divide-y lg:divide-y-0 divide-primary border-t border-primary",
                     showVehicleTypes && "lg:grid-cols-2 lg:divide-x",
                   )}
                 >
@@ -1999,17 +1997,17 @@ export default function OrderForm() {
 
                   {/* Estimate & submit */}
                   <div className="p-4 space-y-4">
-                    <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide pb-2 mb-4 border-b border-gray-200">
+                    <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide pb-2 mb-4 border-b border-primary">
                       Complete Order
                     </h2>
 
                     {isDropoffAcceptEdit && !orderSummary && (
-                      <div className="flex flex-col sm:flex-row gap-3 w-full border-t border-gray-200 pt-4">
+                      <div className="flex flex-col sm:flex-row gap-3 w-full border-t border-primary pt-4">
                         <Button
                           type="button"
                           disabled={priceLoading}
                           onClick={() => navigate("/order")}
-                          className="flex-1 min-h-[48px] bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300"
+                          className="flex-1 min-h-[48px] bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-primary/30"
                         >
                           Cancel
                         </Button>
@@ -2034,7 +2032,7 @@ export default function OrderForm() {
                             type="button"
                             disabled={priceLoading}
                             onClick={() => navigate(-1)}
-                            className="flex-1 bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300"
+                            className="flex-1 bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-primary/30"
                           >
                             Cancel
                           </Button>
@@ -2076,7 +2074,7 @@ export default function OrderForm() {
                           disabled={loading}
                           type="button"
                           onClick={() => navigate(-1)}
-                          className="bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300 !w-full"
+                          className="bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-primary/30 !w-full"
                         >
                           Cancel
                         </Button>
@@ -2084,7 +2082,7 @@ export default function OrderForm() {
                     )}
 
                     {orderSummary && !isDropoffAcceptEdit && !isGeneralEdit && (
-                      <div className="space-y-4 pt-2 border-t border-gray-200">
+                      <div className="space-y-4 pt-2 border-t border-primary">
                         {orderSummary.breakdown && (
                           <div>
                             <h3 className="text-sm font-semibold text-gray-800 mb-2">
@@ -2168,7 +2166,7 @@ export default function OrderForm() {
                                       "flex gap-3 p-3 rounded-lg border text-left transition-colors",
                                       selected
                                         ? "border-[#EE1E21] bg-[#EE1E21]/5 ring-2 ring-[#EE1E21]"
-                                        : "border-gray-200 bg-white hover:border-gray-300",
+                                        : "border-primary bg-white hover:border-primary/40",
                                     )}
                                   >
                                     {v.imageUrl ? (
@@ -2239,7 +2237,7 @@ export default function OrderForm() {
                             disabled={loading}
                             type="button"
                             onClick={() => navigate(-1)}
-                            className="bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300 !w-full"
+                            className="bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-primary/30 !w-full"
                           >
                             Cancel
                           </Button>
@@ -2248,9 +2246,9 @@ export default function OrderForm() {
                     )}
 
                     {orderSummary && isDropoffAcceptEdit && (
-                      <div className="space-y-4 pt-2 border-t border-gray-200">
+                      <div className="space-y-4 pt-2 border-t border-primary">
                         <div>
-                          <Label className="mb-1">Validation notes</Label>
+                          <Label className="mb-1 font-bold">Validation notes</Label>
                           <Field
                             as={Textarea}
                             name="validatedNotes"
@@ -2259,7 +2257,7 @@ export default function OrderForm() {
                           />
                         </div>
 
-                        <div className="rounded-lg border border-gray-200 bg-white p-4">
+                        <div className="rounded-lg border border-primary bg-white p-4">
                           <h3 className="text-sm font-semibold text-gray-800 mb-3">
                             Price comparison
                           </h3>
@@ -2336,7 +2334,7 @@ export default function OrderForm() {
                                       "flex gap-3 p-3 rounded-lg border text-left transition-colors",
                                       selected
                                         ? "border-[#EE1E21] bg-[#EE1E21]/5 ring-2 ring-[#EE1E21]"
-                                        : "border-gray-200 bg-white hover:border-gray-300",
+                                        : "border-primary bg-white hover:border-primary/40",
                                     )}
                                   >
                                     <div className="min-w-0 flex-1">
@@ -2358,7 +2356,7 @@ export default function OrderForm() {
                         )}
 
                         <div>
-                          <Label className="mb-1">Final price</Label>
+                          <Label className="mb-1 font-bold">Final price</Label>
                           <Field
                             as={Input}
                             type="number"
@@ -2378,7 +2376,7 @@ export default function OrderForm() {
                             type="button"
                             disabled={confirmingDropoffUpdate}
                             onClick={() => navigate("/order")}
-                            className="flex-1 min-h-[48px] bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-gray-300"
+                            className="flex-1 min-h-[48px] bg-gray-100 hover:bg-gray-200 cursor-pointer !text-black border border-primary/30"
                           >
                             Cancel
                           </Button>
