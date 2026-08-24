@@ -28,7 +28,13 @@ import {
   COMPANY_NAME,
   COMPANY_PHONE,
 } from "@/constants/company";
-import { MdAccountBalance } from "react-icons/md";
+import {
+  MdAccountBalance,
+  MdAttachMoney,
+  MdLocalShipping,
+  MdCreditCard,
+  MdOutlineReceiptLong,
+} from "react-icons/md";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import * as Yup from "yup";
@@ -36,7 +42,7 @@ import api from "@/lib/api/api";
 import toast from "react-hot-toast";
 import type { Branch, BranchListResponse } from "@/types/types";
 import { Spinner } from "@/utils/spinner";
-import { Select as Style2 } from "antd";
+import { ConfigProvider, Select as Style2 } from "antd";
 import { useServiceTypes } from "@/hooks/useServiceTypes";
 import { useOrderItemCategories } from "@/hooks/useOrderItemCategories";
 import { useFleetVehicleTypesForServiceTypeQuery } from "@/hooks/useDriverCommissionConfig";
@@ -84,7 +90,7 @@ function createEmptyFormValues() {
     phone: ETHIO_COUNTRY_CODE,
     weight: 0,
     quantity: 0,
-    categoryId: "",
+    categoryIds: [] as string[],
     isFragile: false,
     shipmentType: "",
     shippingScope: "",
@@ -162,7 +168,7 @@ function mapOrderDetailToFormValues(o: OrderDetailApi) {
     unusualReason: o.unusualReason ?? "",
     shipmentType: (o.shipmentType as string) ?? "",
     destination: String(o.shippingScope ?? "TOWN").toUpperCase(),
-    categoryId: o.category?.id ?? "",
+    categoryIds: o.category?.id ? [o.category.id] : [],
     quantity: o.quantity ?? 0,
     length: o.length ?? 0,
     width: o.width ?? 0,
@@ -250,7 +256,7 @@ interface ConvertedShipment {
   serviceTypeId: any;
   fulfillmentType: any;
   weight: any;
-  categoryId?: any;
+  categoryIds?: string[];
   isFragile: any;
   shipmentType: any;
   shippingScope: any;
@@ -294,7 +300,7 @@ interface ConvertedShipment {
 
 /** Input styling that reads clearly as an editable field inside a `FieldCell` */
 const tableInputClass =
-  "rounded-md border border-gray-300 bg-gray-50 shadow-none h-9 px-2.5 py-1.5 text-sm font-semibold text-gray-900 placeholder:font-normal placeholder:text-gray-400 transition-colors hover:border-primary/50 hover:bg-white focus-visible:border-primary focus-visible:bg-white focus-visible:ring-primary/20 focus-visible:ring-[3px]";
+  "rounded-md border border-gray-500 bg-gray-50 shadow-none h-9 px-2.5 py-1.5 text-sm font-semibold text-gray-900 placeholder:font-normal placeholder:text-gray-400 transition-colors hover:border-primary/50 hover:bg-white focus-visible:border-primary focus-visible:bg-white focus-visible:ring-primary/20 focus-visible:ring-[3px]";
 const tableTriggerClass =
   "rounded-md border border-gray-300 bg-gray-50 shadow-none h-9 px-2.5 py-1.5 !bg-gray-50 text-sm font-semibold text-gray-900 justify-between transition-colors hover:border-primary/50 hover:!bg-white data-[state=open]:border-primary data-[state=open]:!bg-white focus-visible:ring-primary/20 focus-visible:ring-[3px]";
 
@@ -332,7 +338,7 @@ function FieldTable({
   return (
     <div
       className={cn(
-        "grid grid-cols-2 gap-px bg-primary/20 border border-primary/20 rounded-lg overflow-hidden",
+        "grid grid-cols-2 gap-px bg-primary border border-primary rounded-lg overflow-hidden",
         className,
       )}
     >
@@ -341,7 +347,14 @@ function FieldTable({
   );
 }
 
-type PaymentMethodId = "cbe" | "telebirr" | "bank_transfer";
+type PaymentMethodId =
+  | "cbe"
+  | "telebirr"
+  | "bank_transfer"
+  | "direct_cash"
+  | "cash_on_delivery"
+  | "credit"
+  | "check";
 
 const PAYMENT_METHODS: {
   id: PaymentMethodId;
@@ -375,6 +388,26 @@ const PAYMENT_METHODS: {
     label: "Direct bank transfer",
     icon: (c) => <MdAccountBalance className={cn(c, "text-[#EE1E21]")} />,
   },
+  {
+    id: "direct_cash",
+    label: "Direct Cash",
+    icon: (c) => <MdAttachMoney className={cn(c, "text-[#EE1E21]")} />,
+  },
+  {
+    id: "cash_on_delivery",
+    label: "Cash on Delivery",
+    icon: (c) => <MdLocalShipping className={cn(c, "text-[#EE1E21]")} />,
+  },
+  {
+    id: "credit",
+    label: "Credit",
+    icon: (c) => <MdCreditCard className={cn(c, "text-[#EE1E21]")} />,
+  },
+  {
+    id: "check",
+    label: "Check",
+    icon: (c) => <MdOutlineReceiptLong className={cn(c, "text-[#EE1E21]")} />,
+  },
 ];
 
 function PaymentMethodSection({
@@ -399,7 +432,7 @@ function PaymentMethodSection({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
         {PAYMENT_METHODS.map((method) => {
           const selected = values.paymentType === method.id;
           const showError =
@@ -439,7 +472,7 @@ function PaymentMethodSection({
       {(values.paymentType === "cbe" || values.paymentType === "telebirr") && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {values.paymentType === "cbe" ? "CBE Birr" : "telebirr"} payments are
-          coming soon. Please choose direct bank transfer for now.
+          coming soon. Please choose another payment method for now.
         </div>
       )}
 
@@ -628,9 +661,15 @@ function buildConvertedShipment(
 
   applySenderToShipmentPayload(converted, _values);
 
-  const categoryIdTrim = String(_values.categoryId ?? "").trim();
-  if (categoryIdTrim) {
-    converted.categoryId = categoryIdTrim;
+  const categoryIds: string[] = Array.from(
+    new Set(
+      (Array.isArray(_values.categoryIds) ? _values.categoryIds : [])
+        .map((id: unknown) => String(id ?? "").trim())
+        .filter(Boolean) as string[],
+    ),
+  );
+  if (categoryIds.length > 0) {
+    converted.categoryIds = categoryIds;
   }
 
   if (_values.shipmentType == "PARCEL") {
@@ -640,9 +679,11 @@ function buildConvertedShipment(
   }
 
   if (!isGeneralEdit) {
-    converted.paymentType = "bank_transfer";
-    converted.bankName = _values.bankName.trim();
-    converted.transactionId = _values.transactionId.trim();
+    converted.paymentType = _values.paymentType;
+    if (_values.paymentType === "bank_transfer") {
+      converted.bankName = _values.bankName.trim();
+      converted.transactionId = _values.transactionId.trim();
+    }
   }
 
   return converted;
@@ -1046,9 +1087,15 @@ export default function OrderForm() {
 
     applySenderToShipmentPayload(converted, _values);
 
-    const categoryIdTrim = String(_values.categoryId ?? "").trim();
-    if (categoryIdTrim) {
-      converted.categoryId = categoryIdTrim;
+    const categoryIdsEstimate: string[] = Array.from(
+      new Set(
+        (Array.isArray(_values.categoryIds) ? _values.categoryIds : [])
+          .map((id: unknown) => String(id ?? "").trim())
+          .filter(Boolean) as string[],
+      ),
+    );
+    if (categoryIdsEstimate.length > 0) {
+      converted.categoryIds = categoryIdsEstimate;
     }
 
     if (_values.shipmentType == "PARCEL") {
@@ -1119,9 +1166,13 @@ export default function OrderForm() {
   };
 
   const buildWaybillData = (trackingCode: string, v: any): WaybillData => {
-    const categoryName = orderItemCategories.find(
-      (c) => c.id === v.categoryId,
-    )?.name;
+    const categoryIds: string[] = Array.isArray(v.categoryIds)
+      ? v.categoryIds
+      : [];
+    const categoryName = categoryIds
+      .map((id) => orderItemCategories.find((c) => c.id === id)?.name)
+      .filter(Boolean)
+      .join(", ");
     const serviceTypeName = serviceTypes?.find(
       (s) => s.id === v.serviceTypeId,
     )?.name;
@@ -1195,9 +1246,12 @@ export default function OrderForm() {
         return;
       }
     }
-    if (!isGeneralEdit && _values.paymentType !== "bank_transfer") {
+    if (
+      !isGeneralEdit &&
+      (_values.paymentType === "cbe" || _values.paymentType === "telebirr")
+    ) {
       toast.error(
-        "This payment method is coming soon. Please choose direct bank transfer for now.",
+        "This payment method is coming soon. Please choose another payment method for now.",
       );
       return;
     }
@@ -1669,7 +1723,7 @@ export default function OrderForm() {
                       ) : (
                         <></>
                       )}
-                      <FieldCell label="Description of Goods">
+                      <FieldCell label="Order Categories">
                         {loadingOrderItemCategories && (
                           <div className="flex items-center gap-2 py-1 text-xs text-gray-600">
                             <Spinner className="h-4 w-4 text-[#EE1E21]" />
@@ -1689,27 +1743,42 @@ export default function OrderForm() {
                               Orders → Item categories.
                             </p>
                           )}
-                        <Style2
-                          allowClear
-                          variant="borderless"
-                          placeholder="Select category"
-                          value={values.categoryId || undefined}
-                          onChange={(val) =>
-                            setFieldValue("categoryId", val ?? "")
-                          }
-                          disabled={
-                            loadingOrderItemCategories ||
-                            orderItemCategories.length === 0
-                          }
-                          className="!p-0 [&_.ant-select-selector]:!p-0"
-                          style={{ width: "100%" }}
+                        <ConfigProvider
+                          theme={{
+                            components: {
+                              Select: {
+                                colorBorder: "#d1d5db",
+                                colorBgContainer: "#f9fafb",
+                                hoverBorderColor: "rgba(238, 30, 33, 0.5)",
+                                activeBorderColor: "#EE1E21",
+                                activeOutlineColor: "rgba(238, 30, 33, 0.2)",
+                              },
+                            },
+                          }}
                         >
-                          {orderItemCategories.map((cat) => (
-                            <Style2.Option key={cat.id} value={cat.id}>
-                              {cat.name}
-                            </Style2.Option>
-                          ))}
-                        </Style2>
+                          <Style2
+                            mode="multiple"
+                            allowClear
+                            placeholder="Select categories"
+                            value={values.categoryIds}
+                            onChange={(val) =>
+                              setFieldValue("categoryIds", val ?? [])
+                            }
+                            disabled={
+                              loadingOrderItemCategories ||
+                              orderItemCategories.length === 0
+                            }
+                            maxTagTextLength={18}
+                            className="[&_.ant-select-selector]:!rounded-md [&_.ant-select-selector]:!shadow-none [&_.ant-select-selector]:!min-h-9 [&_.ant-select-selector]:!px-2.5 [&_.ant-select-selector]:!py-1"
+                            style={{ width: "100%" }}
+                          >
+                            {orderItemCategories.map((cat) => (
+                              <Style2.Option key={cat.id} value={cat.id}>
+                                {cat.name}
+                              </Style2.Option>
+                            ))}
+                          </Style2>
+                        </ConfigProvider>
                       </FieldCell>
                       <FieldCell
                         label="Destination"

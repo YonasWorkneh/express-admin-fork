@@ -195,7 +195,7 @@ export default function MapAddressSelector({
               value={searchQuery}
               onChange={handleSearchChange}
               placeholder="Search for an address..."
-              className="pl-10 pr-10 py-7"
+              className="pl-9 pr-9 py-1.5"
             />
             {searchQuery && (
               <button
