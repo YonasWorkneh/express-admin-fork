@@ -51,6 +51,7 @@ import { VehicleTypeThumbnail } from "@/lib/vehicleTypeVisual";
 import { cn } from "@/lib/utils";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { fetchOrderById } from "@/lib/api/orders";
+import { createPayment, type CreatePaymentInput } from "@/lib/api/payment";
 import type { OrderDetailApi } from "@/types/orderDetail";
 import { format } from "date-fns";
 
@@ -89,8 +90,9 @@ function createEmptyFormValues() {
     email: "",
     phone: ETHIO_COUNTRY_CODE,
     weight: 0,
-    quantity: 0,
     categoryIds: [] as string[],
+    /** Per-category quantity, keyed by categoryId — one entry per selected category. */
+    categoryQuantities: {} as Record<string, number>,
     isFragile: false,
     shipmentType: "",
     shippingScope: "",
@@ -123,8 +125,21 @@ function createEmptyFormValues() {
     validatedNotes: "",
     finalPrice: 0,
     paymentType: "",
+    // Cash
+    receiptNumber: "",
+    // Bank transfer
     bankName: "",
-    transactionId: "",
+    referenceNumber: "",
+    accountName: "",
+    accountNumber: "",
+    depositedAt: "",
+    // Check
+    checkNumber: "",
+    checkIssueDate: "",
+    checkDueDate: "",
+    payerName: "",
+    // Credit
+    couponCode: "",
   };
 }
 
@@ -169,7 +184,9 @@ function mapOrderDetailToFormValues(o: OrderDetailApi) {
     shipmentType: (o.shipmentType as string) ?? "",
     destination: String(o.shippingScope ?? "TOWN").toUpperCase(),
     categoryIds: o.category?.id ? [o.category.id] : [],
-    quantity: o.quantity ?? 0,
+    categoryQuantities: o.category?.id
+      ? { [o.category.id]: o.quantity ?? 1 }
+      : {},
     length: o.length ?? 0,
     width: o.width ?? 0,
     height: o.height ?? 0,
@@ -234,14 +251,59 @@ const buildOrderValidationSchema = () =>
       )
       .required("Phone is required"),
     paymentType: Yup.string().required("Select a payment method"),
+    receiptNumber: Yup.string().when("paymentType", {
+      is: "direct_cash",
+      then: (schema) => schema.required("Receipt number is required"),
+      otherwise: (schema) => schema.notRequired(),
+    }),
     bankName: Yup.string().when("paymentType", {
-      is: "bank_transfer",
+      is: (v: string) => v === "bank_transfer" || v === "check",
       then: (schema) => schema.required("Bank name is required"),
       otherwise: (schema) => schema.notRequired(),
     }),
-    transactionId: Yup.string().when("paymentType", {
+    referenceNumber: Yup.string().when("paymentType", {
       is: "bank_transfer",
-      then: (schema) => schema.required("Transaction ID is required"),
+      then: (schema) => schema.required("Reference number is required"),
+      otherwise: (schema) => schema.notRequired(),
+    }),
+    accountName: Yup.string().when("paymentType", {
+      is: "bank_transfer",
+      then: (schema) => schema.required("Account name is required"),
+      otherwise: (schema) => schema.notRequired(),
+    }),
+    accountNumber: Yup.string().when("paymentType", {
+      is: "bank_transfer",
+      then: (schema) => schema.required("Account number is required"),
+      otherwise: (schema) => schema.notRequired(),
+    }),
+    depositedAt: Yup.string().when("paymentType", {
+      is: "bank_transfer",
+      then: (schema) => schema.required("Deposit date is required"),
+      otherwise: (schema) => schema.notRequired(),
+    }),
+    checkNumber: Yup.string().when("paymentType", {
+      is: "check",
+      then: (schema) => schema.required("Check number is required"),
+      otherwise: (schema) => schema.notRequired(),
+    }),
+    checkIssueDate: Yup.string().when("paymentType", {
+      is: "check",
+      then: (schema) => schema.required("Check issue date is required"),
+      otherwise: (schema) => schema.notRequired(),
+    }),
+    checkDueDate: Yup.string().when("paymentType", {
+      is: "check",
+      then: (schema) => schema.required("Check due date is required"),
+      otherwise: (schema) => schema.notRequired(),
+    }),
+    payerName: Yup.string().when("paymentType", {
+      is: "check",
+      then: (schema) => schema.required("Payer name is required"),
+      otherwise: (schema) => schema.notRequired(),
+    }),
+    couponCode: Yup.string().when("paymentType", {
+      is: "credit",
+      then: (schema) => schema.required("Coupon code is required"),
       otherwise: (schema) => schema.notRequired(),
     }),
   });
@@ -251,12 +313,12 @@ interface ConvertedShipment {
   email?: any;
   phone?: any;
   receiverName: any;
-  receiverEmail: any;
+  receiverEmail?: any;
   receiverPhone: any;
   serviceTypeId: any;
   fulfillmentType: any;
   weight: any;
-  categoryIds?: string[];
+  categories?: { categoryId: string; quantity: number }[];
   isFragile: any;
   shipmentType: any;
   shippingScope: any;
@@ -274,7 +336,6 @@ interface ConvertedShipment {
 
   isUnusual: any;
   unusualReason: any;
-  quantity: any;
   // cost: any;
   pickupDate?: any;
   deliveryDate?: any;
@@ -292,10 +353,10 @@ interface ConvertedShipment {
   sessionId?: string;
   vehicleTypeIds?: string[];
 
-  // Payment
+  // Payment — created via POST /payment before order creation, then echoed onto the order payload.
   paymentType?: string;
-  bankName?: string;
-  transactionId?: string;
+  paymentId?: string;
+  payment?: CreatePaymentInput;
 }
 
 /** Input styling that reads clearly as an editable field inside a `FieldCell` */
@@ -348,8 +409,6 @@ function FieldTable({
 }
 
 type PaymentMethodId =
-  | "cbe"
-  | "telebirr"
   | "bank_transfer"
   | "direct_cash"
   | "cash_on_delivery"
@@ -361,28 +420,6 @@ const PAYMENT_METHODS: {
   label: string;
   icon: (className: string) => ReactNode;
 }[] = [
-  {
-    id: "cbe",
-    label: "CBE Birr",
-    icon: (c) => (
-      <img
-        src="/images/cbe.png"
-        alt="CBE"
-        className={cn(c, "object-contain")}
-      />
-    ),
-  },
-  {
-    id: "telebirr",
-    label: "telebirr",
-    icon: (c) => (
-      <img
-        src="/images/telebirr.png"
-        alt="telebirr"
-        className={cn(c, "object-contain")}
-      />
-    ),
-  },
   {
     id: "bank_transfer",
     label: "Direct bank transfer",
@@ -410,6 +447,62 @@ const PAYMENT_METHODS: {
   },
 ];
 
+/** Which extra form fields each payment method collects, beyond `paymentType`. */
+const PAYMENT_DETAIL_FIELDS: Record<PaymentMethodId, string[]> = {
+  direct_cash: ["receiptNumber"],
+  bank_transfer: [
+    "bankName",
+    "referenceNumber",
+    "accountName",
+    "accountNumber",
+    "depositedAt",
+  ],
+  check: [
+    "bankName",
+    "checkNumber",
+    "checkIssueDate",
+    "checkDueDate",
+    "payerName",
+  ],
+  credit: ["couponCode"],
+  cash_on_delivery: [],
+};
+
+/** One payment-detail input bound to Formik state, with inline error text. */
+function PaymentField({
+  name,
+  label,
+  placeholder,
+  type = "text",
+  errors,
+  touched,
+}: {
+  name: string;
+  label: string;
+  placeholder?: string;
+  type?: string;
+  errors: Record<string, unknown>;
+  touched: Record<string, unknown>;
+}) {
+  const error = errors[name];
+  const isTouched = touched[name];
+  return (
+    <div>
+      <Label className="mb-1 font-bold">{label}</Label>
+      <Field
+        as={Input}
+        type={type}
+        name={name}
+        placeholder={placeholder}
+        className={`py-7 ${error && isTouched ? "border-red-500" : ""}`}
+      />
+      {Boolean(error) && Boolean(isTouched) && (
+        <p className="text-red-500 text-sm mt-1">{String(error)}</p>
+      )}
+    </div>
+  );
+}
+
 function PaymentMethodSection({
   values,
   errors,
@@ -417,12 +510,14 @@ function PaymentMethodSection({
   setFieldValue,
   setFieldTouched,
 }: {
-  values: { paymentType: string; bankName: string; transactionId: string };
+  values: Record<string, unknown> & { paymentType: string };
   errors: Record<string, unknown>;
   touched: Record<string, unknown>;
   setFieldValue: (field: string, value: unknown) => void;
   setFieldTouched: (field: string, touched?: boolean) => void;
 }) {
+  const paymentType = values.paymentType as PaymentMethodId | "";
+
   return (
     <div className="space-y-4 pt-2 border-t border-primary">
       <div>
@@ -434,7 +529,7 @@ function PaymentMethodSection({
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
         {PAYMENT_METHODS.map((method) => {
-          const selected = values.paymentType === method.id;
+          const selected = paymentType === method.id;
           const showError =
             !selected &&
             Boolean(errors.paymentType) &&
@@ -446,10 +541,12 @@ function PaymentMethodSection({
               onClick={() => {
                 setFieldValue("paymentType", method.id);
                 setFieldTouched("paymentType", true);
-                if (method.id !== "bank_transfer") {
-                  setFieldValue("bankName", "");
-                  setFieldValue("transactionId", "");
-                }
+                const keep = new Set(PAYMENT_DETAIL_FIELDS[method.id]);
+                Object.values(PAYMENT_DETAIL_FIELDS)
+                  .flat()
+                  .forEach((field) => {
+                    if (!keep.has(field)) setFieldValue(field, "");
+                  });
               }}
               className={cn(
                 "flex flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors cursor-pointer",
@@ -469,50 +566,113 @@ function PaymentMethodSection({
         })}
       </div>
 
-      {(values.paymentType === "cbe" || values.paymentType === "telebirr") && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {values.paymentType === "cbe" ? "CBE Birr" : "telebirr"} payments are
-          coming soon. Please choose another payment method for now.
+      {paymentType === "direct_cash" && (
+        <div className="rounded-lg border border-primary bg-white p-4 space-y-3">
+          <PaymentField
+            name="receiptNumber"
+            label="Receipt number"
+            placeholder="e.g. RCP-00123"
+            errors={errors}
+            touched={touched}
+          />
         </div>
       )}
 
-      {values.paymentType === "bank_transfer" && (
+      {paymentType === "bank_transfer" && (
         <div className="rounded-lg border border-primary bg-white p-4 space-y-3">
-          <div>
-            <Label className="mb-1 font-bold">Bank name</Label>
-            <Field
-              as={Input}
-              name="bankName"
-              placeholder="e.g. Commercial Bank of Ethiopia"
-              className={`py-7 ${
-                errors.bankName && touched.bankName ? "border-red-500" : ""
-              }`}
-            />
-            {Boolean(errors.bankName) && Boolean(touched.bankName) && (
-              <p className="text-red-500 text-sm mt-1">
-                {String(errors.bankName)}
-              </p>
-            )}
-          </div>
-          <div>
-            <Label className="mb-1 font-bold">Transaction ID</Label>
-            <Field
-              as={Input}
-              name="transactionId"
-              placeholder="e.g. TXN-1234567890"
-              className={`py-7 ${
-                errors.transactionId && touched.transactionId
-                  ? "border-red-500"
-                  : ""
-              }`}
-            />
-            {Boolean(errors.transactionId) &&
-              Boolean(touched.transactionId) && (
-                <p className="text-red-500 text-sm mt-1">
-                  {String(errors.transactionId)}
-                </p>
-              )}
-          </div>
+          <PaymentField
+            name="bankName"
+            label="Bank name"
+            placeholder="e.g. Commercial Bank of Ethiopia"
+            errors={errors}
+            touched={touched}
+          />
+          <PaymentField
+            name="referenceNumber"
+            label="Reference number"
+            placeholder="e.g. TXN-2026-98765"
+            errors={errors}
+            touched={touched}
+          />
+          <PaymentField
+            name="accountName"
+            label="Account name"
+            placeholder="e.g. Hana Tadesse"
+            errors={errors}
+            touched={touched}
+          />
+          <PaymentField
+            name="accountNumber"
+            label="Account number"
+            placeholder="e.g. ****4567"
+            errors={errors}
+            touched={touched}
+          />
+          <PaymentField
+            name="depositedAt"
+            label="Deposited at"
+            type="datetime-local"
+            errors={errors}
+            touched={touched}
+          />
+        </div>
+      )}
+
+      {paymentType === "check" && (
+        <div className="rounded-lg border border-primary bg-white p-4 space-y-3">
+          <PaymentField
+            name="bankName"
+            label="Bank name"
+            placeholder="e.g. Dashen Bank"
+            errors={errors}
+            touched={touched}
+          />
+          <PaymentField
+            name="checkNumber"
+            label="Check number"
+            placeholder="e.g. CHK-000451"
+            errors={errors}
+            touched={touched}
+          />
+          <PaymentField
+            name="checkIssueDate"
+            label="Check issue date"
+            type="date"
+            errors={errors}
+            touched={touched}
+          />
+          <PaymentField
+            name="checkDueDate"
+            label="Check due date"
+            type="date"
+            errors={errors}
+            touched={touched}
+          />
+          <PaymentField
+            name="payerName"
+            label="Payer name"
+            placeholder="e.g. Meron Alemayehu"
+            errors={errors}
+            touched={touched}
+          />
+        </div>
+      )}
+
+      {paymentType === "credit" && (
+        <div className="rounded-lg border border-primary bg-white p-4 space-y-3">
+          <PaymentField
+            name="couponCode"
+            label="Coupon code"
+            placeholder="e.g. CRD-X7K9M2P4"
+            errors={errors}
+            touched={touched}
+          />
+        </div>
+      )}
+
+      {paymentType === "cash_on_delivery" && (
+        <div className="rounded-lg border border-primary bg-white p-4 text-sm text-gray-600">
+          The full amount will be collected from the receiver on delivery.
         </div>
       )}
 
@@ -592,8 +752,26 @@ function applySenderToShipmentPayload(
   },
 ) {
   converted.name = String(values.name ?? "").trim();
-  converted.email = String(values.email ?? "").trim();
+  if (values.email) converted.email = String(values.email ?? "").trim();
   converted.phone = String(values.phone ?? "").trim();
+}
+
+/** Builds the `categories` array (categoryId + per-category quantity) shared by the pricing estimate and order-create payloads. */
+function buildCategoriesPayload(
+  _values: any,
+): { categoryId: string; quantity: number }[] {
+  const ids: string[] = Array.from(
+    new Set(
+      (Array.isArray(_values.categoryIds) ? _values.categoryIds : [])
+        .map((id: unknown) => String(id ?? "").trim())
+        .filter(Boolean) as string[],
+    ),
+  );
+  const quantities = _values.categoryQuantities || {};
+  return ids.map((categoryId) => ({
+    categoryId,
+    quantity: Number(quantities[categoryId]) || 1,
+  }));
 }
 
 /** Builds the API shipment payload from form values; shared so edit-mode can diff against the originally loaded values. */
@@ -604,7 +782,7 @@ function buildConvertedShipment(
   const isPickupSubmit = _values.fulfillmentType === "PICKUP";
   const converted: ConvertedShipment = {
     receiverName: _values.receiverName,
-    receiverEmail: _values.receiverEmail,
+
     receiverPhone: _values.receiverPhone,
 
     serviceTypeId: _values.serviceTypeId,
@@ -624,7 +802,6 @@ function buildConvertedShipment(
     isUnusual: _values.isUnusual,
     unusualReason: _values.unusualReason,
 
-    quantity: _values.quantity,
     deliveryDate: _values.deliveryDate
       ? new Date(_values.deliveryDate).toISOString()
       : undefined,
@@ -635,6 +812,8 @@ function buildConvertedShipment(
     converted.selectedVehicleTypeId = _values.selectedVehicleTypeId;
     converted.sessionId = _values.sessionId?.trim();
   }
+  if (_values.receiverEmail != "")
+    converted.receiverEmail = _values.receiverEmail;
 
   if (_values.fulfillmentType === "PICKUP") {
     converted.pickupAddress = {
@@ -661,29 +840,15 @@ function buildConvertedShipment(
 
   applySenderToShipmentPayload(converted, _values);
 
-  const categoryIds: string[] = Array.from(
-    new Set(
-      (Array.isArray(_values.categoryIds) ? _values.categoryIds : [])
-        .map((id: unknown) => String(id ?? "").trim())
-        .filter(Boolean) as string[],
-    ),
-  );
-  if (categoryIds.length > 0) {
-    converted.categoryIds = categoryIds;
+  const categories = buildCategoriesPayload(_values);
+  if (categories.length > 0) {
+    converted.categories = categories;
   }
 
   if (_values.shipmentType == "PARCEL") {
     converted.width = _values?.width;
     converted.height = _values?.height;
     converted.length = _values?.length;
-  }
-
-  if (!isGeneralEdit) {
-    converted.paymentType = _values.paymentType;
-    if (_values.paymentType === "bank_transfer") {
-      converted.bankName = _values.bankName.trim();
-      converted.transactionId = _values.transactionId.trim();
-    }
   }
 
   return converted;
@@ -725,6 +890,86 @@ function formatOrderMoney(
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+/** For PICKUP, the price of the selected vehicle; otherwise the flat estimate for the order. */
+function getOrderAmount(
+  values: {
+    fulfillmentType?: string;
+    selectedVehicleTypeId?: string;
+    sessionId?: string;
+  },
+  summary: OrderSummaryData | null,
+): number | undefined {
+  if (!summary) return undefined;
+  if (values.fulfillmentType === "PICKUP") {
+    const selected = summary.vehicles.find(
+      (v) =>
+        v.vehicleTypeId === values.selectedVehicleTypeId &&
+        (v.sessionId?.trim() ?? "") === String(values.sessionId ?? "").trim(),
+    );
+    return selected?.totalPrice;
+  }
+  return summary.breakdown?.basePrice ?? summary.vehicles[0]?.totalPrice;
+}
+
+/** Builds the POST /payment body for the chosen method from the payment-section form fields. */
+function buildPaymentInput(
+  paymentType: PaymentMethodId,
+  amount: number,
+  currency: string,
+  values: Record<string, unknown>,
+  receivedBy: { id: string; name: string } | null,
+): CreatePaymentInput {
+  const str = (key: string) => String(values[key] ?? "").trim();
+  switch (paymentType) {
+    case "direct_cash":
+      return {
+        method: "CASH",
+        amount,
+        currency,
+        receivedById: receivedBy?.id ?? "",
+        receivedByName: receivedBy?.name ?? "",
+        receiptNumber: str("receiptNumber"),
+      };
+    case "bank_transfer":
+      return {
+        method: "BANK_TRANSFER",
+        amount,
+        currency,
+        bankName: str("bankName"),
+        referenceNumber: str("referenceNumber"),
+        accountName: str("accountName"),
+        accountNumber: str("accountNumber"),
+        depositedAt: values.depositedAt
+          ? new Date(String(values.depositedAt)).toISOString()
+          : "",
+      };
+    case "check":
+      return {
+        method: "CHECK",
+        amount,
+        currency,
+        bankName: str("bankName"),
+        checkNumber: str("checkNumber"),
+        checkIssueDate: str("checkIssueDate"),
+        checkDueDate: str("checkDueDate"),
+        payerName: str("payerName"),
+      };
+    case "credit":
+      return {
+        method: "CREDIT",
+        amount,
+        currency,
+        couponCode: str("couponCode"),
+      };
+    case "cash_on_delivery":
+      return {
+        method: "CASH_ON_DELIVERY",
+        amount,
+        currency,
+      };
+  }
 }
 
 function VehicleTypeTile({
@@ -920,7 +1165,12 @@ export default function OrderForm() {
   // Branch selection state (for DROPOFF)
   const [loadingBranch, setLoadingBranch] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const { data: serviceTypes } = useServiceTypes();
+  const [branchesError, setBranchesError] = useState(false);
+  const {
+    data: serviceTypes,
+    isLoading: serviceTypesLoading,
+    isError: serviceTypesError,
+  } = useServiceTypes();
   const {
     data: orderItemCategories = [],
     isLoading: loadingOrderItemCategories,
@@ -930,6 +1180,7 @@ export default function OrderForm() {
   const fetchBranches = async () => {
     try {
       setLoadingBranch(true);
+      setBranchesError(false);
 
       const response = await api.get<BranchListResponse>(
         `/branch?search=all:&page=${1}&pageSize=${100}`,
@@ -938,6 +1189,7 @@ export default function OrderForm() {
       setLoadingBranch(false);
     } catch (error: any) {
       setLoadingBranch(false);
+      setBranchesError(true);
 
       const message =
         error?.response?.data?.message ||
@@ -1017,7 +1269,6 @@ export default function OrderForm() {
     const converted: ConvertedShipment = {
       // receiver info
       receiverName: _values.receiverName,
-      receiverEmail: _values.receiverEmail,
       receiverPhone: _values.receiverPhone,
 
       // service
@@ -1044,8 +1295,6 @@ export default function OrderForm() {
       isUnusual: _values.isUnusual,
       unusualReason: _values.unusualReason,
 
-      // extra from your input (since they exist)
-      quantity: _values.quantity,
       // pickupAddressText: _values.pickupAddress,
       // deliveryAddressText: _values.receiverAddress,
       // name / email / phone — sender contact
@@ -1064,6 +1313,7 @@ export default function OrderForm() {
     if (branchIdTrimEstimate) {
       converted.branchId = branchIdTrimEstimate;
     }
+    if (_values.receiverEmail) converted.receiverEmail = _values.receiverEmail;
 
     if (_values.fulfillmentType === "PICKUP") {
       converted.pickupAddress = {
@@ -1087,15 +1337,9 @@ export default function OrderForm() {
 
     applySenderToShipmentPayload(converted, _values);
 
-    const categoryIdsEstimate: string[] = Array.from(
-      new Set(
-        (Array.isArray(_values.categoryIds) ? _values.categoryIds : [])
-          .map((id: unknown) => String(id ?? "").trim())
-          .filter(Boolean) as string[],
-      ),
-    );
-    if (categoryIdsEstimate.length > 0) {
-      converted.categoryIds = categoryIdsEstimate;
+    const categoriesEstimate = buildCategoriesPayload(_values);
+    if (categoriesEstimate.length > 0) {
+      converted.categories = categoriesEstimate;
     }
 
     if (_values.shipmentType == "PARCEL") {
@@ -1166,13 +1410,15 @@ export default function OrderForm() {
   };
 
   const buildWaybillData = (trackingCode: string, v: any): WaybillData => {
-    const categoryIds: string[] = Array.isArray(v.categoryIds)
-      ? v.categoryIds
-      : [];
-    const categoryName = categoryIds
-      .map((id) => orderItemCategories.find((c) => c.id === id)?.name)
-      .filter(Boolean)
-      .join(", ");
+    const categories = buildCategoriesPayload(v);
+    const goods = categories
+      .map((c) => {
+        const name = orderItemCategories.find(
+          (cat) => cat.id === c.categoryId,
+        )?.name;
+        return name ? { categoryName: name, quantity: c.quantity } : null;
+      })
+      .filter((g): g is { categoryName: string; quantity: number } => !!g);
     const serviceTypeName = serviceTypes?.find(
       (s) => s.id === v.serviceTypeId,
     )?.name;
@@ -1212,9 +1458,7 @@ export default function OrderForm() {
               height: Number(v.height) || 0,
             }
           : undefined,
-      goods: categoryName
-        ? { categoryName, quantity: Number(v.quantity) || 0 }
-        : undefined,
+      goods: goods.length > 0 ? goods : undefined,
       amount: selectedVehicle?.totalPrice,
       currency: orderSummary?.currency,
       paymentMethodLabel,
@@ -1246,15 +1490,6 @@ export default function OrderForm() {
         return;
       }
     }
-    if (
-      !isGeneralEdit &&
-      (_values.paymentType === "cbe" || _values.paymentType === "telebirr")
-    ) {
-      toast.error(
-        "This payment method is coming soon. Please choose another payment method for now.",
-      );
-      return;
-    }
     const converted = buildConvertedShipment(_values, isGeneralEdit);
 
     try {
@@ -1275,6 +1510,36 @@ export default function OrderForm() {
         setLoading(false);
         return;
       }
+
+      const amount = getOrderAmount(_values, orderSummary);
+      if (amount === undefined || !Number.isFinite(amount) || amount <= 0) {
+        toast.error("Could not determine the order amount for payment.");
+        setLoading(false);
+        return;
+      }
+      const currency = orderSummary?.currency?.trim() || "ETB";
+      const paymentInput = buildPaymentInput(
+        _values.paymentType as PaymentMethodId,
+        amount,
+        currency,
+        _values,
+        user ? { id: user.id, name: user.name } : null,
+      );
+
+      let paymentId = "";
+      try {
+        const payment = await createPayment(paymentInput);
+        paymentId = payment.id;
+      } catch (error: any) {
+        toast.error(
+          error?.response?.data?.message || "Payment could not be recorded.",
+        );
+        setLoading(false);
+        return;
+      }
+      converted.paymentType = _values.paymentType;
+      converted.paymentId = paymentId;
+      converted.payment = paymentInput;
 
       const res = await api.post("/order", converted);
       console.log("res of create order: ", res.data);
@@ -1601,7 +1866,9 @@ export default function OrderForm() {
                     </FieldTable>
                     {!isDropoffAcceptEdit && (
                       <div>
-                        <Label className="mb-1 font-bold">Delivery Address</Label>
+                        <Label className="mb-1 font-bold">
+                          Delivery Address
+                        </Label>
                         <MapAddressSelector
                           onAddressSelect={(addressData) => {
                             setFieldValue(
@@ -1662,16 +1929,6 @@ export default function OrderForm() {
                             </SelectItem>
                           </SelectContent>
                         </Select>
-                      </FieldCell>
-
-                      <FieldCell label="Quantity">
-                        <Field
-                          as={Input}
-                          type="number"
-                          step="0.1"
-                          name="quantity"
-                          className={tableInputClass}
-                        />
                       </FieldCell>
 
                       <FieldCell
@@ -1761,9 +2018,20 @@ export default function OrderForm() {
                             allowClear
                             placeholder="Select categories"
                             value={values.categoryIds}
-                            onChange={(val) =>
-                              setFieldValue("categoryIds", val ?? [])
-                            }
+                            onChange={(val) => {
+                              const ids: string[] = val ?? [];
+                              setFieldValue("categoryIds", ids);
+                              const currentQuantities: Record<string, number> =
+                                values.categoryQuantities || {};
+                              const nextQuantities: Record<string, number> = {};
+                              ids.forEach((id) => {
+                                nextQuantities[id] = currentQuantities[id] ?? 1;
+                              });
+                              setFieldValue(
+                                "categoryQuantities",
+                                nextQuantities,
+                              );
+                            }}
                             disabled={
                               loadingOrderItemCategories ||
                               orderItemCategories.length === 0
@@ -1779,6 +2047,42 @@ export default function OrderForm() {
                             ))}
                           </Style2>
                         </ConfigProvider>
+                        {values.categoryIds.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {(values.categoryIds as string[]).map((id) => {
+                              const cat = orderItemCategories.find(
+                                (c) => c.id === id,
+                              );
+                              return (
+                                <div
+                                  key={id}
+                                  className="flex items-center justify-between gap-2 rounded-md border border-gray-200 bg-white px-2 py-1"
+                                >
+                                  <span className="text-xs text-gray-700 truncate">
+                                    {cat?.name ?? id}
+                                  </span>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    step="1"
+                                    value={values.categoryQuantities?.[id] ?? 1}
+                                    onChange={(e) => {
+                                      const qty = Math.max(
+                                        1,
+                                        Number(e.target.value) || 1,
+                                      );
+                                      setFieldValue("categoryQuantities", {
+                                        ...values.categoryQuantities,
+                                        [id]: qty,
+                                      });
+                                    }}
+                                    className="h-7 w-20 text-xs px-2"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </FieldCell>
                       <FieldCell
                         label="Destination"
@@ -1839,7 +2143,9 @@ export default function OrderForm() {
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label className="mb-1 text-xs font-bold">Service Type</Label>
+                        <Label className="mb-1 text-xs font-bold">
+                          Service Type
+                        </Label>
                         <Select
                           value={values.serviceTypeId || undefined}
                           onValueChange={(val) => {
@@ -1857,17 +2163,39 @@ export default function OrderForm() {
                                 : ""
                             }`}
                           >
-                            <SelectValue placeholder="Select service" />
+                            <SelectValue
+                              placeholder={
+                                serviceTypesLoading
+                                  ? "Loading service types..."
+                                  : serviceTypesError
+                                    ? "Could not load service types"
+                                    : "Select service"
+                              }
+                            />
                           </SelectTrigger>
                           <SelectContent>
-                            {serviceTypes?.map((serviceType) => (
-                              <SelectItem
-                                key={serviceType.id}
-                                value={serviceType.id}
-                              >
-                                {serviceType.name}
-                              </SelectItem>
-                            ))}
+                            {serviceTypesLoading ? (
+                              <div className="py-2 px-4 text-gray-500">
+                                Loading service types...
+                              </div>
+                            ) : serviceTypesError ? (
+                              <div className="py-2 px-4 text-red-500">
+                                Could not load service types.
+                              </div>
+                            ) : !serviceTypes || serviceTypes.length === 0 ? (
+                              <div className="py-2 px-4 text-gray-500">
+                                No service types configured.
+                              </div>
+                            ) : (
+                              serviceTypes.map((serviceType) => (
+                                <SelectItem
+                                  key={serviceType.id}
+                                  value={serviceType.id}
+                                >
+                                  {serviceType.name}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                         {errors.serviceTypeId && touched.serviceTypeId && (
@@ -1878,7 +2206,9 @@ export default function OrderForm() {
                       </div>
 
                       <div>
-                        <Label className="mb-1 text-xs font-bold">Collection Type</Label>
+                        <Label className="mb-1 text-xs font-bold">
+                          Collection Type
+                        </Label>
                         <Select
                           value={values.fulfillmentType}
                           onValueChange={(val) => {
@@ -1912,7 +2242,9 @@ export default function OrderForm() {
 
                     {values.fulfillmentType === "PICKUP" && (
                       <div>
-                        <Label className="mb-1 text-xs font-bold">Pickup Address</Label>
+                        <Label className="mb-1 text-xs font-bold">
+                          Pickup Address
+                        </Label>
                         <MapAddressSelector
                           onAddressSelect={(addressData) => {
                             setFieldValue("pickupAddress", addressData.address);
@@ -1967,7 +2299,9 @@ export default function OrderForm() {
                     {/* Branch + Delivery Date side by side */}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <Label className="mb-1 text-xs font-bold">Branch *</Label>
+                        <Label className="mb-1 text-xs font-bold">
+                          Branch *
+                        </Label>
                         <Select
                           value={values.branchId || undefined}
                           onValueChange={(val) =>
@@ -1984,22 +2318,44 @@ export default function OrderForm() {
                               placeholder={
                                 loadingBranch
                                   ? "Loading branches..."
-                                  : "Select branch"
+                                  : branchesError
+                                    ? "Could not load branches"
+                                    : "Select branch"
                               }
                             />
                           </SelectTrigger>
                           <SelectContent>
-                            {branches.map((branch) => (
-                              <SelectItem key={branch.id} value={branch.id}>
-                                {branch.name}
-                              </SelectItem>
-                            ))}
+                            {loadingBranch ? (
+                              <div className="py-2 px-4 text-gray-500">
+                                Loading branches...
+                              </div>
+                            ) : branchesError ? (
+                              <div className="py-2 px-4 text-red-500">
+                                Could not load branches.
+                              </div>
+                            ) : branches.length === 0 ? (
+                              <div className="py-2 px-4 text-gray-500">
+                                No branches found.
+                              </div>
+                            ) : (
+                              branches.map((branch) => (
+                                <SelectItem key={branch.id} value={branch.id}>
+                                  {branch.name}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
-                        {!values.branchId && (
+                        {branchesError ? (
                           <p className="text-red-500 text-xs mt-1">
-                            Branch is required for the order
+                            Could not load branches. Refresh to try again.
                           </p>
+                        ) : (
+                          !values.branchId && (
+                            <p className="text-red-500 text-xs mt-1">
+                              Branch is required for the order
+                            </p>
+                          )
                         )}
                       </div>
 
@@ -2317,7 +2673,9 @@ export default function OrderForm() {
                     {orderSummary && isDropoffAcceptEdit && (
                       <div className="space-y-4 pt-2 border-t border-primary">
                         <div>
-                          <Label className="mb-1 font-bold">Validation notes</Label>
+                          <Label className="mb-1 font-bold">
+                            Validation notes
+                          </Label>
                           <Field
                             as={Textarea}
                             name="validatedNotes"

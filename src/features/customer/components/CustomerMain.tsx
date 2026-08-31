@@ -178,7 +178,7 @@ export default function CustomerMain() {
           icon: <Building2 className="h-5 w-5" />,
         },
         {
-          title: "Loyalty Members",
+          title: "Credit Members",
           value: summary.loyaltyMembers.value,
           change: summary.loyaltyMembers.note || "",
           trend: "up", // always "up" for note
@@ -266,7 +266,7 @@ export default function CustomerMain() {
             onClick={() => navigate("/customer/loyalty")}
           >
             <IoStar className="h-4 w-4 mr-2" />
-            Loyalty Program
+            Credit Program
           </Button>
           <Button
             variant="outline"

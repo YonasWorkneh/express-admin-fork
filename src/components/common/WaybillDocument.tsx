@@ -28,7 +28,7 @@ export interface WaybillData {
   consignee: WaybillParty;
   weightKg?: number;
   dimensions?: { length: number; width: number; height: number };
-  goods?: WaybillGoods;
+  goods?: WaybillGoods[];
   amount?: number;
   currency?: string;
   paymentMethodLabel?: string;
@@ -191,8 +191,10 @@ export default function WaybillDocument({ data }: { data: WaybillData }) {
           <Cell
             label="Description of Goods"
             value={
-              data.goods
-                ? `${data.goods.quantity} ${data.goods.categoryName}`
+              data.goods && data.goods.length > 0
+                ? data.goods
+                    .map((g) => `${g.quantity} ${g.categoryName}`)
+                    .join(", ")
                 : undefined
             }
           />

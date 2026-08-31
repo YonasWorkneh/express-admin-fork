@@ -65,6 +65,7 @@ function CreateBatchPage() {
   const [submitting, setSubmitting] = useState(false);
   const [categorizedOrders, setCategorizedOrders] =
     useState<CategorizedOrdersResponse | null>(null);
+  const [categorizedOrdersError, setCategorizedOrdersError] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [batchCode, setBatchCode] = useState("");
 
@@ -80,6 +81,7 @@ function CreateBatchPage() {
   );
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
+  const [branchesError, setBranchesError] = useState(false);
 
   // New: Origin branch state
   const [originBranchId, setOriginBranchId] = useState("");
@@ -130,6 +132,7 @@ function CreateBatchPage() {
   const fetchCategorizedOrders = async () => {
     try {
       setLoading(true);
+      setCategorizedOrdersError(false);
       const response = await getCategorizedOrders({ pageSize: 100 });
       const grouped = (response.data as any)?.grouped ?? {};
       const scopeKeys = Object.keys(grouped);
@@ -157,9 +160,11 @@ function CreateBatchPage() {
       setLoading(false);
     } catch (error: any) {
       setLoading(false);
+      setCategorizedOrdersError(true);
       const message =
         error?.response?.data?.message ||
         "Failed to load categorized orders";
+      console.error("Error fetching categorized orders:", error);
       toast.error(message);
     }
   };
@@ -167,14 +172,17 @@ function CreateBatchPage() {
   const fetchBranches = async () => {
     try {
       setLoadingBranches(true);
+      setBranchesError(false);
       const response = await api.get<BranchListResponse>(
         `/branch?page=1&pageSize=50`
       );
       setBranches(response.data.data);
     } catch (error: any) {
+      setBranchesError(true);
       const message =
         error?.response?.data?.message ||
         "Failed to load branches";
+      console.error("Error fetching branches:", error);
       toast.error(message);
     } finally {
       setLoadingBranches(false);
@@ -567,11 +575,21 @@ function CreateBatchPage() {
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select scope" />
+                      <SelectValue
+                        placeholder={
+                          categorizedOrdersError
+                            ? "Could not load order categories"
+                            : "Select scope"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {getAvailableScopes().length > 0
-                        ? getAvailableScopes().map((scope) => {
+                      {categorizedOrdersError ? (
+                        <div className="py-2 px-4 text-red-500">
+                          Could not load order categories.
+                        </div>
+                      ) : getAvailableScopes().length > 0 ? (
+                        getAvailableScopes().map((scope) => {
                             const count = getScopeOrderCount(scope);
                             return (
                               <SelectItem
@@ -593,7 +611,8 @@ function CreateBatchPage() {
                               </SelectItem>
                             );
                           })
-                        : SCOPES.map((scope) => {
+                      ) : (
+                        SCOPES.map((scope) => {
                             const count = getScopeOrderCount(scope);
                             return (
                               <SelectItem
@@ -614,7 +633,8 @@ function CreateBatchPage() {
                                 </div>
                               </SelectItem>
                             );
-                          })}
+                          })
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -676,10 +696,20 @@ function CreateBatchPage() {
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select service type" />
+                        <SelectValue
+                          placeholder={
+                            categorizedOrdersError
+                              ? "Could not load order categories"
+                              : "Select service type"
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent>
-                        {getServiceTypesForRoute(selectedScope, selectedRoute).length === 0 ? (
+                        {categorizedOrdersError ? (
+                          <SelectItem value="" disabled>
+                            Could not load order categories.
+                          </SelectItem>
+                        ) : getServiceTypesForRoute(selectedScope, selectedRoute).length === 0 ? (
                           <SelectItem value="" disabled>No service types available</SelectItem>
                         ) : (
                           getServiceTypesForRoute(selectedScope, selectedRoute).map((type) => {
@@ -814,7 +844,17 @@ function CreateBatchPage() {
                     onValueChange={(value) => setOriginBranchId(value)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select origin branch" />
+                      <SelectValue
+                        placeholder={
+                          loadingBranches
+                            ? "Loading branches..."
+                            : branchesError
+                              ? "Could not load branches"
+                              : branches.length === 0
+                                ? "No branches available"
+                                : "Select origin branch"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {branches.map((branch) => (
@@ -830,7 +870,10 @@ function CreateBatchPage() {
                   {loadingBranches && (
                     <p className="text-xs text-gray-500">Loading branches...</p>
                   )}
-                  {!loadingBranches && branches.length === 0 && (
+                  {!loadingBranches && branchesError && (
+                    <p className="text-xs text-red-500">Could not load branches.</p>
+                  )}
+                  {!loadingBranches && !branchesError && branches.length === 0 && (
                     <p className="text-xs text-red-500">
                       No branches available. Please create a branch first.
                     </p>
@@ -844,7 +887,17 @@ function CreateBatchPage() {
                     onValueChange={(value) => setDestinationBranchId(value)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select destination branch" />
+                      <SelectValue
+                        placeholder={
+                          loadingBranches
+                            ? "Loading branches..."
+                            : branchesError
+                              ? "Could not load branches"
+                              : branches.length === 0
+                                ? "No branches available"
+                                : "Select destination branch"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {branches.map((branch) => (
@@ -860,7 +913,10 @@ function CreateBatchPage() {
                   {loadingBranches && (
                     <p className="text-xs text-gray-500">Loading branches...</p>
                   )}
-                  {!loadingBranches && branches.length === 0 && (
+                  {!loadingBranches && branchesError && (
+                    <p className="text-xs text-red-500">Could not load branches.</p>
+                  )}
+                  {!loadingBranches && !branchesError && branches.length === 0 && (
                     <p className="text-xs text-red-500">
                       No branches available. Please create a branch first.
                     </p>

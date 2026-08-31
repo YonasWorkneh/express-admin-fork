@@ -89,6 +89,7 @@ const CreateVehicle = () => {
   // New states for vehicle types
   const [vehicleTypes, setVehicleTypes] = useState<{ value: string; label: string }[]>([]);
   const [vehicleTypeLoading, setVehicleTypeLoading] = useState<boolean>(false);
+  const [vehicleTypesError, setVehicleTypesError] = useState<boolean>(false);
 
   const navigate = useNavigate();
   const { id } = useParams();
@@ -105,6 +106,7 @@ const CreateVehicle = () => {
   useEffect(() => {
     const fetchVehicleTypes = async () => {
       setVehicleTypeLoading(true);
+      setVehicleTypesError(false);
       try {
         const res = await api.get("/fleet/type");
         // Expecting: res.data?.data?.vehicleTypes
@@ -119,9 +121,11 @@ const CreateVehicle = () => {
           }))
         );
       } catch (e) {
+        console.error("Failed to fetch vehicle types:", e);
+        toast.error("Could not load vehicle types.");
+        setVehicleTypesError(true);
         // fallback in case of error
-        setVehicleTypes([
-            ]);
+        setVehicleTypes([]);
       } finally {
         setVehicleTypeLoading(false);
       }
@@ -274,11 +278,21 @@ const CreateVehicle = () => {
                         errors.vehicleTypeId && touched.vehicleTypeId ? "border-red-500" : ""
                       }`}
                     >
-                      <SelectValue placeholder={vehicleTypeLoading ? "Loading types..." : "Select vehicle type"} />
+                      <SelectValue
+                        placeholder={
+                          vehicleTypeLoading
+                            ? "Loading types..."
+                            : vehicleTypesError
+                            ? "Could not load vehicle types"
+                            : "Select vehicle type"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {vehicleTypeLoading ? (
                         <div className="py-2 px-4 text-gray-500">Loading types...</div>
+                      ) : vehicleTypesError ? (
+                        <div className="py-2 px-4 text-red-500">Could not load vehicle types.</div>
                       ) : vehicleTypes.length === 0 ? (
                         <div className="py-2 px-4 text-gray-500">No vehicle types available</div>
                       ) : (

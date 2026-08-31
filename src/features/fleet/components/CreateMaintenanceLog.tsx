@@ -49,21 +49,21 @@ const CreateMaintenanceLog = () => {
   const [searchText, setSearchText] = useState("");
 
   // const [loadingBrand, setLoadingBrand] = useState(false);
-  const [loadingStaff, setLoadingStaff] = useState(false);
+  const [loadingFleets, setLoadingFleets] = useState(false);
   const [showFleetDropdown, setShowFleetDropdown] = useState(false);
   const [fleetSearch, setfleetSearch] = useState("");
 
   const featchFleets = async () => {
     try {
-      setLoadingStaff(true);
+      setLoadingFleets(true);
 
       const staffs = await api.get<FleetListResponse>(`/fleet?search=type:INTERNAL`);
       setSetFleet(staffs.data.data);
       setPagination(staffs.data.pagination);
       // toast.success(staffs.data.message);
-      setLoadingStaff(false);
+      setLoadingFleets(false);
     } catch (error: any) {
-      setLoadingStaff(false);
+      setLoadingFleets(false);
 
       const message =
         error?.response?.data?.message ||
@@ -257,7 +257,7 @@ const CreateMaintenanceLog = () => {
   <div className="relative">
     <Input
       type="text"
-      placeholder="Search managers by name, ID, or email..."
+      placeholder="Search vehicles by model, ID, or plate number..."
       value={fleetSearch}
       onChange={(e) => {
         setfleetSearch(e.target.value);
@@ -286,7 +286,7 @@ const CreateMaintenanceLog = () => {
 
   {showFleetDropdown && (
     <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-      {loadingStaff && (
+      {loadingFleets && (
                         <div className="flex justify-center items-center py-8">
                           <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                         </div>
@@ -311,7 +311,7 @@ const CreateMaintenanceLog = () => {
                         ))
                       ) : (
                         <div className="px-4 py-3 text-gray-500 text-center">
-                          No managers found
+                          No vehicles found
                         </div>
                       )}
     </div>

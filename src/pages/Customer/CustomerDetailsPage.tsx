@@ -354,7 +354,7 @@ export default function CustomerDetailsPage() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-600">
-                    Loyalty points
+                    Credit points
                   </Label>
                   <p className="text-lg font-semibold text-gray-900">
                     {typeof customer.loyaltyPoints === "number"

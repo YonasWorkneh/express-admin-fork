@@ -65,7 +65,11 @@ export default function ReportPage() {
   const [endDate, setEndDate] = useState<string>("");
 
   const { data, isLoading, error, refetch } = useReportMetrics(filters);
-  const { data: branchesData, isLoading: isBranchesLoading } = useBranches({
+  const {
+    data: branchesData,
+    isLoading: isBranchesLoading,
+    isError: isBranchesError,
+  } = useBranches({
     pageSize: 100,
   });
 
@@ -438,15 +442,33 @@ export default function ReportPage() {
                       disabled={isBranchesLoading}
                     >
                       <SelectTrigger id="branchId" className="h-9">
-                        <SelectValue placeholder={isBranchesLoading ? "Loading..." : "All Branches"} />
+                        <SelectValue
+                          placeholder={
+                            isBranchesLoading
+                              ? "Loading..."
+                              : isBranchesError
+                                ? "Could not load branches"
+                                : "All Branches"
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Branches</SelectItem>
-                        {branchesData?.data?.map((branch) => (
-                          <SelectItem key={branch.id} value={branch.id}>
-                            {branch.name}
-                          </SelectItem>
-                        ))}
+                        {isBranchesLoading ? (
+                          <div className="py-2 px-4 text-gray-500">
+                            Loading branches...
+                          </div>
+                        ) : isBranchesError ? (
+                          <div className="py-2 px-4 text-red-500">
+                            Could not load branches.
+                          </div>
+                        ) : (
+                          branchesData?.data?.map((branch) => (
+                            <SelectItem key={branch.id} value={branch.id}>
+                              {branch.name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </div>

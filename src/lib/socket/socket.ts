@@ -2,7 +2,7 @@ import { io, Socket } from "socket.io-client";
 
 // Get base URL from the API configuration
 // This should match the baseURL in api.ts
-const BASE_URL = "https://yes-express.up.railway.app";
+const BASE_URL = "http://196.189.237.132";
 
 let socket: Socket | null = null;
 

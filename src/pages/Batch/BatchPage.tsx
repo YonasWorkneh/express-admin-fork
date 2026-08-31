@@ -88,6 +88,7 @@ function BatchPage() {
   );
   const [officerSearch, setOfficerSearch] = useState("");
   const [loadingOfficers, setLoadingOfficers] = useState(false);
+  const [officersError, setOfficersError] = useState(false);
   const [isAssignCargoOfficerModal, setisAssignCargoOfficerModal] =
     useState(false);
   const [selectedBatchForOfficer, setSelectedBatchForOfficer] =
@@ -97,6 +98,8 @@ function BatchPage() {
   const [selectedCargoOfficer, setSelectedCargoOfficer] =
     useState<BranchOfficer | null>(null);
   const [loadingCargoOfficer, setLoadingCargoOfficer] = useState(false);
+  const [cargoOfficerError, setCargoOfficerError] = useState(false);
+  const [cargoOfficerNoBranch, setCargoOfficerNoBranch] = useState(false);
 
   const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
   const [approveLoading, setApproveLoading] = useState(false);
@@ -281,6 +284,7 @@ function BatchPage() {
   const fetchCargoOfficers = async () => {
     try {
       setLoadingOfficers(true);
+      setOfficersError(false);
       const response = await api.get<{
         data?: { cargoOfficers?: BranchOfficer[] };
       }>(`/users/cargo-officer?search=all:${officerSearch}&page=1&pageSize=20`);
@@ -288,6 +292,8 @@ function BatchPage() {
       setLoadingOfficers(false);
     } catch (error: any) {
       setLoadingOfficers(false);
+      setOfficersError(true);
+      console.error(error);
       toast.error("Failed to load cargo officers");
     }
   };
@@ -329,10 +335,13 @@ function BatchPage() {
 
   const featchCargoOfficer = async (page = 1, limit = 10) => {
     const branchId = getBranchIdForOfficerLookup();
+    setCargoOfficerError(false);
     if (!branchId) {
       setCargoOfficers([]);
+      setCargoOfficerNoBranch(true);
       return;
     }
+    setCargoOfficerNoBranch(false);
     try {
       setLoadingCargoOfficer(true);
       const response = await api.get<{
@@ -366,6 +375,7 @@ function BatchPage() {
       setLoadingCargoOfficer(false);
     } catch (error: any) {
       setLoadingCargoOfficer(false);
+      setCargoOfficerError(true);
       const message =
         error?.response?.data?.message ||
         "Something went wrong. Please try again.";
@@ -869,6 +879,10 @@ function BatchPage() {
 
           {loadingOfficers ? (
             <Skeleton active paragraph={{ rows: 3 }} />
+          ) : officersError ? (
+            <p className="text-center text-red-500 py-4">
+              Could not load cargo officers.
+            </p>
           ) : (
             <div className="max-h-60 overflow-y-auto space-y-2">
               {cargoOfficers.length === 0 ? (
@@ -935,6 +949,15 @@ function BatchPage() {
                 <div className="flex justify-center items-center py-8">
                   <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
                   <span className="text-gray-600">Loading...</span>
+                </div>
+              ) : cargoOfficerNoBranch ? (
+                <div className="px-4 py-3 text-gray-500 text-center">
+                  Select a batch with a branch assigned to look up cargo
+                  officers.
+                </div>
+              ) : cargoOfficerError ? (
+                <div className="px-4 py-3 text-red-500 text-center">
+                  Could not load cargo officers.
                 </div>
               ) : cargoOfficers.length > 0 ? (
                 cargoOfficers.map((officer) => (

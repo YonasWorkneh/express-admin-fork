@@ -27,113 +27,23 @@ import TablePagination from "@/components/common/TablePagination";
 import { IoAdd, IoStar, IoArrowBack } from "react-icons/io5";
 import { FaCrown } from "react-icons/fa";
 
-const loyaltyMembers = [
-  {
-    id: "LOY-001",
-    customerId: "CUST-001",
-    name: "Abebe Kebede",
-    email: "abebe.k@email.com",
-    tier: "Gold",
-    points: 450,
-    totalEarned: 1200,
-    totalRedeemed: 750,
-    joinDate: "2024-01-15",
-    lastActivity: "2024-12-10",
-    nextReward: 50,
-    status: "Active",
-  },
-  {
-    id: "LOY-002",
-    customerId: "CUST-003",
-    name: "Marta Tadesse",
-    email: "marta.t@email.com",
-    tier: "Silver",
-    points: 280,
-    totalEarned: 800,
-    totalRedeemed: 520,
-    joinDate: "2024-03-10",
-    lastActivity: "2024-12-05",
-    nextReward: 220,
-    status: "Active",
-  },
-  {
-    id: "LOY-003",
-    customerId: "CUST-005",
-    name: "Dawit Alemu",
-    email: "dawit.a@email.com",
-    tier: "Bronze",
-    points: 120,
-    totalEarned: 400,
-    totalRedeemed: 280,
-    joinDate: "2024-02-28",
-    lastActivity: "2024-08-15",
-    nextReward: 380,
-    status: "Inactive",
-  },
-  {
-    id: "LOY-004",
-    customerId: "CUST-006",
-    name: "Tigist Hailu",
-    email: "tigist.h@email.com",
-    tier: "Platinum",
-    points: 1200,
-    totalEarned: 3500,
-    totalRedeemed: 2300,
-    joinDate: "2023-11-20",
-    lastActivity: "2024-12-12",
-    nextReward: 0,
-    status: "Active",
-  },
-  {
-    id: "LOY-005",
-    customerId: "CUST-007",
-    name: "Yohannes Desta",
-    email: "yohannes.d@email.com",
-    tier: "Gold",
-    points: 680,
-    totalEarned: 1800,
-    totalRedeemed: 1120,
-    joinDate: "2024-05-15",
-    lastActivity: "2024-12-08",
-    nextReward: 320,
-    status: "Active",
-  },
-];
+interface CreditProgramMember {
+  id: string;
+  customerId: string;
+  name: string;
+  email: string;
+  tier: string;
+  points: number;
+  totalEarned: number;
+  totalRedeemed: number;
+  joinDate: string;
+  lastActivity: string;
+  nextReward: number;
+  status: string;
+}
 
-const metrics = [
-  {
-    title: "Total Members",
-    value: "892",
-    change: "45 new this month",
-    trend: "up",
-    icon: <Star className="h-5 w-5" />,
-    color: "blue",
-  },
-  {
-    title: "Active Members",
-    value: "756",
-    change: "85% engagement",
-    trend: "up",
-    icon: <Award className="h-5 w-5" />,
-    color: "green",
-  },
-  {
-    title: "Points Issued",
-    value: "125K",
-    change: "This month",
-    trend: "up",
-    icon: <Gift className="h-5 w-5" />,
-    color: "purple",
-  },
-  {
-    title: "Points Redeemed",
-    value: "89K",
-    change: "71% redemption rate",
-    trend: "up",
-    icon: <FaCrown className="h-5 w-5" />,
-    color: "orange",
-  },
-];
+/** No credit-program endpoint exists yet — starts empty until the backend ships one. */
+const creditProgramMembers: CreditProgramMember[] = [];
 
 const tierBenefits = [
   {
@@ -185,10 +95,37 @@ export default function LoyaltyProgram() {
   const navigate = useNavigate();
 
   // Filter members by tier
-  const filteredMembers = loyaltyMembers.filter((member) => {
+  const filteredMembers = creditProgramMembers.filter((member) => {
     if (filterTier === "all") return true;
     return member.tier.toLowerCase() === filterTier.toLowerCase();
   });
+
+  const metrics = [
+    {
+      title: "Total Members",
+      value: creditProgramMembers.length,
+      icon: <Star className="h-5 w-5" />,
+      color: "blue",
+    },
+    {
+      title: "Active Members",
+      value: creditProgramMembers.filter((m) => m.status === "Active").length,
+      icon: <Award className="h-5 w-5" />,
+      color: "green",
+    },
+    {
+      title: "Points Issued",
+      value: creditProgramMembers.reduce((sum, m) => sum + m.totalEarned, 0),
+      icon: <Gift className="h-5 w-5" />,
+      color: "purple",
+    },
+    {
+      title: "Points Redeemed",
+      value: creditProgramMembers.reduce((sum, m) => sum + m.totalRedeemed, 0),
+      icon: <FaCrown className="h-5 w-5" />,
+      color: "orange",
+    },
+  ];
 
   // Calculate pagination
   const totalItems = filteredMembers.length;
@@ -246,11 +183,11 @@ export default function LoyaltyProgram() {
                   </Button>
                   <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                     <IoStar className="text-[#EE1E21]" />
-                    Loyalty Program
+                    Credit Program
                   </h1>
                 </div>
                 <p className="text-gray-500 text-sm ml-11">
-                  Manage customer loyalty points, tiers, and rewards
+                  Manage customer credit points, tiers, and rewards
                 </p>
               </div>
               <div className="flex gap-3 mt-4 md:mt-0">
@@ -259,7 +196,7 @@ export default function LoyaltyProgram() {
                   className="bg-[#EE1E21] hover:bg-[#cc1a1c] cursor-pointer text-[#FADF4B]"
                 >
                   <IoAdd className="mr-2 h-4 w-4" />
-                  Add Points
+                  Add Coupon
                 </Button>
                 {/* <Button
                   onClick={() => navigate("/customer/loyalty/rewards")}
@@ -282,9 +219,6 @@ export default function LoyaltyProgram() {
                         <p className="text-2xl font-bold text-gray-900 mt-1">
                           {metric.value}
                         </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {metric.change}
-                        </p>
                       </div>
                       <div
                         className={`p-3 rounded-lg bg-${metric.color}-100 text-${metric.color}-600`}
@@ -297,44 +231,12 @@ export default function LoyaltyProgram() {
               ))}
             </div>
 
-            {/* Tier Benefits */}
-            <div className="mb-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Tier Benefits
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {tierBenefits.map((tier, index) => (
-                  <Card key={index} className="border-gray-200">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        {getTierIcon(tier.tier)}
-                        <span
-                          className={`font-medium px-2 py-1 rounded-full text-xs ${tier.color}`}
-                        >
-                          {tier.tier}
-                        </span>
-                      </div>
-                      <div className="text-sm text-gray-500 mb-2">
-                        {tier.minPoints} -{" "}
-                        {tier.maxPoints === 9999 ? "∞" : tier.maxPoints} points
-                      </div>
-                      <ul className="text-xs text-gray-600 space-y-1">
-                        {tier.benefits.map((benefit, idx) => (
-                          <li key={idx}>• {benefit}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-
             {/* Filters */}
             <div className="flex flex-col md:flex-row gap-4 mb-6">
               <div className="relative w-80">
                 <Search className="absolute left-3 top-4 text-gray-400 h-4 w-4" />
                 <Input
-                  placeholder="Search loyalty members..."
+                  placeholder="Search credit members..."
                   className="pl-10 pr-3 w-full py-6"
                 />
               </div>
@@ -393,6 +295,16 @@ export default function LoyaltyProgram() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {paginatedMembers.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={10}
+                        className="text-center text-gray-500 py-8"
+                      >
+                        No credit program members yet.
+                      </TableCell>
+                    </TableRow>
+                  )}
                   {paginatedMembers.map((member, index) => (
                     <TableRow
                       key={index}
@@ -449,7 +361,7 @@ export default function LoyaltyProgram() {
                       </TableCell>
                       <TableCell className="text-gray-600">
                         {new Date(member.lastActivity).toLocaleDateString(
-                          "en-GB"
+                          "en-GB",
                         )}
                       </TableCell>
                       <TableCell>

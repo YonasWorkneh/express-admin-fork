@@ -41,6 +41,7 @@ export default function AssignPermissionsModal({
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [allPermissions, setAllPermissions] = useState<AccessControlPermission[]>([]);
+  const [permissionsError, setPermissionsError] = useState(false);
   const [selectedPermissions, setSelectedPermissions] = useState<
     Map<string, AssignPermissionRequest>
   >(new Map());
@@ -55,6 +56,7 @@ export default function AssignPermissionsModal({
   const fetchAllPermissions = async () => {
     try {
       setFetching(true);
+      setPermissionsError(false);
       const response = await api.get<AccessControlPermissionListResponse>(
         `/access-control/permissions?page=1&pageSize=1000`
       );
@@ -62,7 +64,9 @@ export default function AssignPermissionsModal({
       setFetching(false);
     } catch (error: any) {
       setFetching(false);
+      setPermissionsError(true);
       console.error("Failed to fetch permissions:", error);
+      toast.error("Could not load permissions. Please try again.");
     }
   };
 
@@ -91,6 +95,7 @@ export default function AssignPermissionsModal({
       setSelectedPermissions(initialPermissions);
     } catch (error: any) {
       console.error("Failed to fetch role:", error);
+      toast.error("Could not load this role's current permissions.");
     }
   };
 
@@ -179,6 +184,10 @@ export default function AssignPermissionsModal({
           {fetching ? (
             <div className="flex justify-center items-center py-8">
               <Spinner className="h-6 w-6 text-[#EE1E21]" />
+            </div>
+          ) : permissionsError ? (
+            <div className="text-center text-red-500 py-8">
+              Could not load permissions.
             </div>
           ) : allPermissions.length === 0 ? (
             <div className="text-center text-gray-500 py-8">

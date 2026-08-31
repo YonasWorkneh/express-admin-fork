@@ -62,6 +62,7 @@ const CreateStaffPage = () => {
   const isEditMode = !!id;
   const [loading, setLoading] = useState(false);
   const [loadingRole, setLoadingRole] = useState(false);
+  const [roleError, setRoleError] = useState(false);
   const [loadingBrand, setLoadingBrand] = useState(false);
   const [ branches,setBranches] = useState<Branch[]>([])
 
@@ -74,6 +75,7 @@ const CreateStaffPage = () => {
   const featchRole = async () => {
     try {
       setLoadingRole(true);
+      setRoleError(false);
 
       const staffs = await api.get<RoleWithPermissionsListResponse>(
         "/access-control/roles?page=1&pageSize=100"
@@ -83,6 +85,7 @@ const CreateStaffPage = () => {
       setLoadingRole(false);
     } catch (error: any) {
       setLoadingRole(false);
+      setRoleError(true);
 
       const message =
         error?.response?.data?.message ||
@@ -302,19 +305,32 @@ navigate("/staff")
                         errors.role && touched.role ? "border-red-500" : ""
                       }`}
                     >
-                      <SelectValue placeholder="Select role" />
+                      <SelectValue
+                        placeholder={
+                          loadingRole
+                            ? "Loading roles..."
+                            : roleError
+                            ? "Could not load roles."
+                            : "Select role"
+                        }
+                      />
                     </SelectTrigger>
                    <SelectContent>
-                   {loadingRole?   <div className="flex justify-center items-center py-8">
-                        <Spinner className="h-6 w-6 text-[#EE1E21] mr-2" />
-                      </div>:
+                   {loadingRole ? (
+                      <div className="py-2 px-4 text-gray-500">Loading roles...</div>
+                    ) : roleError ? (
+                      <div className="py-2 px-4 text-red-500">Could not load roles.</div>
+                    ) : roles.length === 0 ? (
+                      <div className="py-2 px-4 text-gray-500">No roles found.</div>
+                    ) : (
                       roles.map((role) => {
                         return (
                           <SelectItem key={role.id} value={role.id}>
                             {role.name}
                           </SelectItem>
                         );
-                      }) } 
+                      })
+                    )}
                     </SelectContent>
                   </Select>
                   {errors.role && touched.role && (

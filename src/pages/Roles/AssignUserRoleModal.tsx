@@ -37,6 +37,7 @@ export default function AssignUserRoleModal({
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [users, setUsers] = useState<Staff[]>([]);
+  const [usersError, setUsersError] = useState(false);
   const [userSearch, setUserSearch] = useState("");
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Staff | null>(null);
@@ -52,6 +53,7 @@ export default function AssignUserRoleModal({
   const fetchUsers = async () => {
     try {
       setFetching(true);
+      setUsersError(false);
       const response = await api.get<StaffListResponse>(
         `/staff?search=${encodeURIComponent(userSearch)}&page=1&pageSize=20`
       );
@@ -59,7 +61,9 @@ export default function AssignUserRoleModal({
       setFetching(false);
     } catch (error: any) {
       setFetching(false);
+      setUsersError(true);
       console.error("Failed to fetch users:", error);
+      toast.error("Could not load users. Please try again.");
     }
   };
 
@@ -147,6 +151,10 @@ export default function AssignUserRoleModal({
                 {fetching ? (
                   <div className="flex justify-center items-center py-4">
                     <Spinner className="h-5 w-5 text-[#EE1E21]" />
+                  </div>
+                ) : usersError ? (
+                  <div className="px-4 py-3 text-sm text-red-500">
+                    Could not load users.
                   </div>
                 ) : users.length === 0 ? (
                   <div className="px-4 py-3 text-sm text-gray-500">
