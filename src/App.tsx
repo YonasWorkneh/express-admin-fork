@@ -466,6 +466,14 @@ const App = () => {
                 }
               />
               <Route
+                path="/customer/loyalty/edit/:id"
+                element={
+                  <ProtectedRoute requiredPermission={Permission.CUSTOMER}>
+                    <AddPointsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/customer/complaints"
                 element={
                   <ProtectedRoute requiredPermission={Permission.CUSTOMER}>

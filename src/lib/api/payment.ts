@@ -158,6 +158,49 @@ export async function createCoupon(
   return record;
 }
 
+export type UpdateCouponInput = CreateCouponInput;
+
+function normalizeCouponRecord(payload: unknown): CouponRecord | null {
+  if (!payload || typeof payload !== "object") return null;
+  let root: unknown = payload;
+  if (
+    "data" in (root as object) &&
+    (root as { data: unknown }).data !== undefined &&
+    typeof (root as { data: unknown }).data === "object"
+  ) {
+    root = (root as { data: unknown }).data;
+  }
+  if (!root || typeof root !== "object") return null;
+  const row = root as Record<string, unknown>;
+  if (typeof row.id !== "string") return null;
+  return root as CouponRecord;
+}
+
+/** PATCH /payment/coupons/:id */
+export async function updateCoupon(
+  id: string,
+  input: UpdateCouponInput,
+): Promise<CouponRecord> {
+  const clean = id.trim();
+  if (!clean) throw new Error("Invalid coupon id");
+  const res = await api.patch<{ data?: CouponRecord; message?: string }>(
+    `/payment/coupons/${encodeURIComponent(clean)}`,
+    input,
+  );
+  const record = res.data?.data ?? normalizeCouponRecord(res.data);
+  if (!record?.id) {
+    throw new Error("Coupon was not updated.");
+  }
+  return record;
+}
+
+/** POST /payment/coupons/:id/deactivate */
+export async function deactivateCoupon(id: string): Promise<void> {
+  const clean = id.trim();
+  if (!clean) throw new Error("Invalid coupon id");
+  await api.post(`/payment/coupons/${encodeURIComponent(clean)}/deactivate`);
+}
+
 export interface ValidateCouponInput {
   code: string;
   amount: number;

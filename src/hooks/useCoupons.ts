@@ -1,5 +1,10 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchCoupons } from "@/lib/api/payment";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  fetchCoupons,
+  updateCoupon,
+  deactivateCoupon,
+  type UpdateCouponInput,
+} from "@/lib/api/payment";
 
 export const COUPONS_QUERY_KEY = ["paymentCoupons"] as const;
 
@@ -16,4 +21,25 @@ export function useInvalidateCoupons() {
   return () => {
     void queryClient.invalidateQueries({ queryKey: COUPONS_QUERY_KEY });
   };
+}
+
+export function useUpdateCoupon() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateCouponInput }) =>
+      updateCoupon(id, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: COUPONS_QUERY_KEY });
+    },
+  });
+}
+
+export function useDeactivateCoupon() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deactivateCoupon(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: COUPONS_QUERY_KEY });
+    },
+  });
 }

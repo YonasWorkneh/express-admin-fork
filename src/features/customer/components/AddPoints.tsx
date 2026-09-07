@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Formik, Form, Field } from "formik";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,13 +12,22 @@ import {
 } from "@/components/ui/select";
 import Button from "../../../components/common/Button";
 import api from "../../../lib/api/api";
-import { createCoupon, type CouponScope } from "../../../lib/api/payment";
-import { useInvalidateCoupons } from "@/hooks/useCoupons";
+import {
+  createCoupon,
+  type CouponScope,
+  type CouponRecord,
+} from "../../../lib/api/payment";
+import {
+  useCoupons,
+  useInvalidateCoupons,
+  useUpdateCoupon,
+} from "@/hooks/useCoupons";
 import toast from "react-hot-toast";
-import { IoArrowBack, IoAdd } from "react-icons/io5";
-import { useNavigate } from "react-router-dom";
+import { IoArrowBack, IoAdd, IoSave } from "react-icons/io5";
+import { useNavigate, useParams } from "react-router-dom";
 import * as Yup from "yup";
 import type { Customer, CustomerListResponse } from "@/types/types";
+import { Spinner } from "@/utils/spinner";
 
 const AddCouponSchema = Yup.object().shape({
   creditAmount: Yup.number()
@@ -42,6 +51,51 @@ const AddCouponSchema = Yup.object().shape({
   }),
 });
 
+type CouponFormValues = {
+  creditAmount: string;
+  maxOrders: string;
+  dueDate: string;
+  description: string;
+  scope: CouponScope | "";
+  userId: string;
+  corporateId: string;
+};
+
+function dueDateForInput(value?: string | null): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) {
+    return value.slice(0, 10);
+  }
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function mapCouponToFormValues(coupon: CouponRecord): CouponFormValues {
+  const isCorporate = Boolean(coupon.corporateId || coupon.corporate);
+  return {
+    creditAmount: String(coupon.creditAmount ?? ""),
+    maxOrders: String(coupon.maxOrders ?? ""),
+    dueDate: dueDateForInput(coupon.dueDate),
+    description: coupon.description ?? "",
+    scope: isCorporate ? "CORPORATE" : "INDIVIDUAL",
+    userId: coupon.userId ?? coupon.user?.id ?? "",
+    corporateId: coupon.corporateId ?? coupon.corporate?.id ?? "",
+  };
+}
+
+const emptyFormValues: CouponFormValues = {
+  creditAmount: "",
+  maxOrders: "",
+  dueDate: "",
+  description: "",
+  scope: "",
+  userId: "",
+  corporateId: "",
+};
+
 const AddCoupon = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
@@ -49,17 +103,25 @@ const AddCoupon = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const navigate = useNavigate();
+  const { id: editId } = useParams<{ id?: string }>();
+  const isEdit = Boolean(editId?.trim());
   const invalidateCoupons = useInvalidateCoupons();
+  const updateCouponMutation = useUpdateCoupon();
+  const {
+    data: coupons = [],
+    isLoading: loadingCoupons,
+    isError: couponsLoadError,
+  } = useCoupons();
 
-  const initialValues = {
-    creditAmount: "",
-    maxOrders: "",
-    dueDate: "",
-    description: "",
-    scope: "" as CouponScope | "",
-    userId: "",
-    corporateId: "",
-  };
+  const editingCoupon = useMemo(() => {
+    if (!isEdit || !editId) return undefined;
+    return coupons.find((c) => c.id === editId);
+  }, [coupons, editId, isEdit]);
+
+  const initialValues = useMemo(() => {
+    if (editingCoupon) return mapCouponToFormValues(editingCoupon);
+    return emptyFormValues;
+  }, [editingCoupon]);
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -90,20 +152,37 @@ const AddCoupon = () => {
   );
 
   const handleSubmit = async (
-    values: typeof initialValues,
+    values: CouponFormValues,
     { resetForm }: { resetForm: () => void },
   ) => {
+    const payload = {
+      creditAmount: Number(values.creditAmount),
+      maxOrders: Number(values.maxOrders),
+      dueDate: values.dueDate,
+      description: values.description.trim() || undefined,
+      ...(values.scope === "INDIVIDUAL"
+        ? { userId: values.userId }
+        : { corporateId: values.corporateId }),
+    };
+
     try {
       setSubmitting(true);
-      const coupon = await createCoupon({
-        creditAmount: Number(values.creditAmount),
-        maxOrders: Number(values.maxOrders),
-        dueDate: values.dueDate,
-        description: values.description.trim() || undefined,
-        ...(values.scope === "INDIVIDUAL"
-          ? { userId: values.userId }
-          : { corporateId: values.corporateId }),
-      });
+      if (isEdit && editId) {
+        const coupon = await updateCouponMutation.mutateAsync({
+          id: editId,
+          input: payload,
+        });
+        toast.success(
+          coupon.code
+            ? `Coupon ${coupon.code} updated successfully.`
+            : "Coupon updated successfully.",
+        );
+        invalidateCoupons();
+        navigate("/customer/loyalty");
+        return;
+      }
+
+      const coupon = await createCoupon(payload);
       toast.success(
         coupon.code
           ? `Coupon ${coupon.code} created successfully.`
@@ -112,25 +191,60 @@ const AddCoupon = () => {
       invalidateCoupons();
       resetForm();
       navigate("/customer/loyalty");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const msg =
+        error &&
+        typeof error === "object" &&
+        "response" in error
+          ? (error as { response?: { data?: { message?: string } } }).response
+              ?.data?.message
+          : null;
       toast.error(
-        error?.response?.data?.message || "Could not create the coupon.",
+        typeof msg === "string" && msg.trim()
+          ? msg
+          : isEdit
+            ? "Could not update the coupon."
+            : "Could not create the coupon.",
       );
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (isEdit && loadingCoupons) {
+    return (
+      <div className="min-h-[40vh] flex items-center justify-center gap-2 text-gray-600">
+        <Spinner className="h-6 w-6 text-[#EE1E21]" />
+        Loading coupon…
+      </div>
+    );
+  }
+
+  if (isEdit && (couponsLoadError || !editingCoupon)) {
+    return (
+      <div className="max-w-4xl p-6 bg-white space-y-4">
+        <p className="text-red-600">Could not load this coupon.</p>
+        <Button
+          type="button"
+          onClick={() => navigate("/customer/loyalty")}
+          className="!w-auto cursor-pointer"
+        >
+          Back to Credit Program
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl p-6 bg-white">
       <Formik
         initialValues={initialValues}
+        enableReinitialize
         validationSchema={AddCouponSchema}
         onSubmit={handleSubmit}
       >
         {({ values, setFieldValue, errors, touched }) => (
           <Form>
-            {/* Header */}
             <header className="relative">
               <div className="absolute h-full top-0 left-0 flex items-center">
                 <Button
@@ -144,14 +258,18 @@ const AddCoupon = () => {
               <div className="flex gap-5 items-center justify-center mb-6">
                 <div className="flex gap-4 items-center">
                   <h1 className="text-3xl font-medium text-gray-700">
-                    Add Coupon
+                    {isEdit ? "Edit Coupon" : "Add Coupon"}
                   </h1>
                 </div>
               </div>
+              {isEdit && editingCoupon?.code ? (
+                <p className="text-center text-sm text-gray-500 -mt-4 mb-6 font-mono">
+                  {editingCoupon.code}
+                </p>
+              ) : null}
             </header>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              {/* Credit & Validity */}
               <div className="bg-gray-50 p-6 rounded-lg space-y-4">
                 <h2 className="text-lg font-medium mb-4">Credit & Validity</h2>
                 <div>
@@ -205,9 +323,7 @@ const AddCoupon = () => {
                     type="date"
                     name="dueDate"
                     className={`py-7 ${
-                      errors.dueDate && touched.dueDate
-                        ? "border-red-500"
-                        : ""
+                      errors.dueDate && touched.dueDate ? "border-red-500" : ""
                     }`}
                   />
                   {errors.dueDate && touched.dueDate && (
@@ -218,7 +334,6 @@ const AddCoupon = () => {
                 </div>
               </div>
 
-              {/* Audience & Details */}
               <div className="bg-gray-50 p-6 rounded-lg space-y-4">
                 <h2 className="text-lg font-medium mb-4">Audience & Details</h2>
                 <div>
@@ -391,7 +506,6 @@ const AddCoupon = () => {
               </div>
             </div>
 
-            {/* Action buttons */}
             <div className="bg-gray-50 p-6 rounded-lg mt-6 space-y-4">
               <h2 className="text-lg font-medium mb-4">Complete Coupon</h2>
 
@@ -415,12 +529,18 @@ const AddCoupon = () => {
                   {submitting ? (
                     <span className="flex items-center gap-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Creating coupon...</span>
+                      <span>
+                        {isEdit ? "Updating coupon..." : "Creating coupon..."}
+                      </span>
                     </span>
                   ) : (
                     <span className="flex items-center gap-2">
-                      <IoAdd className="h-4 w-4" />
-                      Add Coupon
+                      {isEdit ? (
+                        <IoSave className="h-4 w-4" />
+                      ) : (
+                        <IoAdd className="h-4 w-4" />
+                      )}
+                      {isEdit ? "Save changes" : "Add Coupon"}
                     </span>
                   )}
                 </Button>

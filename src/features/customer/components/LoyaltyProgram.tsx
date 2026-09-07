@@ -23,18 +23,28 @@ import {
 } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import TablePagination from "@/components/common/TablePagination";
+import ConfirmationModal from "@/components/common/ConfirmationModal";
 import { IoAdd, IoStar, IoArrowBack } from "react-icons/io5";
 import { Spinner } from "@/utils/spinner";
-import { useCoupons } from "@/hooks/useCoupons";
+import { useCoupons, useDeactivateCoupon } from "@/hooks/useCoupons";
+import { useCustomerNamesByIds } from "@/hooks/useCustomerNamesByIds";
 import type { CouponRecord } from "@/lib/api/payment";
 import toast from "react-hot-toast";
 
-function couponAssigneeLabel(coupon: CouponRecord): string {
+function couponAssigneeId(coupon: CouponRecord): string | null {
+  const id =
+    coupon.userId ||
+    coupon.corporateId ||
+    coupon.user?.id ||
+    coupon.corporate?.id ||
+    null;
+  return typeof id === "string" && id.trim() ? id.trim() : null;
+}
+
+function couponAssigneeFallback(coupon: CouponRecord): string {
   if (coupon.user?.name) return coupon.user.name;
   if (coupon.corporate?.companyName) return coupon.corporate.companyName;
   if (coupon.corporate?.name) return coupon.corporate.name;
-  if (coupon.userId) return `User ${coupon.userId.slice(0, 8)}…`;
-  if (coupon.corporateId) return `Corporate ${coupon.corporateId.slice(0, 8)}…`;
   return "—";
 }
 
@@ -90,10 +100,27 @@ export default function LoyaltyProgram() {
   const [pageSize, setPageSize] = useState(10);
   const [searchText, setSearchText] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [couponPendingDeactivate, setCouponPendingDeactivate] =
+    useState<CouponRecord | null>(null);
   const navigate = useNavigate();
 
   const { data: coupons = [], isLoading, isError, refetch, isFetching } =
     useCoupons();
+  const deactivateCouponMutation = useDeactivateCoupon();
+
+  const assigneeIds = useMemo(
+    () => coupons.map((coupon) => couponAssigneeId(coupon)),
+    [coupons],
+  );
+  const { nameById: assigneeNameById, loading: loadingAssigneeNames } =
+    useCustomerNamesByIds(assigneeIds);
+
+  const resolveAssigneeName = (coupon: CouponRecord): string => {
+    const id = couponAssigneeId(coupon);
+    if (id && assigneeNameById[id]) return assigneeNameById[id];
+    if (id && loadingAssigneeNames) return "Loading…";
+    return couponAssigneeFallback(coupon);
+  };
 
   const filteredCoupons = useMemo(() => {
     const q = searchText.trim().toLowerCase();
@@ -106,7 +133,7 @@ export default function LoyaltyProgram() {
       const haystack = [
         coupon.code,
         coupon.description,
-        couponAssigneeLabel(coupon),
+        resolveAssigneeName(coupon),
         coupon.user?.email,
         coupon.userId,
         coupon.corporateId,
@@ -117,7 +144,9 @@ export default function LoyaltyProgram() {
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [coupons, filterStatus, searchText]);
+    // resolveAssigneeName depends on assigneeNameById / loadingAssigneeNames
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coupons, filterStatus, searchText, assigneeNameById, loadingAssigneeNames]);
 
   const metrics = useMemo(() => {
     const active = coupons.filter((c) => couponStatus(c) === "Active").length;
@@ -171,6 +200,34 @@ export default function LoyaltyProgram() {
     } catch {
       toast.error("Could not copy code");
     }
+  };
+
+  const handleConfirmDeactivate = () => {
+    if (!couponPendingDeactivate?.id) return;
+    deactivateCouponMutation.mutate(couponPendingDeactivate.id, {
+      onSuccess: () => {
+        toast.success(
+          couponPendingDeactivate.code
+            ? `Coupon ${couponPendingDeactivate.code} deactivated.`
+            : "Coupon deactivated.",
+        );
+        setCouponPendingDeactivate(null);
+      },
+      onError: (error: unknown) => {
+        const msg =
+          error &&
+          typeof error === "object" &&
+          "response" in error
+            ? (error as { response?: { data?: { message?: string } } }).response
+                ?.data?.message
+            : null;
+        toast.error(
+          typeof msg === "string" && msg.trim()
+            ? msg
+            : "Could not deactivate coupon.",
+        );
+      },
+    });
   };
 
   return (
@@ -304,12 +361,15 @@ export default function LoyaltyProgram() {
                     <TableHead className="text-gray-600 font-medium">
                       Created
                     </TableHead>
+                    <TableHead className="text-gray-600 font-medium">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-10">
+                      <TableCell colSpan={9} className="py-10">
                         <div className="flex justify-center items-center gap-2 text-gray-600">
                           <Spinner className="h-6 w-6 text-[#EE1E21]" />
                           Loading coupons…
@@ -319,7 +379,7 @@ export default function LoyaltyProgram() {
                   ) : isError ? (
                     <TableRow>
                       <TableCell
-                        colSpan={8}
+                        colSpan={9}
                         className="text-center text-red-600 py-8"
                       >
                         Could not load coupons.{" "}
@@ -335,7 +395,7 @@ export default function LoyaltyProgram() {
                   ) : paginatedCoupons.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={8}
+                        colSpan={9}
                         className="text-center text-gray-500 py-8"
                       >
                         No coupons found.
@@ -384,7 +444,7 @@ export default function LoyaltyProgram() {
                             ) : null}
                           </TableCell>
                           <TableCell className="text-gray-900">
-                            {couponAssigneeLabel(coupon)}
+                            {resolveAssigneeName(coupon)}
                           </TableCell>
                           <TableCell>
                             <Badge variant="secondary" className="bg-slate-100">
@@ -419,6 +479,34 @@ export default function LoyaltyProgram() {
                           <TableCell className="text-gray-600">
                             {formatDate(coupon.createdAt)}
                           </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="p-0 px-3 text-[#EE1E21] bg-[#EE1E21]/5 hover:bg-[#EE1E21]/10 hover:text-[#cc1a1c] cursor-pointer"
+                                onClick={() =>
+                                  navigate(
+                                    `/customer/loyalty/edit/${coupon.id}`,
+                                  )
+                                }
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="p-0 px-3 text-orange-700 bg-orange-50 hover:bg-orange-100 hover:text-orange-800 cursor-pointer"
+                                onClick={() =>
+                                  setCouponPendingDeactivate(coupon)
+                                }
+                              >
+                                Deactivate
+                              </Button>
+                            </div>
+                          </TableCell>
                         </TableRow>
                       );
                     })
@@ -438,6 +526,26 @@ export default function LoyaltyProgram() {
           </CardContent>
         </Card>
       </main>
+
+      <ConfirmationModal
+        isOpen={Boolean(couponPendingDeactivate)}
+        onClose={() =>
+          !deactivateCouponMutation.isPending &&
+          setCouponPendingDeactivate(null)
+        }
+        onConfirm={handleConfirmDeactivate}
+        title="Deactivate coupon"
+        description={
+          couponPendingDeactivate?.code
+            ? `This will deactivate coupon “${couponPendingDeactivate.code}”. It will no longer be usable for payments.`
+            : "This will deactivate this coupon. It will no longer be usable for payments."
+        }
+        confirmText="Deactivate"
+        variant="warning"
+        isLoading={deactivateCouponMutation.isPending}
+      >
+        <></>
+      </ConfirmationModal>
     </div>
   );
 }
