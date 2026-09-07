@@ -1,3 +1,5 @@
+import type { OrderCategoryEntry } from "@/types/orderDetail";
+
 export const ReportPreset = {
   TODAY: "TODAY",
   YESTERDAY: "YESTERDAY",
@@ -154,6 +156,8 @@ export interface OrderReportGroup {
 
 export type OrderReportResponse = OrderReportGroup[];
 
+import type { OrderCategoryEntry } from "@/types/orderDetail";
+
 export interface DashboardSummary {
   totalOrders: number;
   totalRevenue: number;
@@ -207,7 +211,9 @@ export interface RecentOrder {
   length: number | null;
   width: number | null;
   height: number | null;
-  category: string[];
+  categories?: OrderCategoryEntry[];
+  /** @deprecated Prefer `categories`. */
+  category?: string | string[];
   isFragile: boolean;
   shipmentType: string;
   shippingScope: string;

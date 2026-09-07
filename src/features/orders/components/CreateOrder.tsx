@@ -14,7 +14,6 @@ import {
 import Button from "@/components/common/Button";
 import MapAddressSelector from "@/components/common/MapAddressSelector";
 import SuccessModal from "@/components/common/SuccessModal";
-import type { WaybillData } from "@/components/common/WaybillDocument";
 import { useAuthState } from "@/hooks/useAuthState";
 import {
   IoCall,
@@ -45,13 +44,14 @@ import { Spinner } from "@/utils/spinner";
 import { ConfigProvider, Select as Style2 } from "antd";
 import { useServiceTypes } from "@/hooks/useServiceTypes";
 import { useOrderItemCategories } from "@/hooks/useOrderItemCategories";
+import { mapOrderCategoryLinesToForm } from "@/utils/orderCategories";
 import { useFleetVehicleTypesForServiceTypeQuery } from "@/hooks/useDriverCommissionConfig";
 import type { FleetVehicleTypeListItem } from "@/lib/api/fleet";
 import { VehicleTypeThumbnail } from "@/lib/vehicleTypeVisual";
 import { cn } from "@/lib/utils";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { fetchOrderById } from "@/lib/api/orders";
-import { createPayment, type CreatePaymentInput } from "@/lib/api/payment";
+import { createPayment, validateCoupon, type CreatePaymentInput } from "@/lib/api/payment";
 import type { OrderDetailApi } from "@/types/orderDetail";
 import { format } from "date-fns";
 
@@ -140,6 +140,82 @@ function createEmptyFormValues() {
     payerName: "",
     // Credit
     couponCode: "",
+    couponValidated: false,
+  };
+}
+
+type DevPrefillOptions = {
+  serviceTypeId?: string;
+  categoryIds?: string[];
+  branchId?: string;
+  branchSearch?: string;
+};
+
+/** Dev-only: sensible sample values for every create-order field except emails. */
+function createDevPrefillFormValues(options: DevPrefillOptions = {}) {
+  const base = createEmptyFormValues();
+  const now = new Date();
+  const pickup = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+  const delivery = new Date(now.getTime() + 26 * 60 * 60 * 1000);
+  const categoryIds = options.categoryIds ?? [];
+  const categoryQuantities = Object.fromEntries(
+    categoryIds.map((id, index) => [id, index === 0 ? 2 : 1]),
+  );
+
+  return {
+    ...base,
+    serviceTypeId: options.serviceTypeId ?? "",
+    fulfillmentType: "DROPOFF",
+    name: "Abebe Kebede",
+    email: "",
+    phone: `${ETHIO_COUNTRY_CODE}911234567`,
+    weight: 2.5,
+    categoryIds,
+    categoryQuantities,
+    isFragile: true,
+    shipmentType: "PARCEL",
+    shippingScope: "TOWN",
+    length: 30,
+    width: 20,
+    height: 15,
+    pickupAddress: "Bole Road, near Edna Mall, Addis Ababa",
+    pickupLatitude: 8.9806,
+    pickupLongitude: 38.7578,
+    cost: 0,
+    senderEntity: "",
+    isUnusual: false,
+    destination: "TOWN",
+    unusualReason: "",
+    receiverName: "Sara Hailu",
+    receiverEmail: "",
+    receiverPhone: `${ETHIO_COUNTRY_CODE}922345678`,
+    receiverAddress: "CMC Michael, near Friendship Business Center, Addis Ababa",
+    receiverLatitude: 9.0227,
+    receiverLongitude: 38.7469,
+    pickupDate: format(pickup, "yyyy-MM-dd'T'HH:mm"),
+    deliveryDate: format(delivery, "yyyy-MM-dd'T'HH:mm"),
+    branchId: options.branchId ?? "",
+    branchSearch: options.branchSearch ?? "",
+    originCity: "Addis Ababa",
+    destinationCity: "Addis Ababa",
+    selectedVehicleTypeId: "",
+    sessionId: "",
+    vehicleTypeIds: [] as string[],
+    validatedNotes: "Dev prefill — sample notes",
+    finalPrice: 0,
+    paymentType: "bank_transfer",
+    receiptNumber: "RCPT-DEV-001",
+    bankName: "Commercial Bank of Ethiopia",
+    referenceNumber: "TRX-DEV-998877",
+    accountName: "Abebe Kebede",
+    accountNumber: "1000123456789",
+    depositedAt: format(now, "yyyy-MM-dd'T'HH:mm"),
+    checkNumber: "CHK-000451",
+    checkIssueDate: format(now, "yyyy-MM-dd"),
+    checkDueDate: format(delivery, "yyyy-MM-dd"),
+    payerName: "Abebe Kebede",
+    couponCode: "CRD-DEVTEST01",
+    couponValidated: false,
   };
 }
 
@@ -164,6 +240,8 @@ function mapOrderDetailToFormValues(o: OrderDetailApi) {
     o.pickupAddress?.city,
   ].filter(Boolean);
 
+  const { categoryIds, categoryQuantities } = mapOrderCategoryLinesToForm(o);
+
   return {
     ...base,
     serviceTypeId,
@@ -183,10 +261,8 @@ function mapOrderDetailToFormValues(o: OrderDetailApi) {
     unusualReason: o.unusualReason ?? "",
     shipmentType: (o.shipmentType as string) ?? "",
     destination: String(o.shippingScope ?? "TOWN").toUpperCase(),
-    categoryIds: o.category?.id ? [o.category.id] : [],
-    categoryQuantities: o.category?.id
-      ? { [o.category.id]: o.quantity ?? 1 }
-      : {},
+    categoryIds,
+    categoryQuantities,
     length: o.length ?? 0,
     width: o.width ?? 0,
     height: o.height ?? 0,
@@ -306,6 +382,12 @@ const buildOrderValidationSchema = () =>
       then: (schema) => schema.required("Coupon code is required"),
       otherwise: (schema) => schema.notRequired(),
     }),
+    couponValidated: Yup.boolean().when("paymentType", {
+      is: "credit",
+      then: (schema) =>
+        schema.oneOf([true], "Validate the coupon code before submitting"),
+      otherwise: (schema) => schema.notRequired(),
+    }),
   });
 
 interface ConvertedShipment {
@@ -353,9 +435,8 @@ interface ConvertedShipment {
   sessionId?: string;
   vehicleTypeIds?: string[];
 
-  // Payment — created via POST /payment before order creation, then echoed onto the order payload.
+  // Payment — created via POST /payment before order creation, then payment details are echoed onto the order payload.
   paymentType?: string;
-  paymentId?: string;
   payment?: CreatePaymentInput;
 }
 
@@ -509,14 +590,85 @@ function PaymentMethodSection({
   touched,
   setFieldValue,
   setFieldTouched,
+  amount,
+  amountMissingMessage,
+  userId,
 }: {
   values: Record<string, unknown> & { paymentType: string };
   errors: Record<string, unknown>;
   touched: Record<string, unknown>;
   setFieldValue: (field: string, value: unknown) => void;
   setFieldTouched: (field: string, touched?: boolean) => void;
+  amount?: number;
+  amountMissingMessage?: string;
+  userId?: string;
 }) {
   const paymentType = values.paymentType as PaymentMethodId | "";
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const couponCode = String(values.couponCode ?? "").trim();
+  const couponValidated = Boolean(values.couponValidated);
+
+  useEffect(() => {
+    if (values.paymentType === "credit" && values.couponValidated) {
+      setFieldValue("couponValidated", false);
+    }
+    // Re-validate required when order amount changes after a coupon was applied.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only amount should reset validation
+  }, [amount]);
+
+  const handleValidateCoupon = async () => {
+    if (!couponCode) {
+      setFieldTouched("couponCode", true);
+      toast.error("Enter a coupon code first.");
+      return;
+    }
+    if (amount === undefined || !Number.isFinite(amount) || amount <= 0) {
+      toast.error(
+        amountMissingMessage ||
+          "Estimate the order first so the coupon amount is known.",
+      );
+      return;
+    }
+    if (!userId?.trim()) {
+      toast.error("You must be signed in to validate a coupon.");
+      return;
+    }
+    try {
+      setValidatingCoupon(true);
+      setFieldValue("couponValidated", false);
+      const result = await validateCoupon({
+        code: couponCode,
+        amount,
+        userId,
+      });
+      if (!result.valid) {
+        toast.error(
+          result.reason || "Coupon is not valid for this order.",
+        );
+        setFieldValue("couponValidated", false);
+        return;
+      }
+      setFieldValue("couponValidated", true);
+      setFieldTouched("couponValidated", true);
+      toast.success(
+        result.reason || result.message || "Coupon validated successfully.",
+      );
+    } catch (error: unknown) {
+      setFieldValue("couponValidated", false);
+      const msg =
+        error && typeof error === "object" && "response" in error
+          ? (error as { response?: { data?: { message?: string } } }).response
+              ?.data?.message
+          : null;
+      toast.error(
+        typeof msg === "string" && msg.trim()
+          ? msg
+          : "Could not validate coupon.",
+      );
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
 
   return (
     <div className="space-y-4 pt-2 border-t border-primary">
@@ -541,6 +693,7 @@ function PaymentMethodSection({
               onClick={() => {
                 setFieldValue("paymentType", method.id);
                 setFieldTouched("paymentType", true);
+                setFieldValue("couponValidated", false);
                 const keep = new Set(PAYMENT_DETAIL_FIELDS[method.id]);
                 Object.values(PAYMENT_DETAIL_FIELDS)
                   .flat()
@@ -660,13 +813,56 @@ function PaymentMethodSection({
 
       {paymentType === "credit" && (
         <div className="rounded-lg border border-primary bg-white p-4 space-y-3">
-          <PaymentField
-            name="couponCode"
-            label="Coupon code"
-            placeholder="e.g. CRD-X7K9M2P4"
-            errors={errors}
-            touched={touched}
-          />
+          <div>
+            <Label className="mb-1 font-bold">Coupon code</Label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                name="couponCode"
+                placeholder="e.g. CRD-X7K9M2P4"
+                value={String(values.couponCode ?? "")}
+                className={`py-7 flex-1 ${
+                  errors.couponCode && touched.couponCode ? "border-red-500" : ""
+                }`}
+                onChange={(e) => {
+                  setFieldValue("couponCode", e.target.value);
+                  setFieldValue("couponValidated", false);
+                }}
+                onBlur={() => setFieldTouched("couponCode", true)}
+              />
+              <button
+                type="button"
+                disabled={validatingCoupon}
+                onClick={() => void handleValidateCoupon()}
+                className="shrink-0 rounded-lg bg-[#EE1E21] px-4 py-3 text-sm font-medium text-[#FADF4B] hover:bg-[#cc1a1c] disabled:opacity-60 cursor-pointer"
+              >
+                {validatingCoupon ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Spinner className="h-4 w-4 text-[#FADF4B]" />
+                    Validating…
+                  </span>
+                ) : (
+                  "Use code"
+                )}
+              </button>
+            </div>
+            {Boolean(errors.couponCode) && Boolean(touched.couponCode) && (
+              <p className="text-red-500 text-sm mt-1">
+                {String(errors.couponCode)}
+              </p>
+            )}
+            {couponValidated && (
+              <p className="text-green-700 text-sm mt-1">
+                Coupon validated for this order amount.
+              </p>
+            )}
+            {Boolean(errors.couponValidated) &&
+              Boolean(touched.couponValidated) &&
+              !couponValidated && (
+                <p className="text-red-500 text-sm mt-1">
+                  {String(errors.couponValidated)}
+                </p>
+              )}
+          </div>
         </div>
       )}
 
@@ -898,19 +1094,57 @@ function getOrderAmount(
     fulfillmentType?: string;
     selectedVehicleTypeId?: string;
     sessionId?: string;
+    finalPrice?: number;
   },
   summary: OrderSummaryData | null,
 ): number | undefined {
   if (!summary) return undefined;
-  if (values.fulfillmentType === "PICKUP") {
-    const selected = summary.vehicles.find(
-      (v) =>
-        v.vehicleTypeId === values.selectedVehicleTypeId &&
-        (v.sessionId?.trim() ?? "") === String(values.sessionId ?? "").trim(),
-    );
-    return selected?.totalPrice;
+
+  const selectedVehicle = summary.vehicles.find(
+    (v) =>
+      v.vehicleTypeId === values.selectedVehicleTypeId &&
+      (v.sessionId?.trim() ?? "") === String(values.sessionId ?? "").trim(),
+  );
+  if (
+    selectedVehicle?.totalPrice != null &&
+    Number.isFinite(selectedVehicle.totalPrice) &&
+    selectedVehicle.totalPrice > 0
+  ) {
+    return selectedVehicle.totalPrice;
   }
-  return summary.breakdown?.basePrice ?? summary.vehicles[0]?.totalPrice;
+
+  if (values.fulfillmentType === "PICKUP") {
+    // Estimate exists, but the user still needs to pick a priced vehicle option.
+    return undefined;
+  }
+
+  const candidates = [
+    summary.breakdown?.basePrice,
+    summary.vehicles[0]?.totalPrice,
+    typeof values.finalPrice === "number" ? values.finalPrice : undefined,
+  ];
+  for (const candidate of candidates) {
+    if (candidate != null && Number.isFinite(candidate) && candidate > 0) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+function getCouponAmountMissingMessage(
+  values: { fulfillmentType?: string; selectedVehicleTypeId?: string },
+  summary: OrderSummaryData | null,
+): string {
+  if (!summary) {
+    return "Estimate the order first so the coupon amount is known.";
+  }
+  if (
+    values.fulfillmentType === "PICKUP" &&
+    !String(values.selectedVehicleTypeId ?? "").trim()
+  ) {
+    return "Select a vehicle option first so the coupon amount is known.";
+  }
+  return "Could not determine the order amount for this coupon. Re-estimate the order and try again.";
 }
 
 /** Builds the POST /payment body for the chosen method from the payment-section form fields. */
@@ -1156,7 +1390,6 @@ export default function OrderForm() {
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState("");
   const [createdOrderId, setCreatedOrderId] = useState("");
-  const [waybillData, setWaybillData] = useState<WaybillData | null>(null);
   const [loading, setLoading] = useState(false);
   const { user } = useAuthState();
 
@@ -1409,65 +1642,6 @@ export default function OrderForm() {
     }
   };
 
-  const buildWaybillData = (trackingCode: string, v: any): WaybillData => {
-    const categories = buildCategoriesPayload(v);
-    const goods = categories
-      .map((c) => {
-        const name = orderItemCategories.find(
-          (cat) => cat.id === c.categoryId,
-        )?.name;
-        return name ? { categoryName: name, quantity: c.quantity } : null;
-      })
-      .filter((g): g is { categoryName: string; quantity: number } => !!g);
-    const serviceTypeName = serviceTypes?.find(
-      (s) => s.id === v.serviceTypeId,
-    )?.name;
-    const selectedVehicle = orderSummary?.vehicles.find(
-      (veh) =>
-        veh.vehicleTypeId === v.selectedVehicleTypeId &&
-        (veh.sessionId?.trim() ?? "") === String(v.sessionId ?? "").trim(),
-    );
-    const paymentMethodLabel = PAYMENT_METHODS.find(
-      (m) => m.id === v.paymentType,
-    )?.label;
-
-    const shipperCompanyLine =
-      v.fulfillmentType === "PICKUP" && v.pickupAddress
-        ? v.pickupAddress
-        : v.originCity || "";
-
-    return {
-      trackingCode,
-      shipper: {
-        name: v.name || "",
-        phone: v.phone || "",
-        companyLine: shipperCompanyLine || undefined,
-      },
-      consignee: {
-        name: v.receiverName,
-        phone: v.receiverPhone,
-        companyLine: v.receiverAddress || undefined,
-      },
-      weightKg:
-        v.weight !== "" && v.weight != null ? Number(v.weight) : undefined,
-      dimensions:
-        v.shipmentType === "PARCEL"
-          ? {
-              length: Number(v.length) || 0,
-              width: Number(v.width) || 0,
-              height: Number(v.height) || 0,
-            }
-          : undefined,
-      goods: goods.length > 0 ? goods : undefined,
-      amount: selectedVehicle?.totalPrice,
-      currency: orderSummary?.currency,
-      paymentMethodLabel,
-      serviceTypeName,
-      receivedBy: user?.name || undefined,
-      createdAt: new Date(),
-    };
-  };
-
   const handleSubmit = async (
     _values: any,
     { resetForm }: { resetForm: () => void },
@@ -1526,10 +1700,8 @@ export default function OrderForm() {
         user ? { id: user.id, name: user.name } : null,
       );
 
-      let paymentId = "";
       try {
-        const payment = await createPayment(paymentInput);
-        paymentId = payment.id;
+        await createPayment(paymentInput);
       } catch (error: any) {
         toast.error(
           error?.response?.data?.message || "Payment could not be recorded.",
@@ -1538,7 +1710,6 @@ export default function OrderForm() {
         return;
       }
       converted.paymentType = _values.paymentType;
-      converted.paymentId = paymentId;
       converted.payment = paymentInput;
 
       const res = await api.post("/order", converted);
@@ -1548,7 +1719,6 @@ export default function OrderForm() {
       const trackingCode = res.data.data?.trackingCode ?? "";
       setTrackingNumber(trackingCode);
       setCreatedOrderId(res.data.data?.id ?? "");
-      setWaybillData(buildWaybillData(trackingCode, _values));
       setIsSuccessModalOpen(true);
       resetForm();
       setOrderSummary(null);
@@ -1572,7 +1742,6 @@ export default function OrderForm() {
     setIsSuccessModalOpen(false);
     setTrackingNumber("");
     setCreatedOrderId("");
-    setWaybillData(null);
   };
 
   const clearPickupFields = (
@@ -1655,9 +1824,18 @@ export default function OrderForm() {
         validationSchema={orderValidationSchema}
         onSubmit={handleSubmit}
       >
-        {({ values, setFieldValue, errors, touched, setFieldTouched }) => {
+        {({
+          values,
+          setFieldValue,
+          setValues,
+          errors,
+          touched,
+          setFieldTouched,
+        }) => {
           const isPickup = values.fulfillmentType === "PICKUP";
           const showVehicleTypes = isDropoffAcceptEdit || isPickup;
+          const showDevPrefill =
+            import.meta.env.DEV && !isEditingOrder;
           return (
             <Form>
               {/* Header */}
@@ -1674,6 +1852,30 @@ export default function OrderForm() {
                     <h1 className="text-xl font-medium text-gray-700">
                       Edit Order
                     </h1>
+                  ) : null}
+                  {showDevPrefill ? (
+                    <button
+                      type="button"
+                      className="ml-auto rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 cursor-pointer"
+                      onClick={() => {
+                        const firstCategoryIds = orderItemCategories
+                          .slice(0, 2)
+                          .map((c) => c.id);
+                        const firstBranch = branches[0];
+                        setValues(
+                          createDevPrefillFormValues({
+                            serviceTypeId: serviceTypes?.[0]?.id ?? "",
+                            categoryIds: firstCategoryIds,
+                            branchId: firstBranch?.id ?? "",
+                            branchSearch: firstBranch?.name ?? "",
+                          }),
+                        );
+                        setOrderSummary(null);
+                        toast.success("Dev prefill applied (emails left blank)");
+                      }}
+                    >
+                      Prefill (dev)
+                    </button>
                   ) : null}
                 </div>
                 {/* <div className="flex gap-5 items-center justify-center mb-6">
@@ -2582,6 +2784,11 @@ export default function OrderForm() {
                                         "sessionId",
                                         v.sessionId?.trim() ?? "",
                                       );
+                                      setFieldValue(
+                                        "finalPrice",
+                                        v.totalPrice ?? 0,
+                                      );
+                                      setFieldValue("couponValidated", false);
                                       setFieldTouched(
                                         "selectedVehicleTypeId",
                                         true,
@@ -2636,6 +2843,12 @@ export default function OrderForm() {
                           touched={touched}
                           setFieldValue={setFieldValue}
                           setFieldTouched={setFieldTouched}
+                          amount={getOrderAmount(values, orderSummary)}
+                          amountMissingMessage={getCouponAmountMissingMessage(
+                            values,
+                            orderSummary,
+                          )}
+                          userId={user?.id}
                         />
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
@@ -2836,7 +3049,6 @@ export default function OrderForm() {
         isOpen={isSuccessModalOpen}
         onClose={handleCloseModal}
         trackingNumber={trackingNumber}
-        waybill={waybillData ?? undefined}
         orderId={createdOrderId || undefined}
       />
     </div>

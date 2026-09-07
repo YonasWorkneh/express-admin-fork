@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IoCheckmarkCircle, IoClose, IoCopy, IoQrCode } from "react-icons/io5";
 import QRCode from "qrcode";
-import WaybillDocument, { type WaybillData } from "./WaybillDocument";
 import PrintWaybillButton from "./PrintWaybillButton";
 
 interface SuccessModalProps {
@@ -16,8 +15,6 @@ interface SuccessModalProps {
   description?: string;
   trackingLabel?: string;
   qrCodeLabel?: string;
-  /** When provided, renders a printable waybill instead of the plain tracking/QR card */
-  waybill?: WaybillData;
   /** When provided, shows a "Print Waybill" button that calls the print endpoint. */
   orderId?: string;
 }
@@ -30,7 +27,6 @@ export default function SuccessModal({
   description = "Your order has been processed and is ready for pickup.",
   trackingLabel = "Tracking Number",
   qrCodeLabel = "Scan this QR code to track your order",
-  waybill,
   orderId,
 }: SuccessModalProps) {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
@@ -39,13 +35,10 @@ export default function SuccessModal({
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (waybill) return;
     if (isOpen && trackingNumber && trackingNumber.trim()) {
-      // Reset error state
       setQrCodeError(false);
       setQrCodeDataUrl("");
-      
-      // Generate QR code for the tracking number
+
       QRCode.toDataURL(trackingNumber.trim(), {
         width: 200,
         margin: 2,
@@ -65,13 +58,11 @@ export default function SuccessModal({
           setQrCodeDataUrl("");
         });
     } else {
-      // Reset if no tracking number
       setQrCodeDataUrl("");
       setQrCodeError(false);
     }
   }, [isOpen, trackingNumber]);
 
-  // Prevent background scrolling when modal is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -83,7 +74,6 @@ export default function SuccessModal({
     };
   }, [isOpen]);
 
-  // Handle focus trap so user can reach modal buttons with Tab/Shift+Tab
   useEffect(() => {
     if (isOpen && modalRef.current) {
       const focusableSelectors =
@@ -91,7 +81,7 @@ export default function SuccessModal({
       const modal = modalRef.current;
       // @ts-ignore
       const focusables: HTMLElement[] = Array.from(
-        modal.querySelectorAll(focusableSelectors)
+        modal.querySelectorAll(focusableSelectors),
       );
       const firstFocusable = focusables[0];
       const lastFocusable = focusables[focusables.length - 1];
@@ -100,13 +90,11 @@ export default function SuccessModal({
         if (event.key === "Tab") {
           if (focusables.length === 0) return;
           if (event.shiftKey) {
-            // Shift + Tab
             if (document.activeElement === firstFocusable) {
               event.preventDefault();
               lastFocusable.focus();
             }
           } else {
-            // Tab
             if (document.activeElement === lastFocusable) {
               event.preventDefault();
               firstFocusable.focus();
@@ -119,7 +107,6 @@ export default function SuccessModal({
       };
 
       document.addEventListener("keydown", trapFocus);
-      // Focus the close button first
       firstFocusable?.focus();
 
       return () => {
@@ -140,7 +127,6 @@ export default function SuccessModal({
 
   if (!isOpen) return null;
 
-  // close modal when clicking outside (on backdrop)
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
       onClose();
@@ -157,9 +143,13 @@ export default function SuccessModal({
     >
       <div
         ref={modalRef}
-        className={`w-full ${waybill ? "max-w-2xl" : "max-w-md"} bg-white shadow-xl rounded-lg mx-auto my-8 outline-none max-h-[calc(100vh-2rem)] flex flex-col`}
-        style={{ minHeight: 0, maxHeight: "calc(100vh - 2rem)", overflowY: "auto" }}
-        onMouseDown={e => e.stopPropagation()}
+        className="w-full max-w-md bg-white shadow-xl rounded-lg mx-auto my-8 outline-none max-h-[calc(100vh-2rem)] flex flex-col"
+        style={{
+          minHeight: 0,
+          maxHeight: "calc(100vh - 2rem)",
+          overflowY: "auto",
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         <Card className="flex-1 flex flex-col h-full shadow-none bg-transparent border-none">
           <CardHeader className="text-center pb-4 flex-shrink-0">
@@ -183,17 +173,15 @@ export default function SuccessModal({
                 <CardTitle className="text-2xl font-bold text-gray-900">
                   {title}
                 </CardTitle>
-                <p className="text-gray-600 mt-2">
-                  {description}
-                </p>
+                <p className="text-gray-600 mt-2">{description}</p>
               </div>
             </div>
           </CardHeader>
 
           <CardContent className="space-y-6 flex-1 flex flex-col">
-            {waybill ? (
-              <div className="flex items-center justify-between gap-2 -mt-2">
-                <span className="text-xs text-gray-500">{trackingLabel}</span>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium text-gray-900">{trackingLabel}</h3>
                 <Button
                   variant="outline"
                   size="sm"
@@ -206,71 +194,43 @@ export default function SuccessModal({
                   {copied ? "Copied!" : "Copy"}
                 </Button>
               </div>
-            ) : null}
+              <div className="bg-white p-3 rounded border font-mono text-lg font-bold text-center text-[#EE1E21]">
+                {trackingNumber}
+              </div>
+            </div>
 
-            {waybill ? (
-              <WaybillDocument data={waybill} />
-            ) : (
-              <>
-                {/* Tracking Number */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-medium text-gray-900">{trackingLabel}</h3>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopyTrackingNumber}
-                      className="flex items-center gap-2"
-                      tabIndex={0}
-                      aria-label="Copy tracking number"
-                    >
-                      <IoCopy className="h-4 w-4" />
-                      {copied ? "Copied!" : "Copy"}
-                    </Button>
+            <div className="text-center">
+              <h3 className="font-medium text-gray-900 mb-3 flex items-center justify-center gap-2">
+                <IoQrCode className="h-5 w-5" />
+                QR Code
+              </h3>
+              <div className="bg-white p-4 rounded-lg border-2 border-dashed border-gray-200 inline-block">
+                {qrCodeDataUrl ? (
+                  <img
+                    src={qrCodeDataUrl}
+                    alt="QR Code"
+                    className="w-48 h-48 mx-auto"
+                  />
+                ) : qrCodeError ? (
+                  <div className="w-48 h-48 bg-gray-100 rounded flex flex-col items-center justify-center">
+                    <IoQrCode className="h-12 w-12 text-gray-400 mb-2" />
+                    <p className="text-xs text-gray-500 text-center px-2">
+                      Failed to generate QR code
+                    </p>
                   </div>
-                  <div className="bg-white p-3 rounded border font-mono text-lg font-bold text-center text-[#EE1E21]">
-                    {trackingNumber}
+                ) : trackingNumber ? (
+                  <div className="w-48 h-48 bg-gray-100 rounded flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#EE1E21]"></div>
                   </div>
-                </div>
+                ) : (
+                  <div className="w-48 h-48 bg-gray-100 rounded flex items-center justify-center">
+                    <p className="text-xs text-gray-500">No tracking number</p>
+                  </div>
+                )}
+              </div>
+              <p className="text-sm text-gray-500 mt-2">{qrCodeLabel}</p>
+            </div>
 
-                {/* QR Code */}
-                <div className="text-center">
-                  <h3 className="font-medium text-gray-900 mb-3 flex items-center justify-center gap-2">
-                    <IoQrCode className="h-5 w-5" />
-                    QR Code
-                  </h3>
-                  <div className="bg-white p-4 rounded-lg border-2 border-dashed border-gray-200 inline-block">
-                    {qrCodeDataUrl ? (
-                      <img
-                        src={qrCodeDataUrl}
-                        alt="QR Code"
-                        className="w-48 h-48 mx-auto"
-                      />
-                    ) : qrCodeError ? (
-                      <div className="w-48 h-48 bg-gray-100 rounded flex flex-col items-center justify-center">
-                        <IoQrCode className="h-12 w-12 text-gray-400 mb-2" />
-                        <p className="text-xs text-gray-500 text-center px-2">
-                          Failed to generate QR code
-                        </p>
-                      </div>
-                    ) : trackingNumber ? (
-                      <div className="w-48 h-48 bg-gray-100 rounded flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#EE1E21]"></div>
-                      </div>
-                    ) : (
-                      <div className="w-48 h-48 bg-gray-100 rounded flex items-center justify-center">
-                        <p className="text-xs text-gray-500">No tracking number</p>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-500 mt-2">
-                    {qrCodeLabel}
-                  </p>
-                </div>
-              </>
-            )}
-
-            {/* Action Buttons */}
             <div className="flex gap-3 mt-auto">
               <Button
                 onClick={onClose}
@@ -280,9 +240,12 @@ export default function SuccessModal({
               >
                 Close
               </Button>
-              {orderId && (
-                <PrintWaybillButton orderId={orderId} className="flex-1 border" />
-              )}
+              {orderId ? (
+                <PrintWaybillButton
+                  orderId={orderId}
+                  className="flex-1 border"
+                />
+              ) : null}
             </div>
           </CardContent>
         </Card>

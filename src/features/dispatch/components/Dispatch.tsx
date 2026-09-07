@@ -36,6 +36,7 @@ import api from "@/lib/api/api";
 import { Skeleton } from "antd";
 import type { Order, OrderListResponse, Pagination } from "@/types/types";
 import { Spinner } from "@/utils/spinner";
+import { formatOrderCategoriesSummary } from "@/utils/orderCategories";
 import ConfirmationModal from "@/components/common/ConfirmationModal";
 import { Input } from "@/components/ui/input";
 
@@ -871,7 +872,7 @@ export default function Dispatch() {
                       Pickup address
                     </TableHead>
                     <TableHead className="text-gray-600 font-medium">
-                      Items
+                      Categories
                     </TableHead>
                     <TableHead className="text-gray-600 font-medium">
                       Destination
@@ -1038,8 +1039,8 @@ export default function Dispatch() {
                             )}
                           </TableCell>
 
-                          <TableCell className="text-gray-600">
-                            {(order as any).quantity ?? 0}
+                          <TableCell className="text-gray-600 max-w-[220px]">
+                            {formatOrderCategoriesSummary(order)}
                           </TableCell>
                           <TableCell className="text-gray-600">
                             {toDisplayText(

@@ -18,6 +18,7 @@ import {
 import { IoArrowBack } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { getCategorizedOrders, createBatch } from "@/lib/api/batch";
+import { getUniqueOrderCategoryNames, formatOrderCategoriesSummary } from "@/utils/orderCategories";
 import api from "@/lib/api/api";
 import { useServiceTypes } from "@/hooks/useServiceTypes";
 import type {
@@ -45,17 +46,6 @@ const getScopeCandidates = (scopeKey: string): string[] => {
   const key = String(scopeKey ?? "").trim().toUpperCase();
   if (key === "TOWN") return ["TOWN", "IN_TOWN"];
   return [key];
-};
-
-const toCategoryLabel = (cat: unknown): string | null => {
-  if (typeof cat === "string") return cat;
-  if (cat && typeof cat === "object") {
-    const obj = cat as Record<string, unknown>;
-    if (typeof obj.name === "string") return obj.name;
-    if (typeof obj.label === "string") return obj.label;
-    if (typeof obj.id === "string") return obj.id;
-  }
-  return null;
 };
 
 function CreateBatchPage() {
@@ -367,18 +357,8 @@ function CreateBatchPage() {
   // Get unique category values from selected orders
   const selectedCategories: string[] = Array.from(
     new Set(
-      selectedOrdersData
-        .flatMap((o) =>
-          Array.isArray(o.category)
-            ? o.category
-                .map(toCategoryLabel)
-                .filter((v): v is string => Boolean(v))
-            : typeof o.category === "string"
-              ? [o.category]
-              : []
-        )
-        .filter((v): v is string => Boolean(v))
-    )
+      selectedOrdersData.flatMap((order) => getUniqueOrderCategoryNames(order)),
+    ),
   );
   const batchIsFragile = selectedOrdersData.some((o) => o.isFragile);
 
@@ -452,10 +432,11 @@ function CreateBatchPage() {
     let batchCategories: string[] | undefined;
     if (selectedCategories.length > 0) {
       batchCategories = selectedCategories;
-    } else if (Array.isArray(firstSelectedOrder.category)) {
-      batchCategories = firstSelectedOrder.category
-        .map(toCategoryLabel)
-        .filter((v): v is string => Boolean(v));
+    } else {
+      const fallbackNames = getUniqueOrderCategoryNames(firstSelectedOrder);
+      if (fallbackNames.length > 0) {
+        batchCategories = fallbackNames;
+      }
     }
 
     // ====== Get originCity and destinationCity from route string, fallback to "" if can't parse ======
@@ -802,6 +783,9 @@ function CreateBatchPage() {
                             </div>
                             <p className="text-sm text-gray-600">
                               Weight: {order.weight} kg
+                              {formatOrderCategoriesSummary(order) !== "—"
+                                ? ` · ${formatOrderCategoriesSummary(order)}`
+                                : ""}
                             </p>
                             {order.deliveryAddress && (
                               <p className="text-xs text-gray-500">

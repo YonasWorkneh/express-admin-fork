@@ -59,6 +59,7 @@ import ConfirmationModal from "@/components/common/ConfirmationModal";
 import { Skeleton } from "antd";
 import { Spinner } from "@/utils/spinner";
 import { exportToExcel } from "@/utils/exportToExcel";
+import { formatOrderCategoriesSummary } from "@/utils/orderCategories";
 import { Label } from "@/components/ui/label";
 
 // Helper to reverse-geocode lat/long to place name using MapAddressSelector.tsx nominatim endpoint
@@ -536,7 +537,7 @@ export default function OrdersPage() {
       setIsExportLoading(true);
       exportToExcel("orders", orders, (order) => ({
         "Tracking Code": order.trackingCode ?? "",
-        Customer: order.customer.name ?? "",
+        Customer: order.customer?.name ?? "",
         Payment: order?.payment ?? "N/A",
         Total: order?.finalPrice,
         "Pickup address": Number(order?.pickupAddress?.city),
@@ -762,7 +763,7 @@ export default function OrdersPage() {
                     Pickup address
                   </TableHead>
                   <TableHead className="text-gray-600 font-medium">
-                    Items
+                    Categories
                   </TableHead>
                   <TableHead className="text-gray-600 font-medium">
                     Destination
@@ -865,7 +866,7 @@ export default function OrdersPage() {
                           : "-"}
                       </TableCell>
                       <TableCell className="text-gray-900">
-                        {order.customer.name}
+                        {order.customer?.name ?? "—"}
                       </TableCell>
                       <TableCell>
                         {(() => {
@@ -922,9 +923,8 @@ export default function OrdersPage() {
                               : "Unknown"
                           : order?.pickupAddress?.landMark}
                       </TableCell>
-                      <TableCell className="text-gray-600">
-                        {(order as Order & { quantity?: number }).quantity ??
-                          "—"}
+                      <TableCell className="text-gray-600 max-w-[220px]">
+                        {formatOrderCategoriesSummary(order)}
                       </TableCell>
                       <TableCell className="text-gray-600">
                         {order?.deliveryAddress?.addressLine === "Unknown" ||

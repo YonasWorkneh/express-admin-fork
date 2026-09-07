@@ -29,11 +29,13 @@ export default function PrintWaybillButton({
     try {
       setIsPrinting(true);
       await printOrderWaybill(orderId, withPromotion);
-      toast.success("Waybill sent to printer.");
+      toast.success("Waybill PDF opened.");
       setIsConfirmOpen(false);
     } catch (error: any) {
       toast.error(
-        error?.response?.data?.message || "Failed to print waybill.",
+        error?.message ||
+          error?.response?.data?.message ||
+          "Failed to print waybill.",
       );
     } finally {
       setIsPrinting(false);

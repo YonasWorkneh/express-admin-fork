@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import api from "@/lib/api/api";
 import toast from "react-hot-toast";
 import { Spinner } from "@/utils/spinner";
+import { formatOrderCategoriesSummary } from "@/utils/orderCategories";
 import {
   ArrowLeft,
   User,
@@ -30,7 +31,14 @@ type CustomerOrder = {
   estimatedPrice?: number | string | null;
   shippingScope?: string;
   serviceType?: string | { name?: string };
-  category?: { name?: string; label?: string };
+  categories?: Array<{
+    categoryId?: string;
+    quantity?: number;
+    category?: { name?: string; label?: string };
+  }>;
+  /** @deprecated Prefer `categories`. */
+  category?: { name?: string; label?: string } | string | string[];
+  quantity?: number;
   actualDeliveryAt?: string | null;
 };
 
@@ -258,14 +266,6 @@ export default function CustomerDetailsPage() {
 
   const formatServiceType = (value: unknown) => {
     if (typeof value === "string") return value;
-    if (value && typeof value === "object") {
-      const name = (value as { name?: string }).name;
-      if (name) return name;
-    }
-    return "—";
-  };
-
-  const formatCategory = (value: unknown) => {
     if (value && typeof value === "object") {
       const name = (value as { name?: string }).name;
       if (name) return name;
@@ -636,7 +636,7 @@ export default function CustomerDetailsPage() {
                           <p className="text-sm text-gray-500 mt-1">
                             {toText(order.shippingScope)} ·{" "}
                             {formatServiceType(order.serviceType)} ·{" "}
-                            {formatCategory(order.category)}
+                            {formatOrderCategoriesSummary(order)}
                           </p>
                           <div className="flex items-center space-x-4 mt-2 text-xs text-gray-400">
                             <span>

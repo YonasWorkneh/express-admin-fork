@@ -13,6 +13,7 @@ import {
 import Button from "../../../components/common/Button";
 import api from "../../../lib/api/api";
 import { createCoupon, type CouponScope } from "../../../lib/api/payment";
+import { useInvalidateCoupons } from "@/hooks/useCoupons";
 import toast from "react-hot-toast";
 import { IoArrowBack, IoAdd } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
@@ -48,6 +49,7 @@ const AddCoupon = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const navigate = useNavigate();
+  const invalidateCoupons = useInvalidateCoupons();
 
   const initialValues = {
     creditAmount: "",
@@ -107,6 +109,7 @@ const AddCoupon = () => {
           ? `Coupon ${coupon.code} created successfully.`
           : "Coupon created successfully.",
       );
+      invalidateCoupons();
       resetForm();
       navigate("/customer/loyalty");
     } catch (error: any) {

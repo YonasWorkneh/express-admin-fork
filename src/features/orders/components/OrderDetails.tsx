@@ -42,6 +42,11 @@ import {
 } from "react-icons/io5";
 import { fetchOrderById } from "@/lib/api/orders";
 import {
+  formatOrderCategoriesSummary,
+  getOrderCategoriesTotalQuantity,
+  normalizeOrderCategoryLines,
+} from "@/utils/orderCategories";
+import {
   fetchFleetVehicleTypeById,
   type FleetVehicleTypeListItem,
 } from "@/lib/api/fleet";
@@ -218,6 +223,16 @@ export default function OrderDetails() {
   const priceLog = useMemo(
     () => getLatestPriceLog(order?.priceLogs),
     [order?.priceLogs],
+  );
+
+  const orderCategoryLines = useMemo(
+    () => (order ? normalizeOrderCategoryLines(order) : []),
+    [order],
+  );
+
+  const orderTotalQuantity = useMemo(
+    () => (order ? getOrderCategoriesTotalQuantity(order) : null),
+    [order],
   );
 
   const initialValues = useMemo(
@@ -459,10 +474,10 @@ export default function OrderDetails() {
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-gray-600">
-                          Quantity
+                          Total items
                         </Label>
                         <p className="text-lg font-semibold">
-                          {order.quantity ?? "—"}
+                          {orderTotalQuantity ?? "—"}
                         </p>
                       </div>
                       <div>
@@ -774,16 +789,30 @@ export default function OrderDetails() {
                         </Select>
                       </div>
                       <div>
-                        <Label className="mb-2">Category</Label>
-                        <div className="rounded-md border bg-gray-50 px-3 py-3 text-sm">
-                          <p className="font-medium">
-                            {order.category?.name ?? "—"}
-                          </p>
-                          {order.category?.description ? (
-                            <p className="text-gray-600 mt-1">
-                              {order.category.description}
-                            </p>
-                          ) : null}
+                        <Label className="mb-2">Categories</Label>
+                        <div className="rounded-md border bg-gray-50 px-3 py-3 text-sm space-y-2">
+                          {orderCategoryLines.length > 0 ? (
+                            orderCategoryLines.map((line) => (
+                              <div
+                                key={`${line.categoryId}-${line.name}`}
+                                className="flex items-start justify-between gap-3"
+                              >
+                                <div>
+                                  <p className="font-medium">{line.name}</p>
+                                  {line.description ? (
+                                    <p className="text-gray-600 mt-1">
+                                      {line.description}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <span className="shrink-0 font-medium text-gray-700">
+                                  ×{line.quantity}
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="font-medium">—</p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1130,9 +1159,15 @@ export default function OrderDetails() {
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Quantity:</span>
+                      <span className="text-sm text-gray-600">Categories:</span>
+                      <span className="text-sm font-medium text-right">
+                        {formatOrderCategoriesSummary(order)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Total items:</span>
                       <span className="text-sm font-medium">
-                        {order.quantity ?? "—"}
+                        {orderTotalQuantity ?? "—"}
                       </span>
                     </div>
                     <div className="flex justify-between">

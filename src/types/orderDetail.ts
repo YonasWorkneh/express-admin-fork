@@ -8,6 +8,13 @@ export interface OrderDetailCategory {
   description?: string | null;
 }
 
+/** Line item on an order — category + quantity (GET /order/:id). */
+export interface OrderCategoryEntry {
+  categoryId: string;
+  quantity: number;
+  category?: OrderDetailCategory | null;
+}
+
 export interface OrderDetailServiceType {
   id: string;
   name: string;
@@ -102,6 +109,8 @@ export interface OrderDetailApi {
   notes?: string | null;
   customer?: OrderDetailPerson;
   receiver?: OrderDetailPerson;
+  categories?: OrderCategoryEntry[];
+  /** @deprecated Prefer `categories`. */
   category?: OrderDetailCategory | null;
   serviceType?: OrderDetailServiceType | string | null;
   pickupAddress?: OrderDetailAddress | null;

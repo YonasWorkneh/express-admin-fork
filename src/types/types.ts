@@ -1,5 +1,7 @@
 // src/types.ts
 
+import type { OrderCategoryEntry } from "@/types/orderDetail";
+
 /** ───── Base API Response ───── */
 export interface ApiResponse<T> {
   success: boolean;
@@ -440,7 +442,10 @@ export interface Order {
   length: number;
   width: number;
   height: number;
-  category: ParcelCategory[];
+  categories?: OrderCategoryEntry[];
+  /** @deprecated Prefer `categories`. Legacy list responses may still send this. */
+  category?: ParcelCategory[] | string | { name?: string; id?: string } | null;
+  quantity?: number;
   isFragile: boolean;
   shipmentType: ShipmentType | string;
   shippingScope: ShippingScope | string;

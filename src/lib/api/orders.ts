@@ -1,4 +1,5 @@
 import api from "./api";
+import axios from "axios";
 import type { OrderDetailApi } from "@/types/orderDetail";
 
 function unwrapOrderPayload(payload: unknown): OrderDetailApi | null {
@@ -31,7 +32,17 @@ export async function fetchOrderById(id: string): Promise<OrderDetailApi> {
   return order;
 }
 
-/** POST /print — placeholder path/shape until the real print endpoint is defined. */
+async function parseBlobErrorMessage(blob: Blob): Promise<string | undefined> {
+  try {
+    const text = await blob.text();
+    const body = JSON.parse(text) as { message?: string };
+    return body.message;
+  } catch {
+    return undefined;
+  }
+}
+
+/** GET /order/:id/waybill/pdf — fetches the waybill PDF and opens it. */
 export async function printOrderWaybill(
   orderId: string,
   withPromotion: boolean,
@@ -40,5 +51,42 @@ export async function printOrderWaybill(
   if (!clean) {
     throw new Error("Invalid order id");
   }
-  await api.post("/print", { orderId: clean, withPromotion });
+
+  try {
+    const response = await api.get(
+      `/order/${encodeURIComponent(clean)}/waybill/pdf`,
+      {
+        responseType: "blob",
+        params: { withPromotion },
+      },
+    );
+    const blob = response.data as Blob;
+    const ct = String(response.headers["content-type"] ?? "").toLowerCase();
+    if (ct.includes("application/json")) {
+      const msg = await parseBlobErrorMessage(blob);
+      throw new Error(msg ?? "Failed to fetch waybill PDF");
+    }
+
+    const pdfBlob =
+      blob.type === "application/pdf"
+        ? blob
+        : new Blob([blob], { type: "application/pdf" });
+    const url = URL.createObjectURL(pdfBlob);
+    const opened = window.open(url, "_blank", "noopener,noreferrer");
+    if (!opened) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `waybill-${clean}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error) && error.response?.data instanceof Blob) {
+      const msg = await parseBlobErrorMessage(error.response.data);
+      throw new Error(msg ?? "Failed to fetch waybill PDF");
+    }
+    throw error;
+  }
 }
