@@ -156,8 +156,6 @@ export interface OrderReportGroup {
 
 export type OrderReportResponse = OrderReportGroup[];
 
-import type { OrderCategoryEntry } from "@/types/orderDetail";
-
 export interface DashboardSummary {
   totalOrders: number;
   totalRevenue: number;
