@@ -1275,13 +1275,15 @@ function OrderVehicleTypesSection({
         <h2 className="text-lg font-medium text-gray-900">Vehicle types</h2>
         <p className="text-sm text-gray-500 mt-1">
           {isDropoffAcceptEdit
-            ? "Select exactly one vehicle type."
+            ? "Optional — choose a vehicle type if needed for this drop-off."
             : "Choose suitable vehicle categories for this shipment (based on service type)."}
         </p>
       </div>
 
       <div>
-        <Label className="mb-2 font-bold">Selection *</Label>
+        <Label className="mb-2 font-bold">
+          Selection{isDropoffAcceptEdit ? "" : " *"}
+        </Label>
         {!trimmedServiceTypeId && (
           <p className="text-sm text-amber-800 py-2">
             Select a service type above to load available vehicle categories.
@@ -1485,13 +1487,6 @@ export default function OrderForm() {
     _values: any,
     setFieldValue: (field: string, value: unknown) => void,
   ) => {
-    if (isDropoffAcceptEdit) {
-      const one = (_values.vehicleTypeIds || [])[0];
-      if (!one) {
-        toast.error("Select exactly one vehicle type for the estimate.");
-        return;
-      }
-    }
     const isPickupEstimate = _values.fulfillmentType === "PICKUP";
     setPriceLoading(true);
     setOrderSummary(null);
@@ -1499,6 +1494,11 @@ export default function OrderForm() {
       setFieldValue("selectedVehicleTypeId", "");
       setFieldValue("sessionId", "");
     }
+    const selectedVehicleTypeIds = (
+      Array.isArray(_values.vehicleTypeIds) ? _values.vehicleTypeIds : []
+    )
+      .map((id: unknown) => String(id ?? "").trim())
+      .filter(Boolean);
     const converted: ConvertedShipment = {
       // receiver info
       receiverName: _values.receiverName,
@@ -1514,9 +1514,6 @@ export default function OrderForm() {
       isFragile: _values.isFragile,
       shipmentType: _values.shipmentType,
       shippingScope: _values.destination,
-      // length: _values.length,
-      // width: _values.width,
-      // height: _values.height,
 
       // locations (converted to template structure)
       deliveryAddress: {
@@ -1528,19 +1525,16 @@ export default function OrderForm() {
       isUnusual: _values.isUnusual,
       unusualReason: _values.unusualReason,
 
-      // pickupAddressText: _values.pickupAddress,
-      // deliveryAddressText: _values.receiverAddress,
-      // name / email / phone — sender contact
-      // senderEntity: _values.senderEntity,
-      // shippingScope: _values.destination,
-      // cost: _values.cost,
       deliveryDate: _values.deliveryDate
         ? new Date(_values.deliveryDate).toISOString()
         : undefined,
-      vehicleTypeIds: isDropoffAcceptEdit
-        ? [String((_values.vehicleTypeIds || [])[0] ?? "")]
-        : [...(_values.vehicleTypeIds || [])],
     };
+
+    if (selectedVehicleTypeIds.length > 0) {
+      converted.vehicleTypeIds = isDropoffAcceptEdit
+        ? [selectedVehicleTypeIds[0]]
+        : selectedVehicleTypeIds;
+    }
 
     const branchIdTrimEstimate = String(_values.branchId ?? "").trim();
     if (branchIdTrimEstimate) {
@@ -1621,7 +1615,7 @@ export default function OrderForm() {
             ? payload.result.currency
             : undefined;
 
-      if (vehicles.length === 0 && (isDropoffAcceptEdit || isPickupEstimate)) {
+      if (vehicles.length === 0 && isPickupEstimate) {
         toast.error("Estimate returned no vehicles to choose from.");
         setOrderSummary(null);
       } else {
@@ -1631,6 +1625,13 @@ export default function OrderForm() {
           setFieldValue("selectedVehicleTypeId", v.vehicleTypeId);
           setFieldValue("sessionId", (v.sessionId ?? "").trim());
           setFieldValue("finalPrice", v.totalPrice ?? 0);
+        } else if (
+          isDropoffAcceptEdit &&
+          vehicles.length === 0 &&
+          breakdown?.basePrice != null &&
+          Number.isFinite(breakdown.basePrice)
+        ) {
+          setFieldValue("finalPrice", breakdown.basePrice);
         }
       }
       setPriceLoading(false);
@@ -1763,15 +1764,7 @@ export default function OrderForm() {
           : "") ??
         "",
     ).trim();
-    if (!vehicleTypeId) {
-      toast.error("Select a vehicle option from the pricing summary.");
-      return;
-    }
     const sessionId = String(values.sessionId ?? "").trim();
-    if (!sessionId) {
-      toast.error("Pricing session is missing. Run verify again.");
-      return;
-    }
     const finalPrice = Number(values.finalPrice);
     if (!Number.isFinite(finalPrice) || finalPrice < 0) {
       toast.error("Enter a valid final price.");
@@ -1779,16 +1772,21 @@ export default function OrderForm() {
     }
     try {
       setConfirmingDropoffUpdate(true);
-      const res = await api.patch(`/order/validate/${editOrderId}`, {
+      const payload: Record<string, unknown> = {
         weight: values.weight,
         isFragile: values.isFragile,
         isUnusual: values.isUnusual,
         unusualReason: values.unusualReason ?? "",
         validatedNotes: String(values.validatedNotes ?? ""),
-        vehicleTypeId,
-        sessionId,
         finalPrice,
-      });
+      };
+      if (vehicleTypeId) {
+        payload.vehicleTypeId = vehicleTypeId;
+      }
+      if (sessionId) {
+        payload.sessionId = sessionId;
+      }
+      const res = await api.patch(`/order/validate/${editOrderId}`, payload);
       toast.success(
         (res.data as { message?: string } | undefined)?.message?.trim() ||
           "Order verified successfully.",
@@ -2940,6 +2938,10 @@ export default function OrderForm() {
                           <div>
                             <h3 className="text-sm font-semibold text-gray-800 mb-2">
                               Choose priced option
+                              <span className="font-normal text-gray-500">
+                                {" "}
+                                (optional)
+                              </span>
                             </h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               {orderSummary.vehicles.map((v) => {
