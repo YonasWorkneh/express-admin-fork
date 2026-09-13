@@ -970,6 +970,25 @@ function buildCategoriesPayload(
   }));
 }
 
+/** Include parcel dimensions only when > 0 so zeros are omitted from the payload. */
+function applyParcelDimensions(
+  converted: ConvertedShipment,
+  values: {
+    shipmentType?: string;
+    width?: unknown;
+    height?: unknown;
+    length?: unknown;
+  },
+) {
+  if (values.shipmentType !== "PARCEL") return;
+  const width = Number(values.width);
+  const height = Number(values.height);
+  const length = Number(values.length);
+  if (Number.isFinite(width) && width > 0) converted.width = width;
+  if (Number.isFinite(height) && height > 0) converted.height = height;
+  if (Number.isFinite(length) && length > 0) converted.length = length;
+}
+
 /** Builds the API shipment payload from form values; shared so edit-mode can diff against the originally loaded values. */
 function buildConvertedShipment(
   _values: any,
@@ -1041,11 +1060,7 @@ function buildConvertedShipment(
     converted.categories = categories;
   }
 
-  if (_values.shipmentType == "PARCEL") {
-    converted.width = _values?.width;
-    converted.height = _values?.height;
-    converted.length = _values?.length;
-  }
+  applyParcelDimensions(converted, _values);
 
   return converted;
 }
@@ -1569,11 +1584,7 @@ export default function OrderForm() {
       converted.categories = categoriesEstimate;
     }
 
-    if (_values.shipmentType == "PARCEL") {
-      converted.width = _values?.width;
-      converted.height = _values?.height;
-      converted.length = _values?.length;
-    }
+    applyParcelDimensions(converted, _values);
     try {
       const res = await api.post<{
         data?: PricingSummaryApiData;
