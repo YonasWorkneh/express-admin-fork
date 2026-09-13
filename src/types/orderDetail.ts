@@ -81,7 +81,7 @@ export interface OrderDetailApi {
   trackingCode: string;
   status: string;
   weight: number;
-  finalPrice: number;
+  finalPrice: number | null;
   /** Optional — used when prefilling accept-dropoff flow */
   vehicleTypeId?: string | null;
   unusualReason?: string | null;
@@ -123,4 +123,12 @@ export interface OrderDetailApi {
   pickupDriver?: { id: string; name?: string } | null;
   deliveryDriver?: { id: string; name?: string } | null;
   priceLogs?: OrderPriceLog | OrderPriceLog[] | null;
+  payment?: {
+    id?: string;
+    method?: string;
+    amount?: string | number | null;
+    status?: string;
+    currency?: string;
+  } | null;
+  paymentCompleted?: boolean;
 }

@@ -37,6 +37,7 @@ import { Skeleton } from "antd";
 import type { Order, OrderListResponse, Pagination } from "@/types/types";
 import { Spinner } from "@/utils/spinner";
 import { formatOrderCategoriesSummary } from "@/utils/orderCategories";
+import { getOrderTotalAmount } from "@/utils/orderTotal";
 import ConfirmationModal from "@/components/common/ConfirmationModal";
 import { Input } from "@/components/ui/input";
 
@@ -1016,9 +1017,12 @@ export default function Dispatch() {
                             })()}
                           </TableCell>
                           <TableCell className="font-medium text-gray-900">
-                            {Number.isFinite(Number(order?.finalPrice))
-                              ? `${Number(order.finalPrice).toFixed(2)} ETB`
-                              : "-"}
+                            {(() => {
+                              const total = getOrderTotalAmount(order);
+                              return total != null
+                                ? `${total.toFixed(2)} ETB`
+                                : "—";
+                            })()}
                           </TableCell>
 
                           <TableCell className="text-gray-600">

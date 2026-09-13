@@ -60,6 +60,7 @@ import { Skeleton } from "antd";
 import { Spinner } from "@/utils/spinner";
 import { exportToExcel } from "@/utils/exportToExcel";
 import { formatOrderCategoriesSummary } from "@/utils/orderCategories";
+import { getOrderTotalAmount } from "@/utils/orderTotal";
 import { Label } from "@/components/ui/label";
 
 // Helper to reverse-geocode lat/long to place name using MapAddressSelector.tsx nominatim endpoint
@@ -538,8 +539,14 @@ export default function OrdersPage() {
       exportToExcel("orders", orders, (order) => ({
         "Tracking Code": order.trackingCode ?? "",
         Customer: order.customer?.name ?? "",
-        Payment: order?.payment ?? "N/A",
-        Total: order?.finalPrice,
+        Payment: (() => {
+          const status = String(order?.payment?.status ?? "").trim();
+          if (status) return status;
+          if (order?.paymentCompleted) return "COMPLETED";
+          if (order?.payment) return "PENDING";
+          return "N/A";
+        })(),
+        Total: getOrderTotalAmount(order) ?? "",
         "Pickup address": Number(order?.pickupAddress?.city),
         "Delivery Address": Number(order?.deliveryAddress?.city),
         "Fulfillment Type": order?.fulfillmentType,
@@ -870,43 +877,56 @@ export default function OrdersPage() {
                       </TableCell>
                       <TableCell>
                         {(() => {
-                          // Mock payment statuses
-                          const statuses = [
-                            {
-                              label: "Pending",
-                              color:
-                                "bg-yellow-100 text-yellow-700 hover:bg-yellow-100",
-                              variant: "secondary",
-                            },
-                            {
-                              label: "Success",
-                              color:
-                                "bg-green-100 text-green-700 hover:bg-green-100",
-                              variant: "default",
-                            },
-                            {
-                              label: "Failed",
-                              color: "bg-red-100 text-red-700 hover:bg-red-100",
-                              variant: "secondary",
-                            },
-                          ];
-                          // Pick random status each render
-                          const mockPayment =
-                            statuses[
-                              Math.floor(Math.random() * statuses.length)
-                            ];
+                          const raw = String(
+                            order.payment?.status ??
+                              (order.paymentCompleted
+                                ? "COMPLETED"
+                                : order.payment
+                                  ? "PENDING"
+                                  : ""),
+                          )
+                            .trim()
+                            .toUpperCase();
+
+                          if (!raw) {
+                            return (
+                              <span className="text-gray-400 text-sm">—</span>
+                            );
+                          }
+
+                          const style =
+                            raw === "COMPLETED" ||
+                            raw === "SUCCESS" ||
+                            raw === "PAID"
+                              ? "bg-green-100 text-green-700 hover:bg-green-100"
+                              : raw === "FAILED"
+                                ? "bg-red-100 text-red-700 hover:bg-red-100"
+                                : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100";
+
+                          const label =
+                            raw === "COMPLETED" ||
+                            raw === "SUCCESS" ||
+                            raw === "PAID"
+                              ? "Success"
+                              : raw === "FAILED"
+                                ? "Failed"
+                                : raw === "PENDING"
+                                  ? "Pending"
+                                  : raw.charAt(0) +
+                                    raw.slice(1).toLowerCase();
+
                           return (
-                            <Badge
-                              // variant={mockPayment.variant}
-                              className={mockPayment.color}
-                            >
-                              ● {mockPayment.label}
-                            </Badge>
+                            <Badge className={style}>● {label}</Badge>
                           );
                         })()}
                       </TableCell>
                       <TableCell className="font-medium text-gray-900">
-                        {order.finalPrice?.toFixed(2)} ETB
+                        {(() => {
+                          const total = getOrderTotalAmount(order);
+                          return total != null
+                            ? `${total.toFixed(2)} ETB`
+                            : "—";
+                        })()}
                       </TableCell>
                       <TableCell className="text-gray-600">
                         {order?.pickupAddress?.addressLine === "Unknown" ||

@@ -463,13 +463,23 @@ export interface Order {
   estimatedDeliveryAt: string | null;
   actualDeliveryAt: string | null;
   batchId: string | null;
-  finalPrice: number;
+  finalPrice: number | null;
   currency: string;
   vehicleTypeId?: string | null;
-  customer: Customer;
+  paymentCompleted?: boolean;
+  paymentType?: string | null;
+  bankName?: string | null;
+  transactionId?: string | null;
+  customer: Customer | null;
   receiver: Receiver;
   branch: any | null;
-  payment: any | null;
+  payment: {
+    id?: string;
+    method?: string;
+    amount?: string | number;
+    status?: PaymentStatus | string;
+    currency?: string;
+  } | null;
   createdAt: string;
 }
 

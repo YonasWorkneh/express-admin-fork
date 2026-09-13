@@ -46,11 +46,22 @@ import {
   getOrderCategoriesTotalQuantity,
   normalizeOrderCategoryLines,
 } from "@/utils/orderCategories";
+import { getOrderTotalAmount } from "@/utils/orderTotal";
 import {
   fetchFleetVehicleTypeById,
   type FleetVehicleTypeListItem,
 } from "@/lib/api/fleet";
 import type { OrderDetailApi, OrderPriceLog } from "@/types/orderDetail";
+
+function formatOrderTotalDisplay(order: {
+  finalPrice?: number | string | null;
+  payment?: { amount?: number | string | null } | null;
+  currency?: string | null;
+}): string {
+  const total = getOrderTotalAmount(order);
+  const currency = order.currency ?? "ETB";
+  return total != null ? `${total} ${currency}` : `— ${currency}`;
+}
 
 function getServiceTypeLabel(st: OrderDetailApi["serviceType"]): string {
   if (st == null) return "";
@@ -469,7 +480,7 @@ export default function OrderDetails() {
                           Total
                         </Label>
                         <p className="text-lg font-semibold">
-                          {order.finalPrice} {order.currency ?? "ETB"}
+                          {formatOrderTotalDisplay(order)}
                         </p>
                       </div>
                       <div>
@@ -1187,7 +1198,7 @@ export default function OrderDetails() {
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-600">Cost:</span>
                       <span className="text-sm font-medium">
-                        {order.cost ?? order.finalPrice}{" "}
+                        {getOrderTotalAmount(order) ?? order.cost ?? "—"}{" "}
                         {order.currency ?? "ETB"}
                       </span>
                     </div>
@@ -1195,7 +1206,7 @@ export default function OrderDetails() {
                       <div className="flex justify-between">
                         <span className="font-medium">Total:</span>
                         <span className="font-bold">
-                          {order.finalPrice} {order.currency ?? "ETB"}
+                          {formatOrderTotalDisplay(order)}
                         </span>
                       </div>
                     </div>
