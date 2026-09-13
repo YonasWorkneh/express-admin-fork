@@ -95,8 +95,10 @@ export interface CreateCouponInput {
 export interface CouponRecord {
   id: string;
   code?: string;
-  creditAmount: number;
+  creditAmount: number | string;
+  usedAmount?: number | string;
   maxOrders: number;
+  orderCount?: number;
   dueDate: string;
   description?: string | null;
   userId?: string | null;
@@ -194,11 +196,11 @@ export async function updateCoupon(
   return record;
 }
 
-/** POST /payment/coupons/:id/deactivate */
+/** PATCH /payment/coupons/:id/deactivate */
 export async function deactivateCoupon(id: string): Promise<void> {
   const clean = id.trim();
   if (!clean) throw new Error("Invalid coupon id");
-  await api.post(`/payment/coupons/${encodeURIComponent(clean)}/deactivate`);
+  await api.patch(`/payment/coupons/${encodeURIComponent(clean)}/deactivate`);
 }
 
 export interface ValidateCouponInput {

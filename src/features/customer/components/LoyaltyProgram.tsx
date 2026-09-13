@@ -64,15 +64,16 @@ function isCouponExpired(coupon: CouponRecord): boolean {
 }
 
 function couponStatus(coupon: CouponRecord): "Active" | "Expired" | "Inactive" {
+  // Backend `status` can stay "ACTIVE" after deactivate — prefer `isActive`.
+  if (coupon.isActive === false) return "Inactive";
+  if (isCouponExpired(coupon)) return "Expired";
+  if (coupon.isActive === true) return "Active";
   if (typeof coupon.status === "string" && coupon.status.trim()) {
     const s = coupon.status.toUpperCase();
     if (s.includes("EXPIRE")) return "Expired";
     if (s.includes("INACTIVE") || s.includes("DISABLE") || s.includes("REVOK"))
       return "Inactive";
-    if (s.includes("ACTIVE") || s.includes("VALID")) return "Active";
   }
-  if (coupon.isActive === false) return "Inactive";
-  if (isCouponExpired(coupon)) return "Expired";
   return "Active";
 }
 
@@ -350,6 +351,9 @@ export default function LoyaltyProgram() {
                       Credit amount
                     </TableHead>
                     <TableHead className="text-gray-600 font-medium">
+                      Used amount
+                    </TableHead>
+                    <TableHead className="text-gray-600 font-medium">
                       Orders
                     </TableHead>
                     <TableHead className="text-gray-600 font-medium">
@@ -369,7 +373,7 @@ export default function LoyaltyProgram() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="py-10">
+                      <TableCell colSpan={10} className="py-10">
                         <div className="flex justify-center items-center gap-2 text-gray-600">
                           <Spinner className="h-6 w-6 text-[#EE1E21]" />
                           Loading coupons…
@@ -379,7 +383,7 @@ export default function LoyaltyProgram() {
                   ) : isError ? (
                     <TableRow>
                       <TableCell
-                        colSpan={9}
+                        colSpan={10}
                         className="text-center text-red-600 py-8"
                       >
                         Could not load coupons.{" "}
@@ -395,7 +399,7 @@ export default function LoyaltyProgram() {
                   ) : paginatedCoupons.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={9}
+                        colSpan={10}
                         className="text-center text-gray-500 py-8"
                       >
                         No coupons found.
@@ -404,7 +408,8 @@ export default function LoyaltyProgram() {
                   ) : (
                     paginatedCoupons.map((coupon) => {
                       const status = couponStatus(coupon);
-                      const used =
+                      const usedOrders =
+                        coupon.orderCount ??
                         coupon.usedOrders ??
                         (typeof coupon.remainingOrders === "number"
                           ? Math.max(
@@ -455,8 +460,11 @@ export default function LoyaltyProgram() {
                             {formatMoney(Number(coupon.creditAmount))}
                           </TableCell>
                           <TableCell className="text-gray-700">
-                            {used != null
-                              ? `${used} / ${coupon.maxOrders ?? "—"}`
+                            {formatMoney(Number(coupon.usedAmount))}
+                          </TableCell>
+                          <TableCell className="text-gray-700">
+                            {usedOrders != null
+                              ? `${usedOrders} / ${coupon.maxOrders ?? "—"}`
                               : coupon.maxOrders ?? "—"}
                           </TableCell>
                           <TableCell className="text-gray-600">
@@ -494,17 +502,19 @@ export default function LoyaltyProgram() {
                               >
                                 Edit
                               </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="p-0 px-3 text-orange-700 bg-orange-50 hover:bg-orange-100 hover:text-orange-800 cursor-pointer"
-                                onClick={() =>
-                                  setCouponPendingDeactivate(coupon)
-                                }
-                              >
-                                Deactivate
-                              </Button>
+                              {status !== "Inactive" ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="p-0 px-3 text-orange-700 bg-orange-50 hover:bg-orange-100 hover:text-orange-800 cursor-pointer"
+                                  onClick={() =>
+                                    setCouponPendingDeactivate(coupon)
+                                  }
+                                >
+                                  Deactivate
+                                </Button>
+                              ) : null}
                             </div>
                           </TableCell>
                         </TableRow>
